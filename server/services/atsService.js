@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyBhc4mFDtmTfm5YAMK-KVUPG-7WeEBL-GM');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
  * Extract text content from PDF file using multiple methods
@@ -20,37 +20,37 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyBhc4mF
 async function extractPDFContent(filePath) {
   try {
     console.log('📄 Extracting content from PDF:', filePath);
-    
+
     // Check if file exists
     if (!fs.existsSync(filePath)) {
       console.log('❌ PDF file does not exist:', filePath);
       return null;
     }
-    
+
     console.log('📄 PDF file exists, extracting content...');
     console.log('📄 File size:', fs.statSync(filePath).size, 'bytes');
-    
+
     // Read the PDF file
     const pdfBuffer = fs.readFileSync(filePath);
-    
+
     // Method 1: Try pdf-parse (most reliable for text extraction)
     try {
       console.log('📄 Method 1: Using pdf-parse...');
       const pdfData = await pdfParse(pdfBuffer);
-      
+
       if (pdfData && pdfData.text && pdfData.text.length > 0) {
         console.log('✅ pdf-parse successful');
         console.log('📄 Content length:', pdfData.text.length, 'characters');
         console.log('📄 Content preview:', pdfData.text.substring(0, 300) + '...');
-        
+
         // Clean up the text
         const cleanText = pdfData.text
           .replace(/\s+/g, ' ')
           .replace(/\n\s*\n/g, '\n')
           .trim();
-        
+
         console.log('📄 Cleaned text length:', cleanText.length, 'characters');
-        
+
         // Search for AI/ML skills to verify extraction quality
         const aiSkills = ['Python', 'Machine Learning', 'TensorFlow', 'Scikit-learn', 'NumPy', 'Pandas', 'AI', 'ML', 'Data Science'];
         let foundSkills = 0;
@@ -60,13 +60,13 @@ async function extractPDFContent(filePath) {
           }
         });
         console.log(`📄 Found ${foundSkills}/${aiSkills.length} AI/ML skills in extracted text`);
-        
+
         return cleanText;
       }
     } catch (pdfParseError) {
       console.log('⚠️ pdf-parse failed:', pdfParseError.message);
     }
-    
+
     // Method 2: Try pdf-parse with different options
     try {
       console.log('📄 Method 2: Using pdf-parse with different options...');
@@ -74,37 +74,37 @@ async function extractPDFContent(filePath) {
         max: 0,
         version: 'v1.10.100'
       });
-      
+
       if (pdfData && pdfData.text && pdfData.text.length > 0) {
         console.log('✅ pdf-parse with options successful');
         console.log('📄 Content length:', pdfData.text.length, 'characters');
         console.log('📄 Content preview:', pdfData.text.substring(0, 300) + '...');
-        
+
         // Clean up the text
         const cleanText = pdfData.text
           .replace(/\s+/g, ' ')
           .replace(/\n\s*\n/g, '\n')
           .trim();
-        
+
         console.log('📄 Cleaned text length:', cleanText.length, 'characters');
         return cleanText;
       }
     } catch (pdfParseError2) {
       console.log('⚠️ pdf-parse with options failed:', pdfParseError2.message);
     }
-    
+
     // Method 3: Try to extract text using a simple approach
     try {
       console.log('📄 Method 3: Simple text extraction...');
       const textContent = pdfBuffer.toString('utf8');
-      
+
       // Look for text patterns that might indicate actual content
       const textPatterns = [
         /[A-Za-z]{3,}/g,  // Words with 3+ letters
         /[0-9]{4,}/g,     // Numbers with 4+ digits
         /[A-Za-z\s]{10,}/g // Letter sequences with spaces
       ];
-      
+
       let extractedText = '';
       for (const pattern of textPatterns) {
         const matches = textContent.match(pattern);
@@ -112,25 +112,25 @@ async function extractPDFContent(filePath) {
           extractedText += matches.join(' ') + ' ';
         }
       }
-      
+
       if (extractedText.length > 100) {
         console.log('✅ Simple extraction successful');
         console.log('📄 Content length:', extractedText.length, 'characters');
         console.log('📄 Content preview:', extractedText.substring(0, 300) + '...');
-        
+
         // Clean up the text
         const cleanText = extractedText
           .replace(/\s+/g, ' ')
           .replace(/\n\s*\n/g, '\n')
           .trim();
-        
+
         console.log('📄 Cleaned text length:', cleanText.length, 'characters');
         return cleanText;
       }
     } catch (simpleError) {
       console.log('⚠️ Simple extraction failed:', simpleError.message);
     }
-    
+
     // Method 4: Create comprehensive mock content based on file name
     console.log('📄 Method 4: Creating comprehensive mock content...');
     const fileName = path.basename(filePath);
@@ -140,10 +140,10 @@ async function extractPDFContent(filePath) {
       console.log('📄 Content length:', mockContent.length, 'characters');
       return mockContent;
     }
-    
+
     console.log('❌ All PDF extraction methods failed');
     return null;
-    
+
   } catch (error) {
     console.error('❌ Error extracting PDF content:', error);
     return null;
@@ -226,9 +226,9 @@ const Requirement = require('../models/Requirement');
 async function extractSkillsFromResumeContent(resumeContent) {
   try {
     console.log('🤖 Extracting skills from resume content using AI analysis...');
-    
+
     // Use Gemini AI to extract skills from resume content
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash-exp",
       generationConfig: {
         temperature: 0.7,
@@ -237,7 +237,7 @@ async function extractSkillsFromResumeContent(resumeContent) {
         maxOutputTokens: 1024,
       }
     });
-    
+
     const prompt = `Analyze this resume content thoroughly and extract ALL technical skills, programming languages, frameworks, tools, technologies, and methodologies mentioned.
 
     Resume Content:
@@ -265,12 +265,12 @@ async function extractSkillsFromResumeContent(resumeContent) {
     - "Deep Learning" should be included as "Deep Learning"
     
     Return only the JSON array, no other text.`;
-    
+
     const result = await model.generateContent(prompt);
     const response = result.response.text().trim();
-    
+
     console.log('🤖 AI response for skill extraction:', response);
-    
+
     // Parse the JSON response
     try {
       const extractedSkills = JSON.parse(response);
@@ -278,11 +278,11 @@ async function extractSkillsFromResumeContent(resumeContent) {
       return extractedSkills;
     } catch (parseError) {
       console.log('⚠️ Failed to parse AI response as JSON, using fallback extraction');
-      
+
       // Fallback to pattern-based extraction
       return extractSkillsWithPatterns(resumeContent);
     }
-    
+
   } catch (error) {
     console.error('❌ AI skill extraction failed, using fallback:', error.message);
     return extractSkillsWithPatterns(resumeContent);
@@ -295,10 +295,10 @@ async function extractSkillsFromResumeContent(resumeContent) {
 function extractSkillsWithPatterns(resumeContent) {
   try {
     console.log('📄 Using pattern-based skill extraction as fallback...');
-    
+
     const extractedSkills = [];
     const content = resumeContent.toLowerCase();
-    
+
     // Define skill patterns and their variations
     const skillPatterns = {
       'python': ['python', 'py', 'python3', 'python2'],
@@ -325,7 +325,7 @@ function extractSkillsWithPatterns(resumeContent) {
       'react': ['react', 'react.js', 'reactjs', 'react_js'],
       'node.js': ['node.js', 'node', 'nodejs', 'node_js']
     };
-    
+
     // Check for each skill pattern in the resume content
     for (const [skill, patterns] of Object.entries(skillPatterns)) {
       for (const pattern of patterns) {
@@ -336,13 +336,13 @@ function extractSkillsWithPatterns(resumeContent) {
         }
       }
     }
-    
+
     // Remove duplicates and return
     const uniqueSkills = [...new Set(extractedSkills)];
     console.log(`📄 Total skills extracted: ${uniqueSkills.length}`);
-    
+
     return uniqueSkills;
-    
+
   } catch (error) {
     console.error('❌ Error in pattern-based skill extraction:', error);
     return [];
@@ -354,52 +354,52 @@ function extractSkillsWithPatterns(resumeContent) {
  */
 function extractResumeContent(resume) {
   if (!resume) return '';
-  
+
   const parts = [];
-  
+
   // Basic resume information
   if (resume.title) parts.push(`Title: ${resume.title}`);
   if (resume.summary) parts.push(`Summary: ${resume.summary}`);
   if (resume.objective) parts.push(`Objective: ${resume.objective}`);
-  
+
   // Check if resume has detailed content in metadata
   if (resume.metadata && resume.metadata.content) {
     console.log('📄 Using detailed content from resume metadata');
     parts.push(`Detailed Content: ${resume.metadata.content}`);
   }
-  
+
   // Skills
   if (resume.skills && Array.isArray(resume.skills) && resume.skills.length > 0) {
     parts.push(`Skills: ${resume.skills.join(', ')}`);
   }
-  
+
   // Languages
   if (resume.languages && Array.isArray(resume.languages) && resume.languages.length > 0) {
     const langList = resume.languages.map(l => `${l.name || l} (${l.proficiency || 'Not specified'})`).join(', ');
     parts.push(`Languages: ${langList}`);
   }
-  
+
   // Certifications
   if (resume.certifications && Array.isArray(resume.certifications) && resume.certifications.length > 0) {
-    const certList = resume.certifications.map(c => 
+    const certList = resume.certifications.map(c =>
       `${c.name || c} - ${c.issuer || 'Unknown issuer'} (${c.year || 'N/A'})`
     ).join(', ');
     parts.push(`Certifications: ${certList}`);
   }
-  
+
   // Projects
   if (resume.projects && Array.isArray(resume.projects) && resume.projects.length > 0) {
-    const projectList = resume.projects.map(p => 
+    const projectList = resume.projects.map(p =>
       `${p.name || p}: ${p.description || 'No description'}`
     ).join(', ');
     parts.push(`Projects: ${projectList}`);
   }
-  
+
   // Achievements
   if (resume.achievements && Array.isArray(resume.achievements) && resume.achievements.length > 0) {
     parts.push(`Achievements: ${resume.achievements.join(', ')}`);
   }
-  
+
   return parts.join('\n\n');
 }
 
@@ -408,9 +408,9 @@ function extractResumeContent(resume) {
  */
 function extractCandidateProfile(user) {
   if (!user) return '';
-  
+
   const parts = [];
-  
+
   // Basic information
   if (user.first_name && user.last_name) {
     parts.push(`Name: ${user.first_name} ${user.last_name}`);
@@ -420,23 +420,23 @@ function extractCandidateProfile(user) {
   if (user.headline) parts.push(`Headline: ${user.headline}`);
   if (user.summary) parts.push(`Summary: ${user.summary}`);
   if (user.current_location) parts.push(`Location: ${user.current_location}`);
-  
+
   // Professional details
   if (user.experience_years) parts.push(`Experience: ${user.experience_years} years`);
   if (user.current_salary) parts.push(`Current Salary: ${user.current_salary}`);
   if (user.expected_salary) parts.push(`Expected Salary: ${user.expected_salary}`);
   if (user.notice_period) parts.push(`Notice Period: ${user.notice_period} days`);
-  
+
   // Skills
   if (user.skills && Array.isArray(user.skills) && user.skills.length > 0) {
     parts.push(`Profile Skills: ${user.skills.join(', ')}`);
   }
-  
+
   // Preferred locations
   if (user.preferred_locations && Array.isArray(user.preferred_locations) && user.preferred_locations.length > 0) {
     parts.push(`Preferred Locations: ${user.preferred_locations.join(', ')}`);
   }
-  
+
   return parts.join('\n');
 }
 
@@ -446,37 +446,37 @@ function extractCandidateProfile(user) {
  */
 function createComprehensiveResumeContent(candidate, resume) {
   const parts = [];
-  
+
   // Basic information
   if (candidate.first_name && candidate.last_name) {
     parts.push(`${candidate.first_name} ${candidate.last_name}`);
   }
-  
+
   if (candidate.headline) {
     parts.push(candidate.headline);
   }
-  
+
   // Summary
   if (candidate.summary) {
     parts.push(`\nSUMMARY:\n${candidate.summary}`);
   }
-  
+
   // Experience
   if (candidate.experience_years) {
     parts.push(`\nEXPERIENCE:\nSoftware Developer (${candidate.experience_years} year${candidate.experience_years > 1 ? 's' : ''})`);
   }
-  
+
   // Skills - Enhanced with AI/ML skills if the candidate is interested in AI/ML
   const skills = candidate.skills || [];
   const resumeSkills = resume.skills || [];
   const allSkills = [...new Set([...skills, ...resumeSkills])];
-  
+
   if (allSkills.length > 0) {
     parts.push(`\nTECHNICAL SKILLS:`);
     allSkills.forEach(skill => {
       parts.push(`- ${skill}`);
     });
-    
+
     // Add AI/ML skills if the candidate is interested in AI/ML
     if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
       parts.push(`\nAI/ML SKILLS:`);
@@ -499,7 +499,7 @@ function createComprehensiveResumeContent(candidate, resume) {
       parts.push(`- Production Systems`);
     }
   }
-  
+
   // Projects - Add relevant projects if AI/ML interested
   if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
     parts.push(`\nPROJECTS:`);
@@ -515,7 +515,7 @@ function createComprehensiveResumeContent(candidate, resume) {
     parts.push(`   - Data science pipeline implementation`);
     parts.push(`   - Production deployment and monitoring`);
   }
-  
+
   // Education
   parts.push(`\nEDUCATION:`);
   parts.push(`Bachelor's in Computer Science`);
@@ -523,7 +523,7 @@ function createComprehensiveResumeContent(candidate, resume) {
     parts.push(`- Focus on Artificial Intelligence and Machine Learning`);
     parts.push(`- Coursework in Data Science and Analytics`);
   }
-  
+
   // Certifications
   if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
     parts.push(`\nCERTIFICATIONS:`);
@@ -531,7 +531,7 @@ function createComprehensiveResumeContent(candidate, resume) {
     parts.push(`- Machine Learning with Python`);
     parts.push(`- Data Science Specialization`);
   }
-  
+
   return parts.join('\n');
 }
 
@@ -540,56 +540,56 @@ function createComprehensiveResumeContent(candidate, resume) {
  */
 async function calculateRuleBasedATSScore(candidate, resumeContent, requirement) {
   console.log('🧮 Calculating rule-based ATS score...');
-  
+
   let score = 0;
   const matchingSkills = [];
   const matchingPoints = [];
   const gaps = [];
-  
+
   // Extract requirement skills from the requirement object directly
   // Use skills field (maps to required_skills), fallback to keySkills (maps to preferred_skills), then check metadata
-  let requirementSkills = (requirement.skills && requirement.skills.length > 0) 
-    ? requirement.skills 
+  let requirementSkills = (requirement.skills && requirement.skills.length > 0)
+    ? requirement.skills
     : (requirement.keySkills || []);
-  
+
   // If no skills found in main fields, check metadata (includeSkills)
   if (requirementSkills.length === 0 && requirement.metadata && requirement.metadata.includeSkills) {
     requirementSkills = requirement.metadata.includeSkills;
     console.log('📌 Using skills from metadata.includeSkills:', requirementSkills);
   }
-  
+
   // Extract candidate skills from both profile and resume content
   let candidateSkills = candidate.skills || [];
-  
+
   // If resume content is available, extract additional skills from it
   if (resumeContent && resumeContent !== 'No resume available') {
     console.log('📄 Analyzing resume content for additional skills...');
-    
+
     // Extract skills from resume content using AI-powered analysis
     const extractedSkills = await extractSkillsFromResumeContent(resumeContent);
     console.log('📄 Extracted skills from resume:', extractedSkills);
-    
+
     // Combine profile skills with resume-extracted skills
     candidateSkills = [...new Set([...candidateSkills, ...extractedSkills])];
     console.log('📄 Combined candidate skills:', candidateSkills);
   }
-  
+
   console.log('🎯 Requirement skills:', requirementSkills);
   console.log('👤 Candidate skills:', candidateSkills);
-  
+
   // Skills matching (50 points) - Increased from 40
   if (requirementSkills.length > 0 && candidateSkills.length > 0) {
-    const matchingSkillsCount = requirementSkills.filter(reqSkill => 
+    const matchingSkillsCount = requirementSkills.filter(reqSkill =>
       candidateSkills.some(candSkill => {
         const reqLower = reqSkill.toLowerCase();
         const candLower = candSkill.toLowerCase();
-        
+
         // Exact match
         if (reqLower === candLower) return true;
-        
+
         // Partial match (contains)
         if (reqLower.includes(candLower) || candLower.includes(reqLower)) return true;
-        
+
         // Common variations
         const variations = {
           'python': ['py', 'python3', 'python2'],
@@ -605,45 +605,45 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
           'react.js': ['react', 'reactjs', 'react_js'],
           'node.js': ['node', 'nodejs', 'node_js']
         };
-        
+
         // Check variations
         for (const [key, variants] of Object.entries(variations)) {
-          if ((reqLower === key || variants.includes(reqLower)) && 
-              (candLower === key || variants.includes(candLower))) {
+          if ((reqLower === key || variants.includes(reqLower)) &&
+            (candLower === key || variants.includes(candLower))) {
             return true;
           }
         }
-        
+
         return false;
       })
     ).length;
-    
+
     const skillsMatchPercentage = (matchingSkillsCount / requirementSkills.length) * 100;
     const skillsScore = Math.min(skillsMatchPercentage * 0.5, 50); // Max 50 points
     score += skillsScore;
-    
-    matchingSkills.push(...requirementSkills.filter(reqSkill => 
+
+    matchingSkills.push(...requirementSkills.filter(reqSkill =>
       candidateSkills.some(candSkill => {
         const reqLower = reqSkill.toLowerCase();
         const candLower = candSkill.toLowerCase();
-        return reqLower === candLower || 
-               reqLower.includes(candLower) || 
-               candLower.includes(reqLower);
+        return reqLower === candLower ||
+          reqLower.includes(candLower) ||
+          candLower.includes(reqLower);
       })
     ));
-    
+
     matchingPoints.push(`${matchingSkillsCount}/${requirementSkills.length} required skills matched (${skillsMatchPercentage.toFixed(1)}%)`);
-    
+
     console.log(`🎯 Skills matching: ${matchingSkillsCount}/${requirementSkills.length} (${skillsMatchPercentage.toFixed(1)}%) = ${skillsScore.toFixed(1)} points`);
   } else {
     console.log('⚠️ No skills to match - requirement skills:', requirementSkills.length, 'candidate skills:', candidateSkills.length);
   }
-  
+
   // Experience matching (25 points)
   const requiredExpMin = requirement.experienceMin || 0;
   const requiredExpMax = requirement.experienceMax || 10;
   const candidateExp = candidate.experience_years || 0;
-  
+
   // Only give full experience points if there's actually an experience requirement
   if (requiredExpMin > 0 || requiredExpMax < 10) {
     if (candidateExp >= requiredExpMin && candidateExp <= requiredExpMax) {
@@ -669,20 +669,20 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
       gaps.push('No experience specified');
     }
   }
-  
+
   // Location matching (15 points)
   const requiredLocations = requirement.candidateLocations || [];
   const candidateLocation = candidate.current_location || '';
   const candidatePreferredLocations = candidate.preferred_locations || [];
-  
+
   if (requiredLocations.length > 0) {
-    const locationMatches = requiredLocations.some(reqLoc => 
+    const locationMatches = requiredLocations.some(reqLoc =>
       candidateLocation.toLowerCase().includes(reqLoc.toLowerCase()) ||
-      candidatePreferredLocations.some(prefLoc => 
+      candidatePreferredLocations.some(prefLoc =>
         prefLoc.toLowerCase().includes(reqLoc.toLowerCase())
       )
     );
-    
+
     if (locationMatches) {
       score += 15;
       matchingPoints.push('Location matches requirement');
@@ -690,12 +690,12 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
       gaps.push('Location does not match requirement');
     }
   }
-  
+
   // Education matching (10 points)
   // For now, assume no education data is available in the user model
   // This could be enhanced to check resume education data
   gaps.push('No education information provided');
-  
+
   // Resume content quality (10 points)
   if (resumeContent && resumeContent.length > 200) {
     score += 10;
@@ -706,10 +706,10 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
   } else {
     gaps.push('Limited resume content');
   }
-  
+
   // Ensure score is between 0-100
   score = Math.min(Math.max(score, 0), 100);
-  
+
   // Determine experience match level
   let experienceMatch = 'poor';
   if (candidateExp >= requiredExpMin && candidateExp <= requiredExpMax) {
@@ -719,7 +719,7 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
   } else if (candidateExp > requiredExpMin * 0.7) {
     experienceMatch = 'average';
   }
-  
+
   // Determine recommendation
   let recommendation = 'not_recommended';
   if (score >= 80) {
@@ -729,7 +729,7 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
   } else if (score >= 40) {
     recommendation = 'consider';
   }
-  
+
   return {
     ats_score: Math.round(score),
     matching_skills: matchingSkills,
@@ -747,16 +747,16 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
  */
 function extractRequirementDetails(requirement) {
   if (!requirement) return '';
-  
+
   const parts = [];
-  
+
   // Basic information
   if (requirement.title) parts.push(`Job Title: ${requirement.title}`);
   if (requirement.description) parts.push(`Description: ${requirement.description}`);
   if (requirement.job_type) parts.push(`Job Type: ${requirement.job_type}`);
   if (requirement.experience_required) parts.push(`Experience Required: ${requirement.experience_required}`);
   if (requirement.location) parts.push(`Location: ${requirement.location}`);
-  
+
   // Skills and qualifications
   if (requirement.required_skills && Array.isArray(requirement.required_skills) && requirement.required_skills.length > 0) {
     parts.push(`Required Skills: ${requirement.required_skills.join(', ')}`);
@@ -764,14 +764,14 @@ function extractRequirementDetails(requirement) {
   if (requirement.preferred_skills && Array.isArray(requirement.preferred_skills) && requirement.preferred_skills.length > 0) {
     parts.push(`Preferred Skills: ${requirement.preferred_skills.join(', ')}`);
   }
-  
+
   // Salary and other details
   if (requirement.salary_min && requirement.salary_max) {
     parts.push(`Salary Range: ${requirement.salary_min} - ${requirement.salary_max}`);
   }
   if (requirement.department) parts.push(`Department: ${requirement.department}`);
   if (requirement.employment_type) parts.push(`Employment Type: ${requirement.employment_type}`);
-  
+
   return parts.join('\n');
 }
 
@@ -781,32 +781,32 @@ function extractRequirementDetails(requirement) {
 async function calculateATSScore(candidateId, requirementId) {
   try {
     console.log(`🔍 Calculating ATS score for candidate ${candidateId} against requirement ${requirementId}`);
-    
+
     // Fetch requirement details
     const requirement = await Requirement.findByPk(requirementId);
     if (!requirement) {
       throw new Error('Requirement not found');
     }
-    
+
     // Fetch candidate details
     const candidate = await User.findByPk(candidateId, {
       attributes: [
-        'id', 'first_name', 'last_name', 'email', 'phone', 'headline', 
-        'summary', 'current_location', 'experience_years', 'current_salary', 
+        'id', 'first_name', 'last_name', 'email', 'phone', 'headline',
+        'summary', 'current_location', 'experience_years', 'current_salary',
         'expected_salary', 'notice_period', 'skills', 'preferred_locations'
       ]
     });
-    
+
     if (!candidate) {
       throw new Error('Candidate not found');
     }
-    
+
     // Fetch candidate's resume
     const resume = await Resume.findOne({
       where: { userId: candidateId },
       order: [['isDefault', 'DESC'], ['created_at', 'DESC']]
     });
-    
+
     console.log('📄 Resume fetch result:', resume ? 'Found' : 'Not found');
     if (resume) {
       console.log('📄 Resume details:', {
@@ -818,7 +818,7 @@ async function calculateATSScore(candidateId, requirementId) {
         fileUrl: resume.fileUrl,
         metadata: resume.metadata
       });
-      
+
       // Check if resume has detailed content in metadata
       if (resume.metadata && resume.metadata.content) {
         console.log('📄 Resume has detailed content in metadata');
@@ -829,41 +829,41 @@ async function calculateATSScore(candidateId, requirementId) {
     } else {
       console.log('❌ No resume found for candidate:', candidateId);
     }
-    
+
     // Extract content
     const requirementDetails = extractRequirementDetails(requirement);
     const candidateProfile = extractCandidateProfile(candidate);
-    
-            // Try to extract PDF content if resume exists but has no detailed content
-            let resumeContent = 'No resume available';
-            if (resume) {
-              resumeContent = extractResumeContent(resume);
-              
-              // If resume has no detailed content but has a PDF file, try to extract content
-              if (!resume.metadata?.content && resume.metadata?.localPath) {
-                console.log('📄 Attempting to extract PDF content...');
-                try {
-                  const pdfContent = await extractPDFContent(resume.metadata.localPath);
-                  if (pdfContent) {
-                    console.log('📄 PDF content extracted successfully');
-                    resumeContent += `\n\nExtracted PDF Content:\n${pdfContent}`;
-                  }
-                } catch (error) {
-                  console.log('⚠️ PDF content extraction failed:', error.message);
-                  
-                  // If PDF extraction fails, create a comprehensive resume content based on the candidate's profile
-                  console.log('📄 Creating comprehensive resume content based on candidate profile...');
-                  const comprehensiveContent = createComprehensiveResumeContent(candidate, resume);
-                  resumeContent = comprehensiveContent; // Replace the basic content with comprehensive content
-                }
-              }
-            }
-    
+
+    // Try to extract PDF content if resume exists but has no detailed content
+    let resumeContent = 'No resume available';
+    if (resume) {
+      resumeContent = extractResumeContent(resume);
+
+      // If resume has no detailed content but has a PDF file, try to extract content
+      if (!resume.metadata?.content && resume.metadata?.localPath) {
+        console.log('📄 Attempting to extract PDF content...');
+        try {
+          const pdfContent = await extractPDFContent(resume.metadata.localPath);
+          if (pdfContent) {
+            console.log('📄 PDF content extracted successfully');
+            resumeContent += `\n\nExtracted PDF Content:\n${pdfContent}`;
+          }
+        } catch (error) {
+          console.log('⚠️ PDF content extraction failed:', error.message);
+
+          // If PDF extraction fails, create a comprehensive resume content based on the candidate's profile
+          console.log('📄 Creating comprehensive resume content based on candidate profile...');
+          const comprehensiveContent = createComprehensiveResumeContent(candidate, resume);
+          resumeContent = comprehensiveContent; // Replace the basic content with comprehensive content
+        }
+      }
+    }
+
     console.log('📋 Requirement details extracted');
     console.log('👤 Candidate profile extracted');
     console.log('📄 Resume content extracted');
-    
-            // Create comprehensive prompt for Gemini AI
+
+    // Create comprehensive prompt for Gemini AI
     const prompt = `
         You are an expert ATS (Applicant Tracking System) evaluator with deep knowledge of technical roles, especially AI/ML positions. Analyze the following candidate's profile and resume against the job requirement and provide a comprehensive ATS score.
 
@@ -940,13 +940,13 @@ ${resumeContent}
 
 Provide ONLY the JSON response, no additional text.
 `;
-    
+
     // Try Gemini AI first, fallback to rule-based scoring
     console.log('🤖 Attempting Gemini AI for ATS scoring...');
     let atsData;
-    
+
     try {
-      const model = genAI.getGenerativeModel({ 
+      const model = genAI.getGenerativeModel({
         model: 'gemini-2.0-flash-exp',
         generationConfig: {
           temperature: 0.7,
@@ -958,9 +958,9 @@ Provide ONLY the JSON response, no additional text.
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
-      
+
       console.log('✅ Gemini AI response received');
-      
+
       // Parse the JSON response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -968,15 +968,15 @@ Provide ONLY the JSON response, no additional text.
       } else {
         throw new Error('No JSON found in response');
       }
-      
+
     } catch (geminiError) {
       console.log('⚠️ Gemini AI failed, using rule-based scoring:', geminiError.message);
-      
+
       // Fallback: Use rule-based ATS scoring
       // Pass the actual candidate object, not the extracted text
       atsData = await calculateRuleBasedATSScore(candidate, resumeContent, requirement);
     }
-    
+
     // Store the ATS score in the database with explicit transaction
     await sequelize.transaction(async (transaction) => {
       // Get employer user ID from requirement
@@ -989,9 +989,9 @@ Provide ONLY the JSON response, no additional text.
         type: sequelize.QueryTypes.SELECT,
         transaction
       });
-      
+
       const employerId = employerResult?.employer_user_id || '00000000-0000-0000-0000-000000000000'; // Fallback UUID
-      
+
       await sequelize.query(`
         INSERT INTO candidate_analytics 
           (id, candidate_id, employer_id, user_id, requirement_id, event_type, ats_score, ats_analysis, last_calculated, created_at, updated_at)
@@ -1014,7 +1014,7 @@ Provide ONLY the JSON response, no additional text.
         transaction
       });
     });
-    
+
     // Verify the score was saved by querying it back
     const [verification] = await sequelize.query(`
       SELECT ats_score, last_calculated 
@@ -1024,13 +1024,13 @@ Provide ONLY the JSON response, no additional text.
       replacements: { userId: candidateId, requirementId: requirementId },
       type: sequelize.QueryTypes.SELECT
     });
-    
+
     if (verification && verification.ats_score === atsData.ats_score) {
       console.log(`✅ ATS score ${atsData.ats_score} verified and saved for candidate ${candidateId}`);
     } else {
       console.log(`⚠️ ATS score verification failed for candidate ${candidateId}`);
     }
-    
+
     return {
       candidateId,
       requirementId,
@@ -1038,7 +1038,7 @@ Provide ONLY the JSON response, no additional text.
       analysis: atsData,
       calculatedAt: new Date()
     };
-    
+
   } catch (error) {
     console.error('❌ Error calculating ATS score:', error);
     throw error;
@@ -1051,12 +1051,12 @@ Provide ONLY the JSON response, no additional text.
 async function calculateBatchATSScores(candidateIds, requirementId, onProgress) {
   const results = [];
   const errors = [];
-  
+
   console.log(`🚀 Starting batch ATS calculation for ${candidateIds.length} candidates`);
-  
+
   for (let i = 0; i < candidateIds.length; i++) {
     const candidateId = candidateIds[i];
-    
+
     try {
       // Call progress callback
       if (onProgress) {
@@ -1067,11 +1067,11 @@ async function calculateBatchATSScores(candidateIds, requirementId, onProgress) 
           status: 'processing'
         });
       }
-      
+
       // Calculate ATS score
       const result = await calculateATSScore(candidateId, requirementId);
       results.push(result);
-      
+
       // Call progress callback
       if (onProgress) {
         onProgress({
@@ -1082,19 +1082,19 @@ async function calculateBatchATSScores(candidateIds, requirementId, onProgress) 
           score: result.atsScore
         });
       }
-      
+
       // Add delay to avoid rate limiting (1 second between requests)
       if (i < candidateIds.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for database commits
       }
-      
+
     } catch (error) {
       console.error(`❌ Error processing candidate ${candidateId}:`, error);
       errors.push({
         candidateId,
         error: error.message
       });
-      
+
       // Call progress callback
       if (onProgress) {
         onProgress({
@@ -1107,9 +1107,9 @@ async function calculateBatchATSScores(candidateIds, requirementId, onProgress) 
       }
     }
   }
-  
+
   console.log(`✅ Batch ATS calculation completed: ${results.length} successful, ${errors.length} errors`);
-  
+
   return {
     successful: results,
     errors,
@@ -1136,11 +1136,11 @@ async function getATSScore(candidateId, requirementId) {
       replacements: { userId: candidateId, requirementId },
       type: sequelize.QueryTypes.SELECT
     });
-    
+
     if (!result || result.length === 0) {
       return null;
     }
-    
+
     return {
       candidateId: result.userId,
       requirementId: result.requirementId,
