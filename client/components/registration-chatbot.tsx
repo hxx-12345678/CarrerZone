@@ -11,8 +11,7 @@ import { X, Send, CheckCircle, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { HRCharacter, JobseekerCharacter, ChatbotButtonCharacter } from './animated-characters'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+import { API_BASE_URL, type User } from '@/lib/api'
 
 interface Message {
   id: string
@@ -27,7 +26,9 @@ interface RegistrationData {
   password: string
   phone: string
   experience: string
-  region: string
+  region: 'india' | 'gulf' | 'other'
+  regions?: string[]
+  preferences?: any
 }
 
 // Engaging questions pool (non-repetitive)
@@ -50,10 +51,10 @@ interface ChatbotConfig {
   buttonCharacterSrc?: string
 }
 
-export function RegistrationChatbot({ 
-  hrCharacterSrc, 
-  jobseekerCharacterSrc, 
-  buttonCharacterSrc 
+export function RegistrationChatbot({
+  hrCharacterSrc,
+  jobseekerCharacterSrc,
+  buttonCharacterSrc
 }: ChatbotConfig = {}) {
   const { user, loading, login, signup: authSignup, refreshUser } = useAuth()
   const router = useRouter()
@@ -229,13 +230,13 @@ export function RegistrationChatbot({
     const availableIndices = engagingQuestions
       .map((_, index) => index)
       .filter(index => !askedQuestions.includes(index))
-    
+
     if (availableIndices.length === 0) {
       // Reset if all questions asked
       setAskedQuestions([])
       return engagingQuestions[0]
     }
-    
+
     const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
     setAskedQuestions(prev => [...prev, randomIndex])
     return engagingQuestions[randomIndex]
@@ -284,14 +285,14 @@ export function RegistrationChatbot({
           agreeToTerms: true
         }),
       })
-      
+
       const result = await response.json()
-      
+
       // If user already exists, signup returns 409
       if (response.status === 409) {
         return true
       }
-      
+
       // If validation error for email (but not "user exists"), user doesn't exist
       return false
     } catch (error) {
@@ -359,7 +360,7 @@ export function RegistrationChatbot({
     try {
       setIsSubmitting(true)
       const result = await login({ email, password, loginType: 'jobseeker', rememberMe: false })
-      
+
       if (result && result.user) {
         addBotMessage("🎉 Great! You're successfully logged in!")
         setTimeout(() => {
@@ -399,28 +400,28 @@ export function RegistrationChatbot({
 
     const userText = inputValue.trim()
     const normalizedResponse = userText.toLowerCase().trim()
-    
+
     // Check for goodbye phrases - handle at any point in conversation
     const goodbyePhrases = [
-      'bye', 'goodbye', 'see you', 'see you later', 'see ya', 'later', 
+      'bye', 'goodbye', 'see you', 'see you later', 'see ya', 'later',
       'thank you', 'thanks', 'thankyou', 'ty', 'appreciate it',
       'have a good day', 'have a nice day', 'take care', 'farewell',
       'i\'m done', 'i\'m finished', 'that\'s all', 'that\'s it', 'no thanks',
       'not interested', 'maybe later', 'some other time', 'exit', 'close',
       'i have to go', 'gotta go', 'need to go', 'leaving', 'done'
     ]
-    
+
     const isGoodbyeMessage = goodbyePhrases.some(phrase => normalizedResponse.includes(phrase))
-    
+
     if (isGoodbyeMessage) {
       addUserMessage(userText)
       setInputValue('')
       setIsTyping(true)
       setIsGoodbye(true)
       setCurrentStep('goodbye')
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
+
       // Friendly goodbye message
       addBotMessage("Thank you for chatting with me! 😊")
       setTimeout(() => {
@@ -450,7 +451,7 @@ export function RegistrationChatbot({
       }, 3000)
       return
     }
-    
+
     // Handle "register" command during login
     if (currentStep === 'login' && normalizedResponse.includes('register')) {
       addBotMessage("Sure! Let's create a new account for you instead.")
@@ -461,7 +462,7 @@ export function RegistrationChatbot({
       }, 1500)
       return
     }
-    
+
     // Check for repeated or anonymous responses
     if (normalizedResponse === lastUserResponse.toLowerCase().trim() && lastUserResponse !== '') {
       setRepeatedResponseCount(prev => prev + 1)
@@ -477,7 +478,7 @@ export function RegistrationChatbot({
     } else {
       setRepeatedResponseCount(0)
     }
-    
+
     // Check for anonymous or vague responses (except for purpose step which can have simple yes/no)
     const vagueResponses = ['yes', 'no', 'ok', 'okay', 'sure', 'maybe', 'i don\'t know', 'idk', 'not sure', 'hmm', '...']
     if (vagueResponses.includes(normalizedResponse) && currentStep !== 'name' && currentStep !== 'purpose') {
@@ -489,7 +490,7 @@ export function RegistrationChatbot({
       setIsTyping(false)
       return
     }
-    
+
     setLastUserResponse(userText)
     addUserMessage(userText)
     setInputValue('')
@@ -500,34 +501,34 @@ export function RegistrationChatbot({
 
     if (currentStep === 'purpose') {
       const purposeText = normalizedResponse
-      
+
       // Better detection logic - prioritize employer keywords first
-      const isEmployer = purposeText.includes('employ') || 
-                         purposeText.includes('hire') || 
-                         purposeText.includes('recruit') || 
-                         purposeText.includes('get employee') || 
-                         purposeText.includes('get employees') ||
-                         purposeText.includes('post job') || 
-                         purposeText.includes('post jobs') ||
-                         purposeText.includes('hiring') ||
-                         purposeText.includes('looking for employee') ||
-                         purposeText.includes('looking for employees') ||
-                         purposeText.includes('want to hire') ||
-                         purposeText.includes('need employee') ||
-                         purposeText.includes('need employees') ||
-                         (purposeText.includes('company') && (purposeText.includes('register') || purposeText.includes('account')))
-      
+      const isEmployer = purposeText.includes('employ') ||
+        purposeText.includes('hire') ||
+        purposeText.includes('recruit') ||
+        purposeText.includes('get employee') ||
+        purposeText.includes('get employees') ||
+        purposeText.includes('post job') ||
+        purposeText.includes('post jobs') ||
+        purposeText.includes('hiring') ||
+        purposeText.includes('looking for employee') ||
+        purposeText.includes('looking for employees') ||
+        purposeText.includes('want to hire') ||
+        purposeText.includes('need employee') ||
+        purposeText.includes('need employees') ||
+        (purposeText.includes('company') && (purposeText.includes('register') || purposeText.includes('account')))
+
       const isJobseeker = !isEmployer && (
-        purposeText.includes('job') || 
-        purposeText.includes('looking for') || 
-        purposeText.includes('seeker') || 
+        purposeText.includes('job') ||
+        purposeText.includes('looking for') ||
+        purposeText.includes('seeker') ||
         purposeText.includes('find job') ||
         purposeText === 'yes' ||
         purposeText.includes('apply') ||
         purposeText.includes('opportunity') ||
         purposeText.includes('career')
       )
-      
+
       if (isJobseeker) {
         setUserPurpose('jobseeker')
         addBotMessage("Great! I'm here to help job seekers like you find amazing opportunities. Let's create your account so you can start applying!")
@@ -546,7 +547,7 @@ export function RegistrationChatbot({
         // Check if response contains keywords that suggest employer intent
         const employerKeywords = ['employee', 'employees', 'hiring', 'hire', 'recruit', 'recruitment', 'post job', 'post jobs', 'company', 'employer']
         const hasEmployerKeywords = employerKeywords.some(keyword => purposeText.includes(keyword))
-        
+
         if (hasEmployerKeywords) {
           setUserPurpose('employer')
           addBotMessage("I understand you want to hire employees. For employer registration, please click the link below:")
@@ -556,12 +557,12 @@ export function RegistrationChatbot({
           }, 1500)
           return
         }
-        
+
         setIsTyping(false)
         addBotMessage("I want to make sure I understand correctly. Are you looking for a job (job seeker) or are you looking to hire someone (employer)? Please let me know which one applies to you.")
         return
       }
-      
+
       setTimeout(() => {
         addBotMessage("Great! Let me help you get started. First, what's your email address?")
         setCurrentStep('email')
@@ -573,18 +574,18 @@ export function RegistrationChatbot({
         addBotMessage("Hmm, that doesn't look like a valid email address. Could you please provide a valid email? (e.g., yourname@example.com)")
         return
       }
-      
+
       setUserEmail(userText)
       setRegistrationData(prev => ({ ...prev, email: userText.toLowerCase().trim() }))
       setIsTyping(true)
       addBotMessage("Let me check if you already have an account with us...")
-      
+
       // Check if account exists
       const emailExists = await checkEmailExists(userText)
       setAccountExists(emailExists)
-      
+
       await new Promise(resolve => setTimeout(resolve, 1500))
-      
+
       if (emailExists) {
         addBotMessage("Great! I found an account with this email. Let's log you in!")
         const passwordPromptDelay = shouldEmphasizeDualAccess ? 2800 : 1500
@@ -618,7 +619,7 @@ export function RegistrationChatbot({
         addBotMessage("Password should be at least 6 characters. Could you please enter your password again?")
         return
       }
-      
+
       setIsTyping(true)
       await handleLogin(userEmail, userText)
       return
@@ -652,7 +653,7 @@ export function RegistrationChatbot({
         }, 1500)
         return
       }
-      
+
       // Acknowledge answer and ask another question or move to registration
       addBotMessage("That's great insight! Thank you for sharing that with me.")
       setTimeout(() => {
@@ -727,7 +728,7 @@ export function RegistrationChatbot({
           addBotMessage("Please choose from: india, gulf, or other. If you're not sure, you can choose 'india' for now.")
           return
         }
-        setRegistrationData(prev => ({ ...prev, region: normalizedInput }))
+        setRegistrationData(prev => ({ ...prev, region: normalizedInput as 'india' | 'gulf' | 'other' }))
         addBotMessage(`Perfect! I've set your preferred region to ${normalizedInput}.`)
         setTimeout(() => {
           setIsSubmitting(true)
@@ -750,12 +751,12 @@ export function RegistrationChatbot({
           : {}
 
       const signupPayload = {
-        fullName: registrationData.fullName!,
+        fullName: registrationData.fullName || '',
         email: userEmail.toLowerCase().trim(),
-        password: registrationData.password!,
+        password: registrationData.password || '',
         phone: registrationData.phone || undefined,
         experience: registrationData.experience || 'fresher',
-        region: defaultPortalRegion,
+        region: (registrationData.region || defaultPortalRegion) as 'india' | 'gulf' | 'other',
         regions: ['india', 'gulf'],
         preferences: {
           ...basePreferences,
@@ -847,7 +848,7 @@ export function RegistrationChatbot({
                 <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-3xl animate-pulse" />
                 <div className="absolute bottom-0 right-0 w-24 h-24 bg-blue-300 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
               </div>
-              
+
               <div className="flex items-center gap-2 sm:gap-3 relative z-10 flex-1 min-w-0">
                 {/* Animated HR Character Avatar - Human Avatar */}
                 <div className="relative flex-shrink-0">
@@ -899,18 +900,17 @@ export function RegistrationChatbot({
                     </div>
                   )}
                   <div
-                    className={`max-w-[75%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm ${
-                      message.type === 'user'
-                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-none'
-                        : 'bg-white text-gray-800 rounded-bl-none border border-gray-200'
-                    }`}
+                    className={`max-w-[75%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm ${message.type === 'user'
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-none'
+                      : 'bg-white text-gray-800 rounded-bl-none border border-gray-200'
+                      }`}
                   >
                     <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
                       {message.text.includes('/employer-register') ? (
                         <span>
                           {message.text.split('/employer-register')[0]}
-                          <Link 
-                            href="/employer-register" 
+                          <Link
+                            href="/employer-register"
                             className="text-blue-600 hover:text-blue-700 underline font-semibold ml-1 inline-block"
                             onClick={() => setIsOpen(false)}
                           >

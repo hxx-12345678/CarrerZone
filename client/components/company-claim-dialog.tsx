@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Building2, CheckCircle, AlertCircle, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { API_BASE_URL } from "@/lib/api"
 
 interface Company {
   id: string
@@ -55,7 +56,7 @@ export function CompanyClaimDialog({ open, onOpenChange, onSuccess }: CompanyCla
 
     setLoading(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/companies/claim/search?name=${encodeURIComponent(searchTerm)}`)
+      const response = await fetch(`${API_BASE_URL}/companies/claim/search?name=${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
 
       if (data.success) {
@@ -79,7 +80,7 @@ export function CompanyClaimDialog({ open, onOpenChange, onSuccess }: CompanyCla
 
     setLoading(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/companies/claim`, {
+      const response = await fetch(`${API_BASE_URL}/companies/claim`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -119,7 +120,7 @@ export function CompanyClaimDialog({ open, onOpenChange, onSuccess }: CompanyCla
 
     setLoading(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/companies/claim/create-new`, {
+      const response = await fetch(`${API_BASE_URL}/companies/claim/create-new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -218,8 +219,8 @@ export function CompanyClaimDialog({ open, onOpenChange, onSuccess }: CompanyCla
               <div className="space-y-3">
                 <h3 className="font-medium">Found Companies</h3>
                 {companies.map((company) => (
-                  <Card 
-                    key={company.id} 
+                  <Card
+                    key={company.id}
                     className="cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => {
                       setSelectedCompany(company)
@@ -249,8 +250,8 @@ export function CompanyClaimDialog({ open, onOpenChange, onSuccess }: CompanyCla
 
             <div className="text-center">
               <p className="text-sm text-slate-600 mb-4">Don't see your company?</p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setStep('create')}
                 className="w-full"
               >

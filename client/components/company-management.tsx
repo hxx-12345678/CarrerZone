@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { apiService } from "@/lib/api"
+import { apiService, API_BASE_URL, BASE_URL } from "@/lib/api"
 import { useAuth } from "@/hooks/useAuth"
 import IndustryDropdown from "@/components/ui/industry-dropdown"
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown"
@@ -95,13 +95,12 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
         setFormData(response.data)
         // fetch photos
         try {
-          const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-          const res = await fetch(`${base}/companies/${companyId}/photos`)
+          const res = await fetch(`${API_BASE_URL}/companies/${companyId}/photos`)
           if (res.ok) {
             const data = await res.json()
             if (data?.success && Array.isArray(data.data)) setPhotos(data.data)
           }
-        } catch {}
+        } catch { }
       } else {
         toast.error("Failed to load company data")
       }
@@ -117,15 +116,16 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
     try {
       setUploadingPhoto(true)
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-      const form = new FormData()
-      form.append('photo', file)
-      form.append('altText', `${company?.name || 'Company'} photo`)
-      form.append('isPrimary', photos.length === 0 ? 'true' : 'false')
-      const res = await fetch(`${base}/companies/${companyId}/photos`, {
+      const res = await fetch(`${API_BASE_URL}/companies/${companyId}/photos`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: form
+        body: (() => {
+          const form = new FormData()
+          form.append('photo', file)
+          form.append('altText', `${company?.name || 'Company'} photo`)
+          form.append('isPrimary', photos.length === 0 ? 'true' : 'false')
+          return form
+        })()
       })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
@@ -145,8 +145,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
     if (!confirm('Are you sure you want to delete this photo?')) return
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-      const res = await fetch(`${base}/companies/photos/${photoId}`, {
+      const res = await fetch(`${API_BASE_URL}/companies/photos/${photoId}`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
@@ -165,8 +164,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
   const handleSetPlaceholder = async (photoId: string) => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-      const res = await fetch(`${base}/companies/${companyId}/photos/${photoId}/set-placeholder`, {
+      const res = await fetch(`${API_BASE_URL}/companies/${companyId}/photos/${photoId}/set-placeholder`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
@@ -191,22 +189,23 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
     try {
       setUploadingLogo(true)
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-      const form = new FormData()
-      form.append('logo', file)
-      const res = await fetch(`${base}/companies/${companyId}/logo`, {
+      const res = await fetch(`${API_BASE_URL}/companies/${companyId}/logo`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: form
+        body: (() => {
+          const form = new FormData()
+          form.append('logo', file)
+          return form
+        })()
       })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
         toast.success('Logo updated')
-        setCompany((prev:any) => ({ ...(prev||{}), logo: data.data.logo }))
+        setCompany((prev: any) => ({ ...(prev || {}), logo: data.data.logo }))
       } else {
         toast.error(data?.message || 'Logo upload failed')
       }
-    } catch (e:any) {
+    } catch (e: any) {
       toast.error(e?.message || 'Logo upload failed')
     } finally {
       setUploadingLogo(false)
@@ -218,22 +217,23 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
     try {
       setUploadingBanner(true)
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-      const form = new FormData()
-      form.append('banner', file)
-      const res = await fetch(`${base}/companies/${companyId}/banner`, {
+      const res = await fetch(`${API_BASE_URL}/companies/${companyId}/banner`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: form
+        body: (() => {
+          const form = new FormData()
+          form.append('banner', file)
+          return form
+        })()
       })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
         toast.success('Banner updated')
-        setCompany((prev:any) => ({ ...(prev||{}), banner: data.data.banner }))
+        setCompany((prev: any) => ({ ...(prev || {}), banner: data.data.banner }))
       } else {
         toast.error(data?.message || 'Banner upload failed')
       }
-    } catch (e:any) {
+    } catch (e: any) {
       toast.error(e?.message || 'Banner upload failed')
     } finally {
       setUploadingBanner(false)
@@ -334,7 +334,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   placeholder="Company name"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="industries">Industries</Label>
                 <Button
@@ -345,7 +345,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   <span>{formData.industries && formData.industries.length > 0 ? `${formData.industries.length} industr${formData.industries.length > 1 ? 'ies' : 'y'} selected` : "Select industries"}</span>
                   <ChevronDown className="w-4 h-4" />
                 </Button>
-                
+
                 {formData.industries && formData.industries.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {formData.industries.map((industry: string, index: number) => (
@@ -365,7 +365,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                     ))}
                   </div>
                 )}
-                
+
                 {showIndustryDropdown && (
                   <IndustryDropdown
                     selectedIndustries={formData.industries || []}
@@ -376,7 +376,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   />
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="companySize">Company Size</Label>
                 <Select value={formData.companySize || ""} onValueChange={(value) => handleInputChange("companySize", value)}>
@@ -392,7 +392,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="website">Website</Label>
                 <Input
@@ -429,11 +429,11 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
               </div>
               {photos.length > 0 && (
                 <div className="grid grid-cols-3 gap-3 mt-3">
-                  {photos.map((p:any) => (
+                  {photos.map((p: any) => (
                     <div key={p.id} className="relative overflow-hidden rounded-lg border group">
-                      <img 
-                        src={p.fileUrl} 
-                        alt={p.altText || 'Photo'} 
+                      <img
+                        src={p.fileUrl.startsWith('http') ? p.fileUrl : `${BASE_URL}${p.fileUrl}`}
+                        alt={p.altText || 'Photo'}
                         className="w-full h-24 object-cover"
                         onLoad={() => {
                           console.log('✅ Management image loaded:', p.fileUrl);
@@ -492,7 +492,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
               </div>
               {company?.logo && (
                 <div className="mt-2 w-28 h-28 border rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900/30">
-                  <img src={company.logo} alt="Company logo" className="w-full h-full object-cover" />
+                  <img src={company.logo.startsWith('http') ? company.logo : `${BASE_URL}${company.logo}`} alt="Company logo" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>
@@ -517,20 +517,20 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
               </div>
               {company?.banner && (
                 <div className="mt-2 w-full h-32 border rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900/30">
-                  <img src={company.banner} alt="Company banner" className="w-full h-full object-cover" />
+                  <img src={company.banner.startsWith('http') ? company.banner : `${BASE_URL}${company.banner}`} alt="Company banner" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>
-            
+
             <Separator className="my-6" />
-            
+
             {/* About Company Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-slate-900 flex items-center">
                 <Briefcase className="w-5 h-5 mr-2 text-blue-600" />
                 About Company
               </h3>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="about">Company Description</Label>
                 <Textarea
@@ -569,7 +569,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   </span>
                   <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                 </Button>
-                
+
                 {/* Display selected values */}
                 {formData.natureOfBusiness && formData.natureOfBusiness.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
@@ -610,7 +610,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   </span>
                   <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                 </Button>
-                
+
                 {/* Display selected values */}
                 {formData.companyTypes && formData.companyTypes.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
@@ -637,7 +637,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
             </div>
 
             <Separator className="my-6" />
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Company Phone</Label>
@@ -648,7 +648,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   placeholder="+1 (555) 123-4567"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="email">Company Email</Label>
                 <Input
@@ -660,7 +660,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="address">Company Address</Label>
               <Textarea
@@ -671,7 +671,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                 rows={2}
               />
             </div>
-            
+
             <div className="flex space-x-3">
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? (
@@ -702,13 +702,13 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                 <div className="text-sm text-slate-600 dark:text-slate-300">Company</div>
                 <div className="font-semibold text-slate-900 dark:text-white">{company.name}</div>
               </div>
-              
+
               <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <Users className="w-8 h-8 mx-auto mb-2 text-green-600" />
                 <div className="text-sm text-slate-600 dark:text-slate-300">Size</div>
                 <div className="font-semibold text-slate-900 dark:text-white">{company.companySize || 'N/A'}</div>
               </div>
-              
+
               <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                 <Globe className="w-8 h-8 mx-auto mb-2 text-purple-600" />
                 <div className="text-sm text-slate-600 dark:text-slate-300">Industries</div>
@@ -716,7 +716,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   {company.industries && company.industries.length > 0 ? company.industries.join(', ') : 'N/A'}
                 </div>
               </div>
-              
+
             </div>
 
             <Separator />
@@ -725,32 +725,32 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Company Information</h3>
-                
+
                 <div className="space-y-3">
                   <div>
                     <Label className="text-sm text-slate-500">Company Name</Label>
                     <p className="font-medium">{company.name}</p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm text-slate-500">Industries</Label>
                     <p className="font-medium">
                       {company.industries && company.industries.length > 0 ? company.industries.join(', ') : 'Not specified'}
                     </p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm text-slate-500">Company Size</Label>
                     <p className="font-medium">{company.companySize || 'Not specified'}</p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm text-slate-500">About</Label>
                     <p className="text-slate-700 dark:text-slate-300">
                       {company.about || company.description || 'No description provided'}
                     </p>
                   </div>
-                  
+
                   <div>
                     <Label className="text-sm text-slate-500">Why Join Us</Label>
                     <p className="text-slate-700 dark:text-slate-300">
@@ -791,10 +791,10 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Contact Information</h3>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
                     <Globe className="w-4 h-4 text-slate-400" />
@@ -802,15 +802,15 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                       <Label className="text-sm text-slate-500">Website</Label>
                       <p className="font-medium">
                         {company.website ? (
-                          <a href={company.website} target="_blank" rel="noopener noreferrer" 
-                             className="text-blue-600 hover:underline">
+                          <a href={company.website} target="_blank" rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline">
                             {company.website}
                           </a>
                         ) : 'Not specified'}
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <Phone className="w-4 h-4 text-slate-400" />
                     <div>
@@ -818,7 +818,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                       <p className="font-medium">{company.phone || 'Not specified'}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <Mail className="w-4 h-4 text-slate-400" />
                     <div>
@@ -826,7 +826,7 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                       <p className="font-medium">{company.email || 'Not specified'}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <MapPin className="w-4 h-4 text-slate-400" />
                     <div>
@@ -845,9 +845,9 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {photos.map((p: any) => (
                     <div key={p.id} className="relative overflow-hidden rounded-lg border group">
-                      <img 
-                        src={p.fileUrl} 
-                        alt={p.altText || 'Photo'} 
+                      <img
+                        src={p.fileUrl}
+                        alt={p.altText || 'Photo'}
                         className="w-full h-32 object-cover"
                         onLoad={() => {
                           console.log('✅ Display image loaded:', p.fileUrl);
@@ -875,9 +875,9 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Company Logo</h3>
                 <div className="w-32 h-32 border rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900/30">
-                  <img 
-                    src={company.logo} 
-                    alt="Company logo" 
+                  <img
+                    src={company.logo}
+                    alt="Company logo"
                     className="w-full h-full object-cover"
                     onLoad={() => {
                       console.log('✅ Logo loaded:', company.logo);
@@ -895,9 +895,9 @@ export function CompanyManagement({ companyId, onCompanyUpdated }: CompanyManage
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Company Banner</h3>
                 <div className="w-full h-48 border rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-900/30">
-                  <img 
-                    src={company.banner} 
-                    alt="Company banner" 
+                  <img
+                    src={company.banner}
+                    alt="Company banner"
                     className="w-full h-full object-cover"
                     onLoad={() => {
                       console.log('✅ Banner loaded:', company.banner);

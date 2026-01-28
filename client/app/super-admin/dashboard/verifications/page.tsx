@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Building2, CheckCircle, XCircle, Clock, Eye, FileText, User, Phone, Mail, Globe, Calendar } from "lucide-react"
 import { toast } from "sonner"
-import { apiService } from "@/lib/api"
+import { apiService, API_BASE_URL } from "@/lib/api"
 
 interface PendingVerification {
   id: string
@@ -35,10 +35,10 @@ interface PendingVerification {
       userEmail: string
     }
     documents?: Array<{
-    type: string
-    url: string
-    name: string
-  }>
+      type: string
+      url: string
+      name: string
+    }>
   }
   createdAt: string
   users: Array<{
@@ -65,7 +65,7 @@ export default function AdminVerificationsPage() {
     try {
       setLoading(true)
       const response = await apiService.getPendingVerifications()
-      
+
       if (response.success) {
         setPendingVerifications(response.data || [])
       } else {
@@ -89,7 +89,7 @@ export default function AdminVerificationsPage() {
     try {
       setActionLoading(true)
       const response = await apiService.approveVerification(selectedCompany.id)
-      
+
       if (response.success) {
         toast.success('Company verification approved successfully')
         setShowApproveDialog(false)
@@ -118,7 +118,7 @@ export default function AdminVerificationsPage() {
         reason: rejectReason,
         notes: rejectNotes
       })
-      
+
       if (response.success) {
         toast.success('Company verification rejected')
         setShowRejectDialog(false)
@@ -149,7 +149,7 @@ export default function AdminVerificationsPage() {
       'recruiting_agency': { label: 'Recruiting Agency', variant: 'secondary' as const },
       'consulting_firm': { label: 'Consulting Firm', variant: 'outline' as const }
     }
-    
+
     const config = types[type as keyof typeof types] || types.direct
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
@@ -215,7 +215,7 @@ export default function AdminVerificationsPage() {
                   </Badge>
                 </div>
               </CardHeader>
-              
+
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="flex items-center gap-2">
@@ -243,7 +243,7 @@ export default function AdminVerificationsPage() {
                       {company.verificationDocuments?.documents?.length || 0} documents uploaded
                     </span>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -304,9 +304,9 @@ export default function AdminVerificationsPage() {
                         <Label className="text-sm font-medium">Website</Label>
                         <div className="flex items-center gap-2 mt-1">
                           <Globe className="w-4 h-4 text-slate-500" />
-                          <a 
-                            href={selectedCompany.website} 
-                            target="_blank" 
+                          <a
+                            href={selectedCompany.website}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-700 text-sm"
                           >
@@ -409,11 +409,11 @@ export default function AdminVerificationsPage() {
                                       toast.error('Invalid document URL');
                                       return;
                                     }
-                                    
+
                                     console.log('🔍 Requesting signed URL for:', filename);
-                                    
+
                                     // Generate signed URL for document access
-                                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/verification/documents/access`, {
+                                    const response = await fetch(`${API_BASE_URL}/verification/documents/access`, {
                                       method: 'POST',
                                       headers: {
                                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -421,15 +421,15 @@ export default function AdminVerificationsPage() {
                                       },
                                       body: JSON.stringify({ filename }),
                                     });
-                                    
+
                                     const result = await response.json();
-                                    
+
                                     if (result.success && result.signedUrl) {
                                       // Use API base URL to construct full signed URL
-                                      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+                                      const apiBaseUrl = API_BASE_URL;
                                       const serverBaseUrl = apiBaseUrl.replace('/api', ''); // Remove /api to get server base URL
                                       const fullSignedUrl = `${serverBaseUrl}${result.signedUrl}`;
-                                      
+
                                       console.log('✅ Opening signed URL:', fullSignedUrl);
                                       window.open(fullSignedUrl, '_blank');
                                     } else {
@@ -479,11 +479,11 @@ export default function AdminVerificationsPage() {
                                   toast.error('Invalid document URL');
                                   return;
                                 }
-                                
+
                                 console.log('🔍 Requesting signed URL for (fallback):', filename);
-                                
+
                                 // Generate signed URL for document access
-                                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/verification/documents/access`, {
+                                const response = await fetch(`${API_BASE_URL}/verification/documents/access`, {
                                   method: 'POST',
                                   headers: {
                                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -491,15 +491,15 @@ export default function AdminVerificationsPage() {
                                   },
                                   body: JSON.stringify({ filename }),
                                 });
-                                
+
                                 const result = await response.json();
-                                
+
                                 if (result.success && result.signedUrl) {
                                   // Use API base URL to construct full signed URL
-                                  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+                                  const apiBaseUrl = API_BASE_URL;
                                   const serverBaseUrl = apiBaseUrl.replace('/api', ''); // Remove /api to get server base URL
                                   const fullSignedUrl = `${serverBaseUrl}${result.signedUrl}`;
-                                  
+
                                   console.log('✅ Opening signed URL (fallback):', fullSignedUrl);
                                   window.open(fullSignedUrl, '_blank');
                                 } else {
@@ -614,7 +614,7 @@ export default function AdminVerificationsPage() {
               Please provide a reason for rejecting this verification request. The company will be notified and can resubmit with corrected documents.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="rejectReason">Rejection Reason *</Label>
@@ -634,7 +634,7 @@ export default function AdminVerificationsPage() {
                 <option value="Other">Other</option>
               </select>
             </div>
-            
+
             <div>
               <Label htmlFor="rejectNotes">Additional Notes (Optional)</Label>
               <Textarea

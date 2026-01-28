@@ -6,6 +6,7 @@
  */
 
 import { toast } from 'sonner';
+import { API_BASE_URL } from './api';
 
 // Payment Gateway Configuration
 export const PAYMENT_GATEWAY = {
@@ -113,7 +114,7 @@ const processRazorpayPayment = async (
 
       // Create and open Razorpay checkout
       const rzp = new (window as any).Razorpay(razorpayOptions);
-      
+
       rzp.on('payment.failed', function (response: any) {
         reject({
           success: false,
@@ -139,7 +140,7 @@ export const processPayment = async (
     switch (ACTIVE_GATEWAY) {
       case PAYMENT_GATEWAY.RAZORPAY:
         return await processRazorpayPayment(options);
-      
+
       default:
         // For future implementations
         if (ACTIVE_GATEWAY === PAYMENT_GATEWAY.STRIPE) {
@@ -158,14 +159,6 @@ export const processPayment = async (
   }
 };
 
-// Helper function to get API base URL
-const getApiBaseUrl = (): string => {
-  // Match the pattern used in api.ts
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-  // Ensure URL ends with /api if not already present
-  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
-};
-
 // Helper function to create order on backend
 export const createPaymentOrder = async (
   planType: string,
@@ -174,8 +167,7 @@ export const createPaymentOrder = async (
   metadata: Record<string, any> = {}
 ): Promise<{ orderId: string; amount: number }> => {
   try {
-    const apiUrl = getApiBaseUrl();
-    const response = await fetch(`${apiUrl}/payment/create-order`, {
+    const response = await fetch(`${API_BASE_URL}/payment/create-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -211,8 +203,7 @@ export const verifyPayment = async (
   signature: string
 ): Promise<{ success: boolean; message: string }> => {
   try {
-    const apiUrl = getApiBaseUrl();
-    const response = await fetch(`${apiUrl}/payment/verify`, {
+    const response = await fetch(`${API_BASE_URL}/payment/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -14,9 +14,10 @@ import { apiService } from "@/lib/api"
 interface CompanyRegistrationProps {
   onCompanyCreated: () => void
   userId: string
+  defaultRegion?: string
 }
 
-export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistrationProps) {
+export function CompanyRegistration({ onCompanyCreated, userId, defaultRegion }: CompanyRegistrationProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -28,7 +29,8 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
     about: "",
     contactPerson: "",
     contactEmail: "",
-    contactPhone: ""
+    contactPhone: "",
+    region: defaultRegion || ""
   })
 
   const companySizes = [
@@ -54,28 +56,28 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name.trim()) {
       toast.error("Company name is required")
       return
     }
 
     setIsSubmitting(true)
-    
+
     try {
       const response = await apiService.createCompany({
         ...formData,
         userId
       })
-      
+
       if (response.success) {
         toast.success("Company registered successfully!")
-        
+
         // If the response includes updated user data, we can use it
         if (response.data?.user) {
           console.log('✅ Company created with updated user data:', response.data.user)
         }
-        
+
         onCompanyCreated()
       } else {
         toast.error(response.message || "Failed to register company")
@@ -113,7 +115,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
           {/* Company Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Company Information</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Company Name *</Label>
@@ -125,7 +127,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="industry">Industry</Label>
                 <Select value={formData.industry} onValueChange={(value) => handleInputChange("industry", value)}>
@@ -141,7 +143,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="companySize">Company Size</Label>
                 <Select value={formData.companySize} onValueChange={(value) => handleInputChange("companySize", value)}>
@@ -157,7 +159,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="website">Website</Label>
                 <Input
@@ -169,7 +171,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="about">About Company</Label>
               <Textarea
@@ -185,7 +187,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
           {/* Contact Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Contact Information</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="contactPerson">Contact Person</Label>
@@ -196,7 +198,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                   placeholder="Full name"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="contactEmail">Contact Email</Label>
                 <Input
@@ -207,7 +209,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                   placeholder="contact@company.com"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="contactPhone">Contact Phone</Label>
                 <Input
@@ -217,7 +219,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                   placeholder="+1 (555) 123-4567"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="phone">Company Phone</Label>
                 <Input
@@ -228,7 +230,7 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="address">Company Address</Label>
               <Textarea
@@ -241,8 +243,8 @@ export function CompanyRegistration({ onCompanyCreated, userId }: CompanyRegistr
             </div>
           </div>
 
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             disabled={isSubmitting}
           >

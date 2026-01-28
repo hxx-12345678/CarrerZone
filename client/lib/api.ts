@@ -1,17 +1,18 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const API_BASE_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
 
 // Utility function to construct avatar URLs correctly
 export const constructAvatarUrl = (avatarPath: string | null | undefined): string | undefined => {
   if (!avatarPath) return undefined;
-  
+
   // If it's already a full URL, return as is
   if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
     return avatarPath;
   }
-  
-  // If it's a relative path, prepend the API base URL
-  const baseUrl = API_BASE_URL.replace('/api', ''); // Remove /api from base URL for static files
-  return `${baseUrl}${avatarPath}`;
+
+  // If it's a relative path, prepend the base URL
+  const base = BASE_URL.endsWith('/api') ? BASE_URL.replace('/api', '') : BASE_URL;
+  return `${base}${avatarPath}`;
 };
 
 export interface ApiResponse<T = any> {
@@ -108,6 +109,13 @@ export interface Company {
   isActive?: boolean;
   isVerified?: boolean;
   verificationStatus?: string;
+  industry?: string;
+  size?: string;
+  rating?: number;
+  reviews?: number;
+  about?: string;
+  founded?: string;
+  description?: string;
 }
 
 export interface AuthResponse {
@@ -259,6 +267,32 @@ export interface Job {
   similarityScore?: number;
   createdAt?: string;
   updatedAt?: string;
+  // Gulf and common fields
+  employer?: any;
+  employerId?: string;
+  employer_id?: string;
+  createdBy?: string;
+  created_by?: string;
+  applicationsCount?: number;
+  validTill?: string;
+  valid_till?: string;
+  application_deadline?: string;
+  jobType?: string;
+  type?: string;
+  remoteWork?: string;
+  photos?: any[];
+  duration?: string;
+  startDate?: string;
+  workMode?: string;
+  learningObjectives?: string[];
+  mentorship?: string;
+  requirements?: string | string[];
+  benefits?: string | string[];
+  salary?: string;
+  metadata?: any;
+  companyId?: string;
+  experienceLevel?: string;
+  industry?: string;
 }
 
 export interface JobApplication {
@@ -355,7 +389,7 @@ export interface JobTemplateData {
   roleCategory: string;
   education: string[];
   employmentType: string;
-  
+
   // Consultancy fields
   postingType: 'company' | 'consultancy';
   consultancyName: string;
@@ -363,7 +397,7 @@ export interface JobTemplateData {
   hiringCompanyIndustry: string;
   hiringCompanyDescription: string;
   showHiringCompanyDetails: boolean;
-  
+
   // Hot Vacancy Premium Features
   isHotVacancy: boolean;
   urgentHiring: boolean;
@@ -390,7 +424,7 @@ export interface JobTemplateData {
   hotVacancyPrice: number;
   hotVacancyCurrency: string;
   hotVacancyPaymentStatus: string;
-  
+
   // Critical Premium Hot Vacancy Features
   urgencyLevel: string;
   hiringTimeline: string;
@@ -537,7 +571,7 @@ class ApiService {
   private readonly MIN_REQUEST_INTERVAL = 2000 // 2 seconds between requests to same endpoint (balanced for rate limiting)
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+    this.baseURL = API_BASE_URL
     // Initialize token from localStorage if available
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token')
@@ -574,10 +608,10 @@ class ApiService {
 
     // Create the request promise
     const requestPromise = requestFn()
-    
+
     // Store it in the queue
     this.requestQueue.set(endpoint, requestPromise)
-    
+
     try {
       const result = await requestPromise
       return result
@@ -589,24 +623,24 @@ class ApiService {
   private getAuthHeaders(): HeadersInit {
     // Use internal authToken first, fallback to localStorage
     const token = this.authToken || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
-    
+
     const headers = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
-    
+
     return headers;
   }
 
   private getHeaders(): HeadersInit {
     // Use internal authToken first, fallback to localStorage
     const token = this.authToken || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
     };
-    
+
     return headers;
   }
 
@@ -667,12 +701,12 @@ class ApiService {
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const url = response.url;
     console.log('🔍 handleResponse - Starting with URL:', url, 'Status:', response.status);
-    
+
     // Basic error check
     if (!response.ok) {
       console.log('❌ Response not OK:', response.status, response.statusText);
     }
-    
+
     // Simple fallback logging in case the main logging fails
     try {
       console.log('🔍 handleResponse - Processing response:', {
@@ -685,186 +719,186 @@ class ApiService {
     } catch (logError) {
       console.log('🔍 handleResponse - Basic info:', url, response.status, response.statusText);
     }
-    
+
     try {
       const responseClone = response.clone()
       let data: any
-      
-      try {
-      // Detect opaque/network errors (often CORS or network failure)
-      if ((response as any).type === 'opaque' || response.status === 0) {
-        console.error('❌ Network/CORS error:', { url, type: (response as any).type, status: response.status })
-        return {
-          success: false,
-          message: 'Network or CORS error. Please ensure the API server allows this origin and is reachable.',
-          errors: ['NETWORK_OR_CORS_ERROR']
-        } as ApiResponse<T>
-      }
 
-      const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('application/json')) {
-        const textContent = await responseClone.text().catch(() => '')
-        console.warn('⚠️ Non-JSON response received:', textContent)
-        if (response.ok) {
+      try {
+        // Detect opaque/network errors (often CORS or network failure)
+        if ((response as any).type === 'opaque' || response.status === 0) {
+          console.error('❌ Network/CORS error:', { url, type: (response as any).type, status: response.status })
           return {
-            success: true,
-            message: 'Response received',
-            data: textContent as any,
+            success: false,
+            message: 'Network or CORS error. Please ensure the API server allows this origin and is reachable.',
+            errors: ['NETWORK_OR_CORS_ERROR']
           } as ApiResponse<T>
         }
+
+        const contentType = response.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          const textContent = await responseClone.text().catch(() => '')
+          console.warn('⚠️ Non-JSON response received:', textContent)
+          if (response.ok) {
+            return {
+              success: true,
+              message: 'Response received',
+              data: textContent as any,
+            } as ApiResponse<T>
+          }
+          return {
+            success: false,
+            message: `Request failed (${response.status}): ${response.statusText}`,
+            errors: ['INVALID_RESPONSE'],
+          } as ApiResponse<T>
+        }
+
+        data = await response.json()
+      } catch (error) {
+        console.error('❌ Failed to parse response as JSON:', error)
+        const textContent = await responseClone.text().catch(() => '')
+        if (textContent) console.error('❌ Response content:', textContent)
         return {
           success: false,
-          message: `Request failed (${response.status}): ${response.statusText}`,
-          errors: ['INVALID_RESPONSE'],
+          message: `Server error (${response.status}): ${response.statusText}. Please try again later.`,
+          errors: ['SERVER_ERROR'],
         } as ApiResponse<T>
       }
 
-      data = await response.json()
-    } catch (error) {
-      console.error('❌ Failed to parse response as JSON:', error)
-      const textContent = await responseClone.text().catch(() => '')
-      if (textContent) console.error('❌ Response content:', textContent)
-      return {
-        success: false,
-        message: `Server error (${response.status}): ${response.statusText}. Please try again later.`,
-        errors: ['SERVER_ERROR'],
-      } as ApiResponse<T>
-    }
+      console.log('🔍 handleResponse - Parsed data:', data);
 
-    console.log('🔍 handleResponse - Parsed data:', data);
+      if (!response.ok) {
+        // If parsed body is empty object, try to capture raw text for better diagnostics
+        let rawText = '';
+        let bodyForLog = data;
 
-    if (!response.ok) {
-      // If parsed body is empty object, try to capture raw text for better diagnostics
-      let rawText = '';
-      let bodyForLog = data;
-      
-      try {
-        if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
-          rawText = await responseClone.text().catch(() => '');
-          bodyForLog = (rawText && rawText.trim().length > 0) ? rawText : 'Empty response body';
-        }
-        
-        // Safely stringify the body for logging
-        let safeBodyForLog = bodyForLog;
         try {
-          if (bodyForLog === null || bodyForLog === undefined) {
-            safeBodyForLog = 'null/undefined response body';
-          } else if (typeof bodyForLog === 'string') {
-            safeBodyForLog = bodyForLog;
-          } else if (typeof bodyForLog === 'object') {
-            if (Object.keys(bodyForLog).length === 0) {
-              safeBodyForLog = 'Empty object response body';
-            } else {
-              safeBodyForLog = JSON.stringify(bodyForLog);
-            }
-          } else {
-            safeBodyForLog = String(bodyForLog);
+          if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+            rawText = await responseClone.text().catch(() => '');
+            bodyForLog = (rawText && rawText.trim().length > 0) ? rawText : 'Empty response body';
           }
-        } catch (stringifyError) {
-          safeBodyForLog = `[Unable to stringify response body: ${stringifyError instanceof Error ? stringifyError.message : String(stringifyError)}]`;
+
+          // Safely stringify the body for logging
+          let safeBodyForLog = bodyForLog;
+          try {
+            if (bodyForLog === null || bodyForLog === undefined) {
+              safeBodyForLog = 'null/undefined response body';
+            } else if (typeof bodyForLog === 'string') {
+              safeBodyForLog = bodyForLog;
+            } else if (typeof bodyForLog === 'object') {
+              if (Object.keys(bodyForLog).length === 0) {
+                safeBodyForLog = 'Empty object response body';
+              } else {
+                safeBodyForLog = JSON.stringify(bodyForLog);
+              }
+            } else {
+              safeBodyForLog = String(bodyForLog);
+            }
+          } catch (stringifyError) {
+            safeBodyForLog = `[Unable to stringify response body: ${stringifyError instanceof Error ? stringifyError.message : String(stringifyError)}]`;
+          }
+
+          // Safe error logging with individual try-catch blocks
+          try {
+            console.error('❌ API error - URL:', url);
+          } catch (e) { }
+
+          try {
+            console.error('❌ API error - Status:', response.status, response.statusText);
+          } catch (e) { }
+
+          try {
+            console.error('❌ API error - Body:', safeBodyForLog);
+          } catch (e) { }
+
+          try {
+            console.error('❌ API error - Headers:', Object.fromEntries(response.headers.entries()));
+          } catch (e) { }
+
+          try {
+            console.error('❌ API error - Timestamp:', new Date().toISOString());
+          } catch (e) { }
+
+        } catch (logError) {
+          // Fallback error logging
+          try {
+            console.error('❌ API error (logging failed) - URL:', url);
+          } catch (e) { }
+
+          try {
+            console.error('❌ API error (logging failed) - Status:', response.status);
+          } catch (e) { }
+
+          try {
+            console.error('❌ API error (logging failed) - LogError:', logError instanceof Error ? logError.message : String(logError));
+          } catch (e) { }
         }
-        
-        // Safe error logging with individual try-catch blocks
-        try {
-          console.error('❌ API error - URL:', url);
-        } catch (e) {}
-        
-        try {
-          console.error('❌ API error - Status:', response.status, response.statusText);
-        } catch (e) {}
-        
-        try {
-          console.error('❌ API error - Body:', safeBodyForLog);
-        } catch (e) {}
-        
-        try {
-          console.error('❌ API error - Headers:', Object.fromEntries(response.headers.entries()));
-        } catch (e) {}
-        
-        try {
-          console.error('❌ API error - Timestamp:', new Date().toISOString());
-        } catch (e) {}
-        
-      } catch (logError) {
-        // Fallback error logging
-        try {
-          console.error('❌ API error (logging failed) - URL:', url);
-        } catch (e) {}
-        
-        try {
-          console.error('❌ API error (logging failed) - Status:', response.status);
-        } catch (e) {}
-        
-        try {
-          console.error('❌ API error (logging failed) - LogError:', logError instanceof Error ? logError.message : String(logError));
-        } catch (e) {}
-      }
-      
-      // Handle rate limiting specifically
-      if (response.status === 429) {
-        console.warn('⚠️ Rate limit exceeded - too many requests');
-        
-        // Add exponential backoff for rate-limited requests
-        const retryAfter = response.headers.get('Retry-After');
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
-        
-        console.log(`⏳ Waiting ${waitTime}ms before retrying...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        
+
+        // Handle rate limiting specifically
+        if (response.status === 429) {
+          console.warn('⚠️ Rate limit exceeded - too many requests');
+
+          // Add exponential backoff for rate-limited requests
+          const retryAfter = response.headers.get('Retry-After');
+          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
+
+          console.log(`⏳ Waiting ${waitTime}ms before retrying...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+
+          return {
+            success: false,
+            message: `Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`,
+            errors: ['RATE_LIMIT']
+          } as ApiResponse<T>;
+        }
+
+        // Handle validation errors
+        if (data && (Array.isArray((data as any).errors))) {
+          const errorMessages = data.errors.map((err: any) => err.msg || err.message).join(', ');
+          return {
+            success: false,
+            message: `Validation failed: ${errorMessages}`,
+            errors: data.errors
+          } as ApiResponse<T>;
+        }
+
+        // Provide clearer defaults for common auth/permission/not-found cases
+        if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
+          const defaultMessages: Record<number, string> = {
+            401: 'Authentication required. Please log in again.',
+            403: 'Access denied. You do not have permission to perform this action.',
+            404: 'Not found. The requested resource does not exist.',
+          };
+          // Prefer any raw text from server if available
+          const raw = bodyForLog && typeof bodyForLog === 'string' ? bodyForLog : '';
+          const fallback = raw.trim().length > 0
+            ? raw
+            : (defaultMessages[response.status] || `Request failed (${response.status}): ${response.statusText}`);
+          return {
+            success: false,
+            message: fallback,
+            errors: ['REQUEST_FAILED']
+          } as ApiResponse<T>;
+        }
+
+        // Handle server errors more gracefully
+        if (response.status >= 500) {
+          return {
+            success: false,
+            message: `Server error (${response.status}): ${data?.message || response.statusText}. Please try again later.`,
+            errors: ['SERVER_ERROR']
+          } as ApiResponse<T>;
+        }
+
         return {
           success: false,
-          message: `Rate limit exceeded. Please wait ${Math.ceil(waitTime/1000)} seconds before trying again.`,
-          errors: ['RATE_LIMIT']
-        } as ApiResponse<T>;
-      }
-      
-      // Handle validation errors
-      if (data && (Array.isArray((data as any).errors))) {
-        const errorMessages = data.errors.map((err: any) => err.msg || err.message).join(', ');
-        return {
-          success: false,
-          message: `Validation failed: ${errorMessages}`,
-          errors: data.errors
-        } as ApiResponse<T>;
-      }
-      
-      // Provide clearer defaults for common auth/permission/not-found cases
-      if (!data || typeof data !== 'object' || Object.keys(data).length === 0) {
-        const defaultMessages: Record<number, string> = {
-          401: 'Authentication required. Please log in again.',
-          403: 'Access denied. You do not have permission to perform this action.',
-          404: 'Not found. The requested resource does not exist.',
-        };
-        // Prefer any raw text from server if available
-        const raw = bodyForLog && typeof bodyForLog === 'string' ? bodyForLog : '';
-        const fallback = raw.trim().length > 0
-          ? raw
-          : (defaultMessages[response.status] || `Request failed (${response.status}): ${response.statusText}`);
-        return {
-          success: false,
-          message: fallback,
+          message: (data && (data.message || data.error || (Array.isArray(data.errors) ? data.errors[0]?.msg : undefined))) || `Request failed (${response.status}): ${response.statusText}`,
           errors: ['REQUEST_FAILED']
         } as ApiResponse<T>;
       }
 
-      // Handle server errors more gracefully
-      if (response.status >= 500) {
-        return {
-          success: false,
-          message: `Server error (${response.status}): ${data?.message || response.statusText}. Please try again later.`,
-          errors: ['SERVER_ERROR']
-        } as ApiResponse<T>;
-      }
-      
-      return {
-        success: false,
-        message: (data && (data.message || data.error || (Array.isArray(data.errors) ? data.errors[0]?.msg : undefined))) || `Request failed (${response.status}): ${response.statusText}`,
-        errors: ['REQUEST_FAILED']
-      } as ApiResponse<T>;
-    }
-
       console.log('✅ handleResponse - Success:', data)
-      
+
       // Ensure consistent response structure
       if (data && typeof data === 'object') {
         // If data doesn't have success property, wrap it
@@ -876,7 +910,7 @@ class ApiService {
           } as ApiResponse<T>
         }
       }
-      
+
       return data as ApiResponse<T>
     } catch (error) {
       console.log('❌ handleResponse - Unexpected error caught:', error);
@@ -900,7 +934,7 @@ class ApiService {
     });
 
     const result = await this.handleResponse<AuthResponse>(response);
-    
+
     if (result.success && result.data?.token) {
       localStorage.setItem('token', result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
@@ -1051,7 +1085,7 @@ class ApiService {
     });
 
     const result = await this.handleResponse<AuthResponse>(response);
-    
+
     if (result.success && result.data?.token) {
       localStorage.setItem('token', result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
@@ -1098,7 +1132,7 @@ class ApiService {
       console.log('🔍 API Service - Profile update response status:', response.status);
       const result = await this.handleResponse<{ user: User }>(response);
       console.log('🔍 API Service - Profile update result:', result);
-      
+
       if (result.success && result.data?.user) {
         localStorage.setItem('user', JSON.stringify(result.data.user));
       }
@@ -1228,7 +1262,7 @@ class ApiService {
       console.log('🔍 API Service - Job preferences update response status:', response.status);
       const result = await this.handleResponse(response);
       console.log('🔍 API Service - Job preferences update result:', result);
-      
+
       return result;
     } catch (error) {
       console.error('❌ API Service - updateJobPreferences error:', error);
@@ -1259,7 +1293,7 @@ class ApiService {
       if (params?.unread) {
         queryParams.append('unread', 'true');
       }
-      
+
       const url = `${API_BASE_URL}/user/notifications${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await fetch(url, {
         method: 'GET',
@@ -1310,7 +1344,7 @@ class ApiService {
     return this.handleResponse<any[]>(response);
   }
 
-  
+
 
   async joinCompany(companyId: string): Promise<ApiResponse<any>> {
     const response = await fetch(`${API_BASE_URL}/companies/join`, {
@@ -1327,7 +1361,7 @@ class ApiService {
   async checkClaimableCompanies(companyName: string): Promise<ApiResponse<any>> {
     const sp = new URLSearchParams();
     sp.append('companyName', companyName);
-    
+
     const response = await fetch(`${API_BASE_URL}/companies/check-claimable?${sp.toString()}`);
     return this.handleResponse<any>(response);
   }
@@ -1493,7 +1527,7 @@ class ApiService {
   }
 
   // ========== AGENCY METHODS ==========
-  
+
   /**
    * Get agency KYC verification status
    */
@@ -1512,7 +1546,7 @@ class ApiService {
       'Authorization': `Bearer ${this.authToken}`
     };
     // Don't set Content-Type for FormData - browser will set it automatically with boundary
-    
+
     const response = await fetch(`${API_BASE_URL}/agency/kyc/upload`, {
       method: 'POST',
       headers,
@@ -1557,7 +1591,7 @@ class ApiService {
   async searchCompanies(searchTerm: string): Promise<ApiResponse<any[]>> {
     const sp = new URLSearchParams();
     sp.append('search', searchTerm);
-    
+
     const response = await fetch(`${API_BASE_URL}/agency/companies/search?${sp.toString()}`, {
       headers: this.getAuthHeaders(),
     });
@@ -1646,7 +1680,7 @@ class ApiService {
       'Authorization': `Bearer ${this.authToken}`
     };
     // Don't set Content-Type for FormData
-    
+
     const response = await fetch(`${API_BASE_URL}/agency/clients/add`, {
       method: 'POST',
       headers,
@@ -1667,7 +1701,7 @@ class ApiService {
     if (params?.search) sp.append('search', params.search);
     if (params?.limit) sp.append('limit', String(params.limit));
     if (params?.offset) sp.append('offset', String(params.offset));
-    
+
     const response = await fetch(`${API_BASE_URL}/admin/agency-verifications${sp.toString() ? `?${sp.toString()}` : ''}`, {
       headers: this.getAuthHeaders(),
     });
@@ -1767,19 +1801,19 @@ class ApiService {
     try {
       const query = params
         ? '?' + Object.entries(params)
-            .filter(([, v]) => v !== undefined && v !== null && v !== '')
-            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-            .join('&')
+          .filter(([, v]) => v !== undefined && v !== null && v !== '')
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+          .join('&')
         : '';
-      
+
       console.log('🔍 Fetching jobs from:', `${API_BASE_URL}/jobs${query}`);
-      
+
       const response = await fetch(`${API_BASE_URL}/jobs${query}`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       console.log('🔍 Jobs API response status:', response.status);
-      
+
       return this.handleResponse<any>(response);
     } catch (error) {
       console.error('❌ Error in getJobs:', error);
@@ -1805,9 +1839,9 @@ class ApiService {
           'Content-Type': 'application/json',
         },
       });
-      
+
       console.log('📋 Public job API response status:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         console.error('❌ Public job API failed:', response.status, response.statusText);
         return {
@@ -1816,10 +1850,10 @@ class ApiService {
           errors: ['API_ERROR']
         };
       }
-      
+
       const data = await response.json();
       console.log('📋 Public job API data:', data);
-      
+
       return {
         success: true,
         data: data.data || data,
@@ -1839,12 +1873,12 @@ class ApiService {
     const finalCompanyId = companyId || this.getCompanyFromStorage()?.id || this.getCurrentUserFromStorage()?.companyId || '';
     const query = params
       ? '?' + Object.entries(params)
-          .filter(([, v]) => v !== undefined && v !== null && v !== '')
-          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-          .join('&')
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
       : '';
     const endpoint = `/companies/${finalCompanyId}/jobs${query}`;
-    
+
     return this.makeRequest(endpoint, async () => {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         headers: this.getAuthHeaders(),
@@ -1929,7 +1963,7 @@ class ApiService {
     if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
 
     const endpoint = `/jobs/employer/manage-jobs${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    
+
     return this.makeRequest(endpoint, async () => {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
         method: 'GET',
@@ -2052,12 +2086,12 @@ class ApiService {
   // OAuth methods
   async getOAuthUrls(userType: 'jobseeker' | 'employer' = 'jobseeker', state?: string): Promise<ApiResponse<{ google: string; facebook: string }>> {
     console.log('🔍 Getting OAuth URLs for userType:', userType, 'state:', state);
-    
+
     let url = `${API_BASE_URL}/oauth/urls?userType=${userType}`;
     if (state) {
       url += `&state=${state}`;
     }
-    
+
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -2066,19 +2100,19 @@ class ApiService {
 
     const result = await this.handleResponse<{ google: string; facebook: string }>(response);
     console.log('✅ OAuth URLs received:', result.data);
-    
+
     return result;
   }
 
   async handleOAuthCallback(token: string): Promise<ApiResponse<{ user: User }>> {
     console.log('🔍 Handling OAuth callback with token:', token ? 'present' : 'missing');
-    
+
     // Store the token temporarily
     localStorage.setItem('token', token);
-    
+
     // Get user data
     const response = await this.getCurrentUser();
-    
+
     if (response.success && response.data?.user) {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       console.log('✅ OAuth callback - User data stored:', {
@@ -2086,7 +2120,7 @@ class ApiService {
         email: response.data.user.email,
         userType: response.data.user.userType
       });
-      
+
       // If user is an employer, get company information
       if (response.data.user.userType === 'employer' && response.data.user.companyId) {
         const companyResponse = await this.getCompany(response.data.user.companyId);
@@ -2096,7 +2130,7 @@ class ApiService {
         }
       }
     }
-    
+
     return response;
   }
 
@@ -2147,7 +2181,7 @@ class ApiService {
             data: json,
           } as any;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     if (result.success && result.data?.token) {
       localStorage.setItem('token', result.data.token);
@@ -2186,7 +2220,7 @@ class ApiService {
       });
 
       console.log('📋 Debug applications API response status:', response.status, response.statusText);
-      
+
       return await this.handleResponse<any[]>(response);
     } catch (error) {
       console.error('❌ Debug applications error:', error);
@@ -2221,7 +2255,7 @@ class ApiService {
       });
 
       console.log('📋 Employer applications API response status:', response.status, response.statusText);
-      
+
       // Use the standard handleResponse method for consistency
       return await this.handleResponse<any[]>(response);
     } catch (error) {
@@ -2299,7 +2333,7 @@ class ApiService {
       status,
       url: `${API_BASE_URL}/user/employer/applications/${applicationId}/status`
     });
-    
+
     // Use the employer endpoint for updating application status
     const response = await fetch(`${API_BASE_URL}/user/employer/applications/${applicationId}/status`, {
       method: 'PUT',
@@ -2363,7 +2397,7 @@ class ApiService {
     console.log('🔍 createJobAlert - Sending data:', data);
     console.log('🔍 createJobAlert - Headers:', this.getAuthHeaders());
     console.log('🔍 createJobAlert - API URL:', `${API_BASE_URL}/job-alerts`);
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/job-alerts`, {
         method: 'POST',
@@ -2375,11 +2409,11 @@ class ApiService {
       console.log('🔍 createJobAlert - Response statusText:', response.statusText);
       console.log('🔍 createJobAlert - Response headers:', response.headers);
       console.log('🔍 createJobAlert - Response ok:', response.ok);
-      
+
       // Log the raw response text for debugging
       const responseText = await response.text();
       console.log('🔍 createJobAlert - Raw response text:', responseText);
-      
+
       // Try to parse as JSON if possible
       let responseData;
       try {
@@ -2389,14 +2423,14 @@ class ApiService {
         console.error('❌ createJobAlert - Failed to parse response as JSON:', parseError);
         console.log('🔍 createJobAlert - Response was not valid JSON');
       }
-      
+
       // Create a new response object with the parsed data
       const newResponse = new Response(responseText, {
         status: response.status,
         statusText: response.statusText,
         headers: response.headers
       });
-      
+
       return this.handleResponse<JobAlert>(newResponse);
     } catch (fetchError) {
       console.error('❌ createJobAlert - Fetch error:', fetchError);
@@ -2447,7 +2481,7 @@ class ApiService {
     } catch (error) {
       // Fallback to localStorage if API is not available
       console.warn('API not available, using localStorage fallback for bookmarks');
-      
+
       const user = this.getCurrentUserFromStorage();
       if (!user) {
         return {
@@ -2484,22 +2518,22 @@ class ApiService {
     } catch (error) {
       // Fallback to localStorage if API is not available
       console.warn('API not available, using localStorage fallback for bookmarks');
-      
+
       const user = this.getCurrentUserFromStorage();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-             const bookmark: JobBookmark = {
-         id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-         userId: user.id,
-         jobId: data.jobId || '',
-         folder: data.folder || 'Saved Jobs',
-         notes: data.notes || '',
-         priority: data.priority || 'medium',
-         isApplied: false,
-         createdAt: new Date().toISOString(),
-       };
+      const bookmark: JobBookmark = {
+        id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        userId: user.id,
+        jobId: data.jobId || '',
+        folder: data.folder || 'Saved Jobs',
+        notes: data.notes || '',
+        priority: data.priority || 'medium',
+        isApplied: false,
+        createdAt: new Date().toISOString(),
+      };
 
       // Store in localStorage
       const existingBookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
@@ -2530,14 +2564,14 @@ class ApiService {
     } catch (error) {
       // Fallback to localStorage if API is not available
       console.warn('API not available, using localStorage fallback for bookmark update');
-      
+
       const user = this.getCurrentUserFromStorage();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
       const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
-      const bookmarkIndex = bookmarks.findIndex((bookmark: JobBookmark) => 
+      const bookmarkIndex = bookmarks.findIndex((bookmark: JobBookmark) =>
         bookmark.id === id && bookmark.userId === user.id
       );
 
@@ -2578,14 +2612,14 @@ class ApiService {
     } catch (error) {
       // Fallback to localStorage if API is not available
       console.warn('API not available, using localStorage fallback for bookmark deletion');
-      
+
       const user = this.getCurrentUserFromStorage();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
       const bookmarks = JSON.parse(localStorage.getItem('bookmarks') || '[]');
-      const updatedBookmarks = bookmarks.filter((bookmark: JobBookmark) => 
+      const updatedBookmarks = bookmarks.filter((bookmark: JobBookmark) =>
         bookmark.id !== id && bookmark.userId === user.id
       );
       localStorage.setItem('bookmarks', JSON.stringify(updatedBookmarks));
@@ -2740,7 +2774,7 @@ class ApiService {
     const token = this.authToken || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
     const url = `${API_BASE_URL}/requirements/${requirementId}/candidates/${candidateId}/resume/${resumeId}/download`;
     const urlWithToken = token ? `${url}?token=${encodeURIComponent(token)}` : url;
-    
+
     const response = await fetch(urlWithToken, {
       headers: this.getAuthHeaders(),
     });
@@ -2755,7 +2789,7 @@ class ApiService {
   // View resume from application (increment view count and log activity)
   async viewApplicationResume(applicationId: string): Promise<any> {
     const url = `${API_BASE_URL}/user/employer/applications/${applicationId}/resume/view`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: this.getAuthHeaders(),
@@ -2771,7 +2805,7 @@ class ApiService {
   // View resume from requirements (increment view count and log activity)
   async viewRequirementResume(requirementId: string, candidateId: string, resumeId: string): Promise<any> {
     const url = `${API_BASE_URL}/requirements/${requirementId}/candidates/${candidateId}/resume/${resumeId}/view`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: this.getAuthHeaders(),
@@ -2787,7 +2821,7 @@ class ApiService {
   // Download resume from application (for employer applications page)
   async downloadApplicationResume(resumeId: string, applicationId?: string): Promise<Response> {
     let url: string;
-    
+
     if (applicationId) {
       // Use the new employer endpoint that requires application ID
       url = `${API_BASE_URL}/user/employer/applications/${applicationId}/resume/download`;
@@ -2795,7 +2829,7 @@ class ApiService {
       // Fallback to the old endpoint (for backward compatibility)
       url = `${API_BASE_URL}/user/resumes/${resumeId}/download`;
     }
-    
+
     const response = await fetch(url, {
       headers: this.getAuthHeaders(),
     });
@@ -2943,7 +2977,7 @@ class ApiService {
       });
 
       console.log('📊 Dashboard stats API response status:', response.status, response.statusText);
-      
+
       return await this.handleResponse<DashboardStats>(response);
     } catch (error) {
       console.error('❌ Error fetching dashboard stats:', error);
@@ -2964,7 +2998,7 @@ class ApiService {
       });
 
       console.log('📊 Employer dashboard stats API response status:', response.status, response.statusText);
-      
+
       return await this.handleResponse<any>(response);
     } catch (error) {
       console.error('❌ Error fetching employer dashboard stats:', error);
@@ -3853,11 +3887,11 @@ class ApiService {
       const queryParams = new URLSearchParams();
       queryParams.append('page', page.toString());
       queryParams.append('limit', limit.toString());
-      
+
       if (params?.unread) {
         queryParams.append('unread', 'true');
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/user/employer/notifications?${queryParams.toString()}`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
@@ -4020,7 +4054,7 @@ class ApiService {
     if (status) params.append('status', status);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
-    
+
     const response = await fetch(`${API_BASE_URL}/interviews/employer?${params}`, {
       headers: this.getAuthHeaders(),
     });
@@ -4032,7 +4066,7 @@ class ApiService {
     if (status) params.append('status', status);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
-    
+
     const response = await fetch(`${API_BASE_URL}/interviews/candidate?${params}`, {
       headers: this.getAuthHeaders(),
     });
@@ -4352,7 +4386,7 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
     // Don't set Content-Type - let browser set it automatically with boundary
-    
+
     const response = await fetch(`${API_BASE_URL}/bulk-import`, {
       method: 'POST',
       headers: headers,
@@ -4389,7 +4423,7 @@ class ApiService {
     if (params?.userType) queryParams.append('userType', params.userType);
     if (params?.status) queryParams.append('status', params.status);
     if (params?.region) queryParams.append('region', params.region);
-    
+
     return this.get(`/admin/users?${queryParams.toString()}`);
   }
 
@@ -4406,7 +4440,7 @@ class ApiService {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.userType) queryParams.append('userType', params.userType);
     if (params?.status) queryParams.append('status', params.status);
-    
+
     return this.get(`/admin/users/region/${region}?${queryParams.toString()}`);
   }
 
@@ -4423,7 +4457,7 @@ class ApiService {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.userType) queryParams.append('userType', params.userType);
     if (params?.status) queryParams.append('status', params.status);
-    
+
     return this.get(`/admin/users/portal/${portal}?${queryParams.toString()}`);
   }
 
@@ -4444,16 +4478,16 @@ class ApiService {
     if (params?.userType) queryParams.append('userType', params.userType);
     if (params?.status) queryParams.append('status', params.status);
     if (params?.region) queryParams.append('region', params.region);
-    
+
     const response = await fetch(`${API_BASE_URL}/admin/users/export?${queryParams.toString()}`, {
       method: 'GET',
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to export users');
     }
-    
+
     const csvData = await response.text();
     return { success: true, message: 'Export successful', data: csvData };
   }
@@ -4473,7 +4507,7 @@ class ApiService {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.region) queryParams.append('region', params.region);
     if (params?.verification) queryParams.append('verification', params.verification);
-    
+
     return this.get(`/admin/companies?${queryParams.toString()}`);
   }
 
@@ -4490,7 +4524,7 @@ class ApiService {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.status) queryParams.append('status', params.status);
     if (params?.verification) queryParams.append('verification', params.verification);
-    
+
     return this.get(`/admin/companies/region/${region}?${queryParams.toString()}`);
   }
 
@@ -4515,16 +4549,16 @@ class ApiService {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.region) queryParams.append('region', params.region);
     if (params?.verification) queryParams.append('verification', params.verification);
-    
+
     const response = await fetch(`${API_BASE_URL}/admin/companies/export?${queryParams.toString()}`, {
       method: 'GET',
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to export companies');
     }
-    
+
     const csvData = await response.text();
     return { success: true, message: 'Export successful', data: csvData };
   }
@@ -4544,7 +4578,7 @@ class ApiService {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.region) queryParams.append('region', params.region);
     if (params?.jobType) queryParams.append('jobType', params.jobType);
-    
+
     return this.get(`/admin/jobs?${queryParams.toString()}`);
   }
 
@@ -4561,7 +4595,7 @@ class ApiService {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.status) queryParams.append('status', params.status);
     if (params?.jobType) queryParams.append('jobType', params.jobType);
-    
+
     return this.get(`/admin/jobs/region/${region}?${queryParams.toString()}`);
   }
 
@@ -4575,16 +4609,16 @@ class ApiService {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.region) queryParams.append('region', params.region);
     if (params?.jobType) queryParams.append('jobType', params.jobType);
-    
+
     const response = await fetch(`${API_BASE_URL}/admin/jobs/export?${queryParams.toString()}`, {
       method: 'GET',
       headers: this.getHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to export jobs');
     }
-    
+
     const csvData = await response.text();
     return { success: true, message: 'Export successful', data: csvData };
   }
@@ -4602,18 +4636,18 @@ class ApiService {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to download template');
     }
-    
+
     return response.blob();
   }
 
   async deleteBulkImport(importId: string, deleteJobs: boolean = false): Promise<ApiResponse> {
     const queryParams = new URLSearchParams();
     if (deleteJobs) queryParams.append('deleteJobs', 'true');
-    
+
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     const response = await fetch(`${API_BASE_URL}/bulk-import/${importId}${query}`, {
       method: 'DELETE',
@@ -4625,7 +4659,7 @@ class ApiService {
   async deleteAllBulkImports(deleteJobs: boolean = false): Promise<ApiResponse> {
     const queryParams = new URLSearchParams();
     if (deleteJobs) queryParams.append('deleteJobs', 'true');
-    
+
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     const response = await fetch(`${API_BASE_URL}/bulk-import${query}`, {
       method: 'DELETE',
@@ -4666,11 +4700,11 @@ class ApiService {
   async getHotVacancies(params?: Record<string, string | number | boolean | undefined>): Promise<ApiResponse<any>> {
     const query = params
       ? '?' + Object.entries(params)
-          .filter(([, v]) => v !== undefined && v !== null && v !== '')
-          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-          .join('&')
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
       : '';
-    
+
     return this.makeRequest(`/hot-vacancies${query}`, async () => {
       const response = await fetch(`${this.baseURL}/hot-vacancies${query}`, {
         headers: this.getAuthHeaders(),
@@ -4713,11 +4747,11 @@ class ApiService {
   async getPublicHotVacancies(params?: Record<string, string | number | boolean | undefined>): Promise<ApiResponse<any>> {
     const query = params
       ? '?' + Object.entries(params)
-          .filter(([, v]) => v !== undefined && v !== null && v !== '')
-          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
-          .join('&')
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&')
       : '';
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/hot-vacancies/public${query}`, {
         headers: {
@@ -4789,7 +4823,7 @@ class ApiService {
     if (params?.priority) queryParams.append('priority', params.priority);
     if (params?.isRead !== undefined) queryParams.append('isRead', params.isRead.toString());
     if (params?.type) queryParams.append('type', params.type);
-    
+
     return this.get(`/admin/notifications?${queryParams.toString()}`);
   }
 
@@ -4871,12 +4905,12 @@ class ApiService {
   }
 
   // Get support messages (admin only)
-  async getSupportMessages(params?: { 
-    page?: number; 
-    limit?: number; 
-    status?: string; 
-    category?: string; 
-    priority?: string; 
+  async getSupportMessages(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    category?: string;
+    priority?: string;
   }): Promise<ApiResponse<any[]>> {
     try {
       const queryParams = new URLSearchParams();
@@ -4885,7 +4919,7 @@ class ApiService {
       if (params?.status) queryParams.append('status', params.status);
       if (params?.category) queryParams.append('category', params.category);
       if (params?.priority) queryParams.append('priority', params.priority);
-      
+
       const url = `${API_BASE_URL}/support/messages${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await fetch(url, {
         method: 'GET',
@@ -4980,14 +5014,23 @@ class ApiService {
     return response.json();
   }
 
+  async sendOTPForRegion(email: string, region: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/send-otp-region`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, region })
+    });
+    return response.json();
+  }
+
   // ========== JOB TEMPLATES API ==========
-  
+
   async getJobTemplates(params?: { category?: string; search?: string; isPublic?: boolean }): Promise<ApiResponse<JobTemplate[]>> {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.append('category', params.category);
     if (params?.search) queryParams.append('search', params.search);
     if (params?.isPublic !== undefined) queryParams.append('isPublic', params.isPublic.toString());
-    
+
     const response = await fetch(`${API_BASE_URL}/job-templates?${queryParams.toString()}`, {
       method: 'GET',
       headers: this.getAuthHeaders(),

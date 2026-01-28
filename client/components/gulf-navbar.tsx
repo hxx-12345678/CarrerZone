@@ -8,11 +8,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { 
-  Menu, 
-  X, 
-  User, 
-  LogOut, 
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
   Settings,
   Search,
   Globe,
@@ -33,21 +33,21 @@ export default function GulfNavbar() {
   const [showRegisterDialog, setShowRegisterDialog] = useState(false)
   const [showExistingUserDialog, setShowExistingUserDialog] = useState(false)
   const [loginData, setLoginData] = useState({ email: '', password: '' })
-  const [registerData, setRegisterData] = useState({ 
-    fullName: '', 
-    email: '', 
-    password: '', 
+  const [registerData, setRegisterData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
     confirmPassword: '',
     phone: '',
     experience: '',
     agreeToTerms: false,
     subscribeNewsletter: false
   })
-  const [existingUserData, setExistingUserData] = useState({ 
-    userId: '', 
-    firstName: '', 
-    email: '', 
-    confirmPassword: '', 
+  const [existingUserData, setExistingUserData] = useState({
+    userId: '',
+    firstName: '',
+    email: '',
+    confirmPassword: '',
     otp: '',
     showOTPForm: false
   })
@@ -64,7 +64,7 @@ export default function GulfNavbar() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-  
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
@@ -90,7 +90,7 @@ export default function GulfNavbar() {
       window.removeEventListener('gulf-auth:open-register', handleOpenRegister)
     }
   }, [])
-  
+
 
   const handleLogout = async () => {
     try {
@@ -119,10 +119,10 @@ export default function GulfNavbar() {
           loginData.password,
           'gulf'
         )
-        
+
         if (checkResponse.success && checkResponse.userExists) {
           const userData = checkResponse.data?.data || checkResponse.data
-          
+
           // Check if user is not already a gulf user
           if (!(userData.regions?.includes('gulf') || userData.region === 'gulf')) {
             // This is a normal user wanting to upgrade - show upgrade dialog
@@ -131,7 +131,8 @@ export default function GulfNavbar() {
               firstName: userData.firstName || '',
               email: userData.email || '',
               confirmPassword: '',
-              otp: ''
+              otp: '',
+              showOTPForm: false
             })
             setShowLoginDialog(false)
             setShowExistingUserDialog(true)
@@ -179,10 +180,10 @@ export default function GulfNavbar() {
       await signup({ ...registerData, region: 'gulf' })
       toast.success("Account created successfully! Welcome to Gulf Jobs!")
       setShowRegisterDialog(false)
-      setRegisterData({ 
-        fullName: '', 
-        email: '', 
-        password: '', 
+      setRegisterData({
+        fullName: '',
+        email: '',
+        password: '',
         confirmPassword: '',
         phone: '',
         experience: '',
@@ -191,25 +192,25 @@ export default function GulfNavbar() {
       })
     } catch (error: any) {
       console.error("Registration error:", error)
-      
+
       // Handle cross-portal registration
       if (error.message && error.message.includes('already exists')) {
         // User exists in another portal - check for cross-portal registration
         console.log('🔍 User exists, checking for cross-portal registration...')
-        
+
         try {
           const checkResponse = await apiService.checkExistingUser(
             registerData.email,
             registerData.password,
             'gulf'
           )
-          
+
           console.log('🔍 checkResponse structure:', {
             success: checkResponse.success,
             userExists: checkResponse.userExists,
             data: checkResponse.data
           })
-          
+
           if (checkResponse.success && checkResponse.userExists) {
             // Show dialog to verify OTP
             const userData = checkResponse.data?.data || checkResponse.data
@@ -219,12 +220,13 @@ export default function GulfNavbar() {
               firstName: userData.firstName,
               email: userData.email,
               confirmPassword: '',
-              otp: ''
+              otp: '',
+              showOTPForm: false
             })
             console.log('🔍 Closing register dialog and opening existing user dialog')
             setShowRegisterDialog(false)
             setShowExistingUserDialog(true)
-            
+
             console.log('🔍 Dialog state updated, sending toast')
             toast.success("Password verified! OTP sent to your email.")
             return
@@ -238,7 +240,7 @@ export default function GulfNavbar() {
           toast.error(checkError.message || 'Failed to verify user. Please try again.')
           return
         }
-        
+
         toast.error("An account with this email already exists")
       } else {
         toast.error(error.message || "Registration failed. Please try again.")
@@ -247,26 +249,26 @@ export default function GulfNavbar() {
       setIsRegistering(false)
     }
   }
-  
+
   // Handle OTP verification for existing users
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsVerifyingOTP(true)
-    
+
     try {
       const response = await apiService.verifyOTPAndRegister(
         existingUserData.userId,
         existingUserData.otp,
         'gulf'
       )
-      
+
       if (response.success) {
         console.log('✅ Cross-portal registration successful')
         toast.success("Successfully registered for Gulf portal! Logging you in...")
-        
+
         // Close dialog
         setShowExistingUserDialog(false)
-        
+
         // Refresh user data
         window.location.reload()
       } else {
@@ -281,11 +283,10 @@ export default function GulfNavbar() {
   }
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled 
-        ? 'bg-gradient-to-r from-yellow-500 via-green-500 to-yellow-600 shadow-lg backdrop-blur-sm' 
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+        ? 'bg-gradient-to-r from-yellow-500 via-green-500 to-yellow-600 shadow-lg backdrop-blur-sm'
         : 'bg-gradient-to-r from-yellow-400 via-green-400 to-yellow-500'
-    }`}>
+      }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -298,28 +299,28 @@ export default function GulfNavbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link 
-              href="/gulf-jobs" 
+            <Link
+              href="/gulf-jobs"
               className="text-white hover:text-green-100 transition-colors font-medium"
             >
               Jobs
             </Link>
-            <Link 
-              href="/gulf-companies" 
+            <Link
+              href="/gulf-companies"
               className="text-white hover:text-green-100 transition-colors font-medium"
             >
               Companies
             </Link>
-            <Link 
-              href="/gulf-opportunities" 
+            <Link
+              href="/gulf-opportunities"
               className="text-white hover:text-green-100 transition-colors font-medium"
             >
               Opportunities
             </Link>
             {/* Show dashboard link only for gulf users */}
             {user && (user.regions?.includes('gulf') || user.region === 'gulf') ? (
-              <Link 
-                href="/jobseeker-gulf-dashboard" 
+              <Link
+                href="/jobseeker-gulf-dashboard"
                 className="text-white hover:text-green-100 transition-colors font-medium"
               >
                 Gulf Dashboard
@@ -390,22 +391,22 @@ export default function GulfNavbar() {
         {isMenuOpen && (
           <div className="md:hidden bg-white/95 backdrop-blur-sm rounded-lg mt-2 p-4 shadow-lg">
             <div className="flex flex-col space-y-4">
-              <Link 
-                href="/gulf-jobs" 
+              <Link
+                href="/gulf-jobs"
                 className="text-gray-700 hover:text-green-600 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Jobs
               </Link>
-              <Link 
-                href="/gulf-companies" 
+              <Link
+                href="/gulf-companies"
                 className="text-gray-700 hover:text-green-600 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Companies
               </Link>
-              <Link 
-                href="/gulf-opportunities" 
+              <Link
+                href="/gulf-opportunities"
                 className="text-gray-700 hover:text-green-600 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
@@ -413,15 +414,15 @@ export default function GulfNavbar() {
               </Link>
               {/* Show dashboard link only for gulf users */}
               {user && (user.regions?.includes('gulf') || user.region === 'gulf') ? (
-                <Link 
-                  href="/jobseeker-gulf-dashboard" 
+                <Link
+                  href="/jobseeker-gulf-dashboard"
                   className="text-gray-700 hover:text-green-600 transition-colors font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Gulf Dashboard
                 </Link>
               ) : null}
-              
+
               <div className="border-t pt-4">
                 {user && (user.regions?.includes('gulf') || user.region === 'gulf') ? (
                   // Show user menu only for gulf users
@@ -488,7 +489,7 @@ export default function GulfNavbar() {
               Access your Gulf career opportunities
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -496,26 +497,26 @@ export default function GulfNavbar() {
                 id="email"
                 type="email"
                 value={loginData.email}
-                onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                 placeholder="Enter your email"
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
                 value={loginData.password}
-                onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                 placeholder="Enter your password"
                 required
               />
             </div>
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="w-full bg-green-600 hover:bg-green-700"
               disabled={isLoggingIn}
             >
@@ -529,7 +530,7 @@ export default function GulfNavbar() {
               )}
             </Button>
           </form>
-          
+
           <div className="text-center">
             <p className="text-sm text-slate-600">
               Don't have an account?{' '}
@@ -559,60 +560,60 @@ export default function GulfNavbar() {
               Start your Gulf career journey
             </DialogDescription>
           </DialogHeader>
-          
+
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
               <Input
                 id="fullName"
                 value={registerData.fullName}
-                onChange={(e) => setRegisterData({...registerData, fullName: e.target.value})}
+                onChange={(e) => setRegisterData({ ...registerData, fullName: e.target.value })}
                 placeholder="Enter your full name"
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
                 value={registerData.email}
-                onChange={(e) => setRegisterData({...registerData, email: e.target.value})}
+                onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                 placeholder="Enter your email"
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password *</Label>
               <Input
                 id="password"
                 type="password"
                 value={registerData.password}
-                onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
+                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                 placeholder="Create a password"
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 value={registerData.confirmPassword}
-                onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
+                onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
                 placeholder="Confirm your password"
                 required
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="agreeToTerms"
                 checked={registerData.agreeToTerms}
-                onCheckedChange={(checked) => setRegisterData({...registerData, agreeToTerms: !!checked})}
+                onCheckedChange={(checked) => setRegisterData({ ...registerData, agreeToTerms: !!checked })}
               />
               <Label htmlFor="agreeToTerms" className="text-sm">
                 I agree to the{' '}
@@ -625,9 +626,9 @@ export default function GulfNavbar() {
                 </Link>
               </Label>
             </div>
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               className="w-full bg-green-600 hover:bg-green-700"
               disabled={isRegistering}
             >
@@ -641,7 +642,7 @@ export default function GulfNavbar() {
               )}
             </Button>
           </form>
-          
+
           <div className="text-center">
             <p className="text-sm text-slate-600">
               Already have an account?{' '}
@@ -659,7 +660,7 @@ export default function GulfNavbar() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Existing User Verification Dialog */}
       <Dialog open={showExistingUserDialog} onOpenChange={setShowExistingUserDialog}>
         <DialogContent className="sm:max-w-[500px]">
@@ -671,7 +672,7 @@ export default function GulfNavbar() {
               Your CampusZone account can also access Gulf portal. Would you like to upgrade your account?
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <p className="text-sm text-slate-700">
               <strong>Email:</strong> {existingUserData.email}
@@ -680,9 +681,9 @@ export default function GulfNavbar() {
               By clicking "Yes", you'll be able to access both CampusZone and Gulf portal with the same login credentials.
             </p>
           </div>
-          
+
           <div className="flex gap-3">
-            <Button 
+            <Button
               onClick={async () => {
                 // Yes - Register for Gulf portal
                 setIsVerifyingOTP(true)
@@ -692,7 +693,7 @@ export default function GulfNavbar() {
                     existingUserData.email,
                     'gulf'
                   );
-                  
+
                   if (response.success) {
                     toast.info("OTP sent to your email. Please verify to upgrade.");
                     // Show OTP verification form
@@ -720,8 +721,8 @@ export default function GulfNavbar() {
                 'Yes, Upgrade Account'
               )}
             </Button>
-            
-            <Button 
+
+            <Button
               onClick={() => {
                 // No - Show register dialog for new account
                 setShowExistingUserDialog(false)

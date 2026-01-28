@@ -73,19 +73,19 @@ export default function GulfJobDetailPage() {
       try {
         if (jobIdFromParams) {
           console.log('🔍 Fetching job details for ID:', jobIdFromParams)
-          
+
           // Try to fetch job data using public API method
           try {
             const res = await apiService.getGulfJobById(jobIdFromParams)
             console.log('📋 Job API response (public):', res)
-            
+
             if (res.success && res.data) {
               // Gulf job - already on Gulf page, no redirect needed
-              
+
               // Transform the job data to match the expected format
               const metadata = res.data.metadata || {};
               const isConsultancy = metadata.postingType === 'consultancy';
-              
+
               const transformedJob = {
                 id: res.data.id,
                 title: res.data.title || 'Untitled Job',
@@ -94,9 +94,9 @@ export default function GulfJobDetailPage() {
                 //   - If showHiringCompanyDetails=true: show hiring company name (the company actually hiring)
                 //   - If showHiringCompanyDetails=false: show employer's company name (the consultancy company), NOT the consultancyName
                 // For regular jobs: show the company name
-                company: isConsultancy && metadata.showHiringCompanyDetails 
+                company: isConsultancy && metadata.showHiringCompanyDetails
                   ? metadata.hiringCompany?.name || 'Hiring Company'
-                  : isConsultancy 
+                  : isConsultancy
                     ? (metadata.companyName || res.data.company?.name || res.data.employer?.companyName || 'Company Name')
                     : (metadata.companyName || res.data.company?.name || res.data.company || res.data.employer || 'Company Name'),
                 companyId: res.data.companyId || res.data.employerId || '',
@@ -119,18 +119,18 @@ export default function GulfJobDetailPage() {
                 experienceLevel: res.data.experienceLevel || res.data.experience || 'Not specified',
                 education: Array.isArray(res.data.education) ? res.data.education : (res.data.education ? [res.data.education] : []),
                 salary: res.data.salary || (res.data.salaryMin && res.data.salaryMax ? `${(res.data.salaryMin / 100000).toFixed(0)}-${(res.data.salaryMax / 100000).toFixed(0)} AED` : 'Not specified'),
-                skills: Array.isArray(res.data.skills) ? res.data.skills : (res.data.skills ? res.data.skills.split(',').map((s: string) => s.trim()) : []),
+                skills: Array.isArray(res.data.skills) ? res.data.skills : (typeof res.data.skills === 'string' ? (res.data.skills as string).split(',').map((s: string) => s.trim()) : []),
                 posted: res.data.createdAt ? new Date(res.data.createdAt).toLocaleDateString() : 'Date not available',
                 applicants: res.data.applicationsCount || 0,
                 description: res.data.description || 'No description provided',
-                requirements: Array.isArray(res.data.requirements) ? res.data.requirements : (res.data.requirements ? res.data.requirements.split('\n').filter((r: string) => r.trim()) : []),
-                benefits: Array.isArray(res.data.benefits) 
-                  ? res.data.benefits 
-                  : (res.data.benefits 
-                      ? (res.data.benefits.includes(',') 
-                          ? res.data.benefits.split(',').map((b: string) => b.trim()).filter((b: string) => b)
-                          : res.data.benefits.split('\n').filter((b: string) => b.trim()))
-                      : []),
+                requirements: Array.isArray(res.data.requirements) ? res.data.requirements : (typeof res.data.requirements === 'string' ? (res.data.requirements as string).split('\n').filter((r: string) => r.trim()) : []),
+                benefits: Array.isArray(res.data.benefits)
+                  ? res.data.benefits
+                  : (typeof res.data.benefits === 'string'
+                    ? ((res.data.benefits as string).includes(',')
+                      ? (res.data.benefits as string).split(',').map((b: string) => b.trim()).filter((b: string) => b)
+                      : (res.data.benefits as string).split('\n').filter((b: string) => b.trim()))
+                    : []),
                 type: res.data.jobType || res.data.type || 'Full-time',
                 remote: res.data.remoteWork === 'remote' || res.data.remoteWork === 'hybrid',
                 companySize: res.data.company?.companySize || res.data.company?.size || res.data.employer?.size || 'Company size not specified',
@@ -139,7 +139,7 @@ export default function GulfJobDetailPage() {
                 industry: res.data.industryType || metadata.hiringCompany?.industry || res.data.company?.industry || res.data.employer?.industry || res.data.industry || 'Industry not specified',
                 founded: res.data.company?.founded || res.data.employer?.founded || 'Founded date not available',
                 website: res.data.company?.website || res.data.employer?.website || '',
-                aboutCompany: isConsultancy && metadata.showHiringCompanyDetails 
+                aboutCompany: isConsultancy && metadata.showHiringCompanyDetails
                   ? metadata.hiringCompany?.description || 'Company description not available'
                   : res.data.company?.description || res.data.employer?.description || res.data.company?.about || res.data.employer?.about || 'Company description not available',
                 photos: res.data.photos || [],
@@ -157,21 +157,21 @@ export default function GulfJobDetailPage() {
                 validTill: res.data.validTill || res.data.valid_till || metadata.validTill || metadata.valid_till || null,
                 applicationDeadline: res.data.applicationDeadline || res.data.application_deadline || metadata.applicationDeadline || metadata.application_deadline || null
               }
-              
+
               console.log('✅ Transformed job data:', transformedJob)
               console.log('📸 Job photos for jobseeker:', res.data.photos)
               setJob(transformedJob)
-            setJobLoading(false)
-            return
+              setJobLoading(false)
+              return
             }
           } catch (fetchError) {
             console.log('❌ Direct fetch failed, trying with API service:', fetchError)
           }
-          
+
           // Fallback to API service with authentication
           const res = await apiService.getGulfJobById(jobIdFromParams)
           console.log('📋 Job API response (authenticated):', res)
-          
+
           if (isMounted && res.success && res.data) {
             // Gulf job - already on Gulf page, no redirect needed
             // Transform the job data to match the expected format
@@ -188,18 +188,18 @@ export default function GulfJobDetailPage() {
               experienceLevel: res.data.experienceLevel || res.data.experience || 'Not specified',
               education: Array.isArray(res.data.education) ? res.data.education : (res.data.education ? [res.data.education] : []),
               salary: res.data.salary || (res.data.salaryMin && res.data.salaryMax ? `${(res.data.salaryMin / 100000).toFixed(0)}-${(res.data.salaryMax / 100000).toFixed(0)} AED` : 'Not specified'),
-              skills: Array.isArray(res.data.skills) ? res.data.skills : (res.data.skills ? res.data.skills.split(',').map((s: string) => s.trim()) : []),
+              skills: Array.isArray(res.data.skills) ? res.data.skills : (typeof res.data.skills === 'string' ? (res.data.skills as string).split(',').map((s: string) => s.trim()) : []),
               posted: res.data.createdAt ? new Date(res.data.createdAt).toLocaleDateString() : 'Date not available',
               applicants: res.data.applicationsCount || 0,
               description: res.data.description || 'No description provided',
-              requirements: Array.isArray(res.data.requirements) ? res.data.requirements : (res.data.requirements ? res.data.requirements.split('\n').filter((r: string) => r.trim()) : []),
-              benefits: Array.isArray(res.data.benefits) 
-                ? res.data.benefits 
-                : (res.data.benefits 
-                    ? (res.data.benefits.includes(',') 
-                        ? res.data.benefits.split(',').map((b: string) => b.trim()).filter((b: string) => b)
-                        : res.data.benefits.split('\n').filter((b: string) => b.trim()))
-                    : []),
+              requirements: Array.isArray(res.data.requirements) ? res.data.requirements : (typeof res.data.requirements === 'string' ? (res.data.requirements as string).split('\n').filter((r: string) => r.trim()) : []),
+              benefits: Array.isArray(res.data.benefits)
+                ? res.data.benefits
+                : (typeof res.data.benefits === 'string'
+                  ? ((res.data.benefits as string).includes(',')
+                    ? (res.data.benefits as string).split(',').map((b: string) => b.trim()).filter((b: string) => b)
+                    : (res.data.benefits as string).split('\n').filter((b: string) => b.trim()))
+                  : []),
               type: res.data.jobType || res.data.type || 'Full-time',
               remote: res.data.remoteWork === 'remote' || res.data.remoteWork === 'hybrid',
               department: res.data.department || 'Department not specified',
@@ -231,7 +231,7 @@ export default function GulfJobDetailPage() {
               validTill: res.data.validTill || res.data.valid_till || null,
               applicationDeadline: res.data.applicationDeadline || res.data.application_deadline || null
             }
-            
+
             console.log('✅ Transformed job data (fallback):', transformedJob)
             console.log('📸 Job photos for jobseeker (fallback):', res.data.photos)
             setJob(transformedJob)
@@ -312,7 +312,7 @@ export default function GulfJobDetailPage() {
 
       if (isMounted) {
         if (fallback) {
-        setJob(fallback)
+          setJob(fallback)
         } else {
           setJob(null)
         }
@@ -328,48 +328,48 @@ export default function GulfJobDetailPage() {
   useEffect(() => {
     let isMounted = true
     let timeoutId: NodeJS.Timeout | null = null
-    
+
     const loadSimilarJobs = async () => {
       if (!jobIdFromParams || !job) return
-      
+
       setSimilarJobsLoading(true)
       setSimilarJobs([]) // Clear previous results
-      
+
       try {
         console.log('🔍 Fetching similar jobs for:', jobIdFromParams)
-        
+
         // Add timeout to prevent hanging requests
         const timeoutPromise = new Promise((_, reject) => {
           timeoutId = setTimeout(() => reject(new Error('Request timeout')), 10000)
         })
-        
+
         const apiPromise = apiService.getSimilarGulfJobs(jobIdFromParams, 3)
-        
+
         const res = await Promise.race([apiPromise, timeoutPromise])
-        
+
         if (timeoutId) {
           clearTimeout(timeoutId)
           timeoutId = null
         }
-        
+
         console.log('📋 Similar jobs response:', res)
-        
+
         if (isMounted) {
           const response = res as SimilarJobsResponse;
           if (response && response.success && Array.isArray(response.data)) {
             // Validate and sanitize the response data
-            const validJobs = response.data.filter((job: any) => 
-              job && 
-              job.id && 
-              job.title && 
+            const validJobs = response.data.filter((job: any) =>
+              job &&
+              job.id &&
+              job.title &&
               typeof job.title === 'string' &&
               job.title.trim().length > 0
             ).map((job: any) => ({
               ...job,
               // Ensure all required fields have fallback values
               title: job.title?.trim() || 'Untitled Job',
-              company: typeof job.company === 'string' 
-                ? job.company.trim() 
+              company: typeof job.company === 'string'
+                ? job.company.trim()
                 : (job.company?.name || typeof job.company === 'object' && job.company ? 'Company' : 'Company not specified'),
               location: typeof job.location === 'string' ? job.location.trim() : (job.location || 'Location not specified'),
               salary: typeof job.salary === 'string' ? job.salary.trim() : (job.salary || 'Salary not disclosed'),
@@ -393,7 +393,7 @@ export default function GulfJobDetailPage() {
               },
               similarityScore: job.similarityScore || '0.0'
             }))
-            
+
             setSimilarJobs(validJobs)
             console.log(`✅ Loaded ${validJobs.length} valid similar jobs`)
           } else {
@@ -403,11 +403,11 @@ export default function GulfJobDetailPage() {
         }
       } catch (error) {
         console.error('❌ Error fetching similar jobs:', error)
-        
+
         if (isMounted) {
           // Set empty array on error to show empty state
           setSimilarJobs([])
-          
+
           // Show user-friendly error message
           if (error instanceof Error) {
             if (error.message === 'Request timeout') {
@@ -421,7 +421,7 @@ export default function GulfJobDetailPage() {
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
-        
+
         if (isMounted) {
           setSimilarJobsLoading(false)
         }
@@ -434,7 +434,7 @@ export default function GulfJobDetailPage() {
       const delayId = setTimeout(() => {
         loadSimilarJobs()
       }, 100)
-      
+
       return () => {
         isMounted = false
         clearTimeout(delayId)
@@ -444,7 +444,7 @@ export default function GulfJobDetailPage() {
       }
     }
 
-    return () => { 
+    return () => {
       isMounted = false
       if (timeoutId) {
         clearTimeout(timeoutId)
@@ -535,22 +535,22 @@ export default function GulfJobDetailPage() {
         toast.error('Applications are closed for this job (expired)')
         return
       }
-    } catch {}
+    } catch { }
 
     // For sample jobs, handle directly
-      if (jobIdFromParams.startsWith('550e8400')) {
-        sampleJobManager.addApplication({
-          jobId: jobIdFromParams,
-          jobTitle: job?.title || 'Job',
-          companyName: typeof job?.company === 'string' ? job?.company : (job?.company?.name || 'Company'),
-          location: job?.location || '',
-          salary: job?.salary || '',
-          type: job?.type || ''
-        })
-        toast.success(`Application submitted successfully${job?.title ? ` for ${job.title}` : ''}!`)
-        setForceUpdate(prev => !prev)
-        return
-      }
+    if (jobIdFromParams.startsWith('550e8400')) {
+      sampleJobManager.addApplication({
+        jobId: jobIdFromParams,
+        jobTitle: job?.title || 'Job',
+        companyName: typeof job?.company === 'string' ? job?.company : (job?.company?.name || 'Company'),
+        location: job?.location || '',
+        salary: job?.salary || '',
+        type: job?.type || ''
+      })
+      toast.success(`Application submitted successfully${job?.title ? ` for ${job.title}` : ''}!`)
+      setForceUpdate(prev => !prev)
+      return
+    }
 
     // For real jobs, open the application dialog
     setShowApplicationDialog(true)
@@ -572,20 +572,20 @@ export default function GulfJobDetailPage() {
   }
 
   const handleApplicationSuccess = () => {
-        setForceUpdate(prev => !prev)
+    setForceUpdate(prev => !prev)
   }
 
   const isExpired = (() => {
     const vt = (job as any)?.validTill
     const deadline = (job as any)?.applicationDeadline
     const now = new Date()
-    
+
     // Check validTill first (existing logic)
     if (vt && now > new Date(vt)) return true
-    
+
     // Check applicationDeadline
     if (deadline && now > new Date(deadline)) return true
-    
+
     return false
   })()
 
@@ -696,14 +696,14 @@ export default function GulfJobDetailPage() {
                         <div>
                           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{job?.title || 'Job'}</h1>
                           <div className="flex items-center gap-2 flex-wrap mb-3">
-                          {job?.company && (
-                            <Link
-                              href={`/gulf-companies/${job?.companyId || ''}`}
+                            {job?.company && (
+                              <Link
+                                href={`/gulf-companies/${job?.companyId || ''}`}
                                 className="text-xl text-emerald-600 hover:text-blue-700 font-medium"
-                            >
-                              {typeof job.company === 'string' ? job.company : job.company?.name}
-                            </Link>
-                          )}
+                              >
+                                {typeof job.company === 'string' ? job.company : job.company?.name}
+                              </Link>
+                            )}
                             {job?.isConsultancy && job?.consultancyName && (
                               <Badge variant="outline" className="text-sm bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-700">
                                 Posted by {job.consultancyName}
@@ -822,7 +822,7 @@ export default function GulfJobDetailPage() {
                           </div>
                           <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">Internship Details</h3>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {job?.duration && (
                             <div className="flex items-center text-blue-800 dark:text-blue-200">
@@ -833,7 +833,7 @@ export default function GulfJobDetailPage() {
                               </div>
                             </div>
                           )}
-                          
+
                           {job?.startDate && (
                             <div className="flex items-center text-blue-800 dark:text-blue-200">
                               <Calendar className="w-4 h-4 mr-2" />
@@ -843,7 +843,7 @@ export default function GulfJobDetailPage() {
                               </div>
                             </div>
                           )}
-                          
+
                           {job?.workMode && (
                             <div className="flex items-center text-blue-800 dark:text-blue-200">
                               <MapPin className="w-4 h-4 mr-2" />
@@ -854,14 +854,14 @@ export default function GulfJobDetailPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         {job?.learningObjectives && (
                           <div className="mt-4">
                             <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">What You'll Learn</h4>
                             <p className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">{job.learningObjectives}</p>
                           </div>
                         )}
-                        
+
                         {job?.mentorship && (
                           <div className="mt-4">
                             <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Mentorship & Support</h4>
@@ -887,7 +887,7 @@ export default function GulfJobDetailPage() {
                           const vt = (job as any)?.validTill
                           const deadline = (job as any)?.applicationDeadline
                           const now = new Date()
-                          
+
                           if (deadline && now > new Date(deadline)) {
                             return `Application deadline passed (${new Date(deadline).toLocaleDateString()})`
                           }
@@ -900,17 +900,16 @@ export default function GulfJobDetailPage() {
                     )}
                     <Button
                       onClick={job?.externalApplyUrl ? handleExternalApply : handleApply}
-                      className={`w-full ${
-                        hasApplied
+                      className={`w-full ${hasApplied
                           ? 'bg-green-600 hover:bg-green-700 cursor-default'
                           : isOwnJob
                             ? 'bg-gray-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-not-allowed'
-                          : isExpired
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : job?.isHotVacancy
-                              ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700'
-                              : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-blue-700 hover:to-indigo-700'
-                      }`}
+                            : isExpired
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : job?.isHotVacancy
+                                ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700'
+                                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-blue-700 hover:to-indigo-700'
+                        }`}
                       disabled={hasApplied || isExpired || isOwnJob}
                     >
                       {hasApplied ? (
@@ -952,7 +951,7 @@ export default function GulfJobDetailPage() {
                         <div className="flex items-start gap-2">
                           <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
                           <div className="text-xs text-yellow-800 dark:text-yellow-200">
-                            <strong className="font-semibold">Note:</strong> You'll be redirected to the company's external career portal. 
+                            <strong className="font-semibold">Note:</strong> You'll be redirected to the company's external career portal.
                             Your application will be managed by the employer on their platform.
                           </div>
                         </div>
@@ -1102,7 +1101,7 @@ export default function GulfJobDetailPage() {
                                     {edu}
                                   </Badge>
                                 ))}
-                            </div>
+                              </div>
                             ) : (
                               <div className="text-slate-600 dark:text-slate-400">Any Graduate</div>
                             )}
@@ -1134,9 +1133,9 @@ export default function GulfJobDetailPage() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {job.skills.map((skill: string, index: number) => (
-                            <Badge 
-                              key={index} 
-                              variant="secondary" 
+                            <Badge
+                              key={index}
+                              variant="secondary"
                               className="px-3 py-1 text-sm bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
                             >
                               {skill}
@@ -1168,11 +1167,10 @@ export default function GulfJobDetailPage() {
                         <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                           <iframe
                             className="absolute top-0 left-0 w-full h-full rounded-lg"
-                            src={`https://www.youtube.com/embed/${
-                              job.videoBanner.includes('youtu.be') 
+                            src={`https://www.youtube.com/embed/${job.videoBanner.includes('youtu.be')
                                 ? job.videoBanner.split('youtu.be/')[1]?.split('?')[0]
                                 : job.videoBanner.split('v=')[1]?.split('&')[0]
-                            }`}
+                              }`}
                             title="Company Video"
                             frameBorder="0"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1180,8 +1178,8 @@ export default function GulfJobDetailPage() {
                           />
                         </div>
                       ) : job.videoBanner.endsWith('.mp4') || job.videoBanner.endsWith('.webm') ? (
-                        <video 
-                          className="w-full rounded-lg" 
+                        <video
+                          className="w-full rounded-lg"
                           controls
                           preload="metadata"
                         >
@@ -1190,9 +1188,9 @@ export default function GulfJobDetailPage() {
                         </video>
                       ) : (
                         <div className="text-center p-6">
-                          <a 
-                            href={job.videoBanner} 
-                            target="_blank" 
+                          <a
+                            href={job.videoBanner}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="text-emerald-600 hover:text-blue-700 underline flex items-center justify-center gap-2"
                           >
@@ -1226,13 +1224,13 @@ export default function GulfJobDetailPage() {
                           {job.whyWorkWithUs}
                         </div>
                       </div>
-                      
+
                       {/* Company Branding Section */}
                       <div className="mt-6 pt-6 border-t border-purple-200 dark:border-purple-800">
                         <div className="flex items-center gap-4">
                           {job.companyLogo && (
-                            <img 
-                              src={job.companyLogo} 
+                            <img
+                              src={job.companyLogo}
                               alt={job.company}
                               className="h-16 w-16 object-contain rounded-lg bg-white p-2"
                             />
@@ -1278,7 +1276,7 @@ export default function GulfJobDetailPage() {
                         {job.brandingMedia.map((media: any, index: number) => {
                           const previewUrl = media.preview || media.url || media;
                           const isVideo = media.type === 'video' || previewUrl.includes('.mp4') || previewUrl.includes('.webm') || previewUrl.includes('.mov');
-                          
+
                           return (
                             <div key={index} className="relative group rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
                               {isVideo ? (
@@ -1312,7 +1310,7 @@ export default function GulfJobDetailPage() {
                   </Card>
                 </motion.div>
               )}
-              
+
               {/* Fallback: Display officeImages if brandingMedia is not available */}
               {(Array.isArray(job?.officeImages) && job.officeImages.length > 0 && (!Array.isArray(job?.brandingMedia) || job.brandingMedia.length === 0)) && (
                 <motion.div
@@ -1488,7 +1486,7 @@ export default function GulfJobDetailPage() {
                             </p>
                           </div>
                         )}
-                        
+
                         {job?.companyProfile && (
                           <div>
                             <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Company Profile</h4>
@@ -1497,7 +1495,7 @@ export default function GulfJobDetailPage() {
                             </p>
                           </div>
                         )}
-                        
+
                         {Array.isArray(job?.companyReviews) && job.companyReviews.length > 0 && (
                           <div>
                             <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
@@ -1517,7 +1515,7 @@ export default function GulfJobDetailPage() {
                             </div>
                           </div>
                         )}
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {job?.proactiveAlerts && (
                             <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -1616,26 +1614,26 @@ export default function GulfJobDetailPage() {
                         {job.photos.map((photo: any, index: number) => {
                           console.log('📸 Rendering jobseeker photo:', photo);
                           return (
-                          <div key={photo.id || index} className="relative group">
-                            <img
-                              src={photo.fileUrl}
-                              alt={photo.altText || `Workplace photo ${index + 1}`}
-                              className="w-full h-48 object-cover rounded-lg shadow-md group-hover:shadow-xl transition-shadow duration-300"
-                              onLoad={() => console.log('✅ Jobseeker image loaded successfully:', photo.fileUrl)}
-                              onError={(e) => {
-                                console.error('❌ Jobseeker image failed to load:', photo.fileUrl, e);
-                                console.log('🔄 Retrying jobseeker image load in 1 second...');
-                                setTimeout(() => {
-                                  e.currentTarget.src = photo.fileUrl + '?t=' + Date.now();
-                                }, 1000);
-                              }}
-                            />
-                            {photo.caption && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 rounded-b-lg">
-                                <p className="text-sm">{photo.caption}</p>
-                              </div>
-                            )}
-                          </div>
+                            <div key={photo.id || index} className="relative group">
+                              <img
+                                src={photo.fileUrl}
+                                alt={photo.altText || `Workplace photo ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg shadow-md group-hover:shadow-xl transition-shadow duration-300"
+                                onLoad={() => console.log('✅ Jobseeker image loaded successfully:', photo.fileUrl)}
+                                onError={(e) => {
+                                  console.error('❌ Jobseeker image failed to load:', photo.fileUrl, e);
+                                  console.log('🔄 Retrying jobseeker image load in 1 second...');
+                                  setTimeout(() => {
+                                    e.currentTarget.src = photo.fileUrl + '?t=' + Date.now();
+                                  }, 1000);
+                                }}
+                              />
+                              {photo.caption && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-2 rounded-b-lg">
+                                  <p className="text-sm">{photo.caption}</p>
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -1677,14 +1675,14 @@ export default function GulfJobDetailPage() {
                       </div>
                       {/* Only show View Company Profile for direct company jobs with existing company profiles */}
                       {!job?.isConsultancy && job?.companyId && (
-                      <Link href={`/gulf-companies/${job.companyId || ''}`}>
-                        <Button variant="outline" className="w-full bg-transparent">
-                          <Building2 className="w-4 h-4 mr-2" />
-                          View Company Profile
-                        </Button>
-                      </Link>
+                        <Link href={`/gulf-companies/${job.companyId || ''}`}>
+                          <Button variant="outline" className="w-full bg-transparent">
+                            <Building2 className="w-4 h-4 mr-2" />
+                            View Company Profile
+                          </Button>
+                        </Link>
                       )}
-                      
+
                       {/* For consultancy jobs, show different messaging */}
                       {job?.isConsultancy && (
                         <div className="text-center p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
@@ -1758,8 +1756,8 @@ export default function GulfJobDetailPage() {
                   </CardHeader>
                   <CardContent>
                     {similarJobsLoading ? (
-                    <div className="space-y-4">
-                      {[1,2,3].map((n) => (
+                      <div className="space-y-4">
+                        {[1, 2, 3].map((n) => (
                           <div key={n} className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg animate-pulse">
                             <div className="flex items-start space-x-3">
                               <div className="w-10 h-10 bg-slate-200 dark:bg-slate-600 rounded-lg flex-shrink-0" />
@@ -1769,14 +1767,14 @@ export default function GulfJobDetailPage() {
                                 <div className="h-3 w-2/3 bg-slate-200 dark:bg-slate-600 rounded" />
                               </div>
                             </div>
-                        </div>
-                      ))}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
                     ) : similarJobs.length > 0 ? (
                       <div className="space-y-4">
                         {similarJobs.map((similarJob, index) => (
-                          <Link 
-                            key={`${similarJob.id}-${index}`} 
+                          <Link
+                            key={`${similarJob.id}-${index}`}
                             href={`/gulf-jobs/${similarJob.id}`}
                             className="block group"
                           >
@@ -1787,8 +1785,8 @@ export default function GulfJobDetailPage() {
                                     {similarJob.title}
                                   </h4>
                                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 line-clamp-1">
-                                    {typeof similarJob.company === 'string' 
-                                      ? similarJob.company 
+                                    {typeof similarJob.company === 'string'
+                                      ? similarJob.company
                                       : (similarJob.company?.name || 'Company')}
                                   </p>
                                 </div>
@@ -1803,16 +1801,16 @@ export default function GulfJobDetailPage() {
                                       Premium
                                     </Badge>
                                   )}
-                                  {similarJob.similarityScore && 
-                                   !isNaN(parseFloat(similarJob.similarityScore)) && 
-                                   parseFloat(similarJob.similarityScore) > 0 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {Math.round(parseFloat(similarJob.similarityScore))}% match
-                                    </Badge>
-                                  )}
+                                  {similarJob.similarityScore &&
+                                    !isNaN(parseFloat(similarJob.similarityScore)) &&
+                                    parseFloat(similarJob.similarityScore) > 0 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {Math.round(parseFloat(similarJob.similarityScore))}% match
+                                      </Badge>
+                                    )}
                                 </div>
                               </div>
-                              
+
                               <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2">
                                 <div className="flex items-center">
                                   <MapPin className="w-3 h-3 mr-1" />
@@ -1829,13 +1827,13 @@ export default function GulfJobDetailPage() {
                                   </div>
                                 )}
                               </div>
-                              
+
                               {similarJob.salary && similarJob.salary !== 'Salary not disclosed' && (
                                 <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">
                                   {similarJob.salary}
                                 </div>
                               )}
-                              
+
                               {similarJob.skills && similarJob.skills.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mb-2">
                                   {similarJob.skills.slice(0, 3).map((skill: string, skillIndex: number) => (
@@ -1850,7 +1848,7 @@ export default function GulfJobDetailPage() {
                                   )}
                                 </div>
                               )}
-                              
+
                               <div className="flex items-center justify-between text-xs text-slate-400">
                                 <span>Posted {similarJob.posted || 'Recently'}</span>
                                 <div className="flex items-center space-x-2">
@@ -1865,14 +1863,14 @@ export default function GulfJobDetailPage() {
                             </div>
                           </Link>
                         ))}
-                        
+
                         {/* Show More Button with Enhanced Filtering */}
-                        <Button 
+                        <Button
                           onClick={() => {
                             try {
                               // Build comprehensive filter params based on current job
                               const params = new URLSearchParams()
-                              
+
                               // Location filtering
                               if (job?.location) {
                                 const locationParts = job.location.split(',')
@@ -1880,38 +1878,38 @@ export default function GulfJobDetailPage() {
                                   params.append('location', locationParts[0].trim())
                                 }
                               }
-                              
+
                               // Job type filtering
                               if (job?.type) {
                                 params.append('jobType', job.type)
                               }
-                              
+
                               // Experience level filtering
                               if (job?.experienceLevel) {
                                 params.append('experienceLevel', job.experienceLevel)
                               }
-                              
+
                               // Department filtering
                               if (job?.department) {
                                 params.append('department', job.department)
                               }
-                              
+
                               // Skills filtering (if available)
                               if (job?.skills && Array.isArray(job.skills) && job.skills.length > 0) {
                                 params.append('skills', job.skills.slice(0, 3).join(','))
                               }
-                              
+
                               // Industry filtering (if available)
                               if (job?.companyInfo?.industry) {
                                 params.append('industry', job.companyInfo.industry)
                               }
-                              
+
                               // Add a flag to indicate this is from similar jobs
                               params.append('fromSimilar', 'true')
-                              
+
                               const queryString = params.toString()
                               console.log('🔍 Navigating to jobs with filters:', queryString)
-                              
+
                               router.push(`/jobs?${queryString}`)
                             } catch (error) {
                               console.error('❌ Error building filter params:', error)
@@ -1919,7 +1917,7 @@ export default function GulfJobDetailPage() {
                               router.push('/jobs')
                             }
                           }}
-                          variant="outline" 
+                          variant="outline"
                           className="w-full mt-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200"
                         >
                           <span className="flex items-center justify-center">
@@ -1940,18 +1938,18 @@ export default function GulfJobDetailPage() {
                           We couldn't find similar jobs at the moment. Try browsing all available positions.
                         </p>
                         <div className="space-y-2">
-                          <Button 
+                          <Button
                             onClick={() => router.push('/jobs')}
                             className="w-full"
                           >
                             Browse All Jobs
                           </Button>
-                          <Button 
+                          <Button
                             onClick={() => {
                               // Try to reload similar jobs
                               window.location.reload()
                             }}
-                            variant="outline" 
+                            variant="outline"
                             className="w-full"
                           >
                             Try Again
