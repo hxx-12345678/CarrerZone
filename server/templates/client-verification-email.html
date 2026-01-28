@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Agency Authorization</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        .alert {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info-box {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            margin: 10px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .btn-approve {
+            background-color: #10b981;
+            color: white;
+        }
+        .btn-reject {
+            background-color: #ef4444;
+            color: white;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .details-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .details-table td:first-child {
+            font-weight: bold;
+            width: 40%;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏢 Job Portal</div>
+            <h2 style="margin: 10px 0 0 0; color: #1f2937;">Agency Authorization Verification</h2>
+        </div>
+
+        <p>Dear <strong>{{CLIENT_COMPANY_NAME}}</strong>,</p>
+
+        <div class="alert">
+            <strong>⚠️ ACTION REQUIRED</strong><br>
+            A recruiting agency has requested authorization to post jobs on your behalf.
+        </div>
+
+        <p>
+            <strong>{{AGENCY_NAME}}</strong> has submitted a request to act as your recruitment partner 
+            and post job vacancies on your behalf on our Job Portal platform.
+        </p>
+
+        <div class="info-box">
+            <h3 style="margin-top: 0;">Authorization Request Details:</h3>
+            <table class="details-table">
+                <tr>
+                    <td>Agency Name:</td>
+                    <td><strong>{{AGENCY_NAME}}</strong></td>
+                </tr>
+                <tr>
+                    <td>Requested By:</td>
+                    <td>{{AGENCY_EMAIL}}</td>
+                </tr>
+                <tr>
+                    <td>Request Date:</td>
+                    <td>{{REQUEST_DATE}}</td>
+                </tr>
+                <tr>
+                    <td>Contract Period:</td>
+                    <td>{{CONTRACT_START_DATE}} to {{CONTRACT_END_DATE}}</td>
+                </tr>
+                <tr>
+                    <td>Max Active Jobs:</td>
+                    <td>{{MAX_JOBS}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <h3>Documents Submitted:</h3>
+        <ul>
+            <li>✓ Your Company's GST Certificate</li>
+            <li>✓ Your Company's PAN Card</li>
+            <li>✓ Signed Authorization Letter</li>
+            <li>✓ Service Agreement (if applicable)</li>
+        </ul>
+
+        <div class="alert">
+            <strong>🔒 SECURITY NOTICE:</strong><br>
+            If you did NOT authorize this agency or if this request is fraudulent, 
+            please <strong>REJECT immediately</strong> and report to our support team.
+        </div>
+
+        <div class="button-container">
+            <a href="{{APPROVE_URL}}" class="btn btn-approve">✅ APPROVE AUTHORIZATION</a>
+            <a href="{{REJECT_URL}}" class="btn btn-reject">❌ REJECT & REPORT</a>
+        </div>
+
+        <p style="margin-top: 30px;">
+            <strong>What happens after approval?</strong><br>
+            • The agency can post job vacancies under your company name<br>
+            • All job applications will be shared with the agency<br>
+            • Your company name will be displayed on job listings<br>
+            • You can revoke this authorization anytime<br>
+        </p>
+
+        <p>
+            <strong>Need to review documents?</strong><br>
+            <a href="{{VIEW_DETAILS_URL}}" style="color: #3b82f6;">View full authorization request and documents →</a>
+        </p>
+
+        <div class="footer">
+            <p>
+                This is an automated security verification email.<br>
+                <strong>Job Portal Security Team</strong><br>
+                📧 support@jobportal.com | 📞 1800-XXX-XXXX
+            </p>
+            <p style="font-size: 12px; color: #9ca3af;">
+                This email was sent to {{CLIENT_CONTACT_EMAIL}} because a recruiting agency 
+                requested authorization to post jobs on behalf of {{CLIENT_COMPANY_NAME}}.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+
+

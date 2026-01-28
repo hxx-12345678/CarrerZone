@@ -1,0 +1,137 @@
+[COMPANY LETTERHEAD]
+
+Date: [DD-MM-YYYY]
+
+AUTHORIZATION LETTER FOR RECRUITMENT SERVICES
+
+To Whom It May Concern,
+
+We, [CLIENT COMPANY NAME], having our registered office at [CLIENT COMPANY ADDRESS], hereby authorize:
+
+[AGENCY NAME]
+[AGENCY ADDRESS]
+GST Number: [AGENCY GSTIN]
+PAN: [AGENCY PAN]
+
+to act as our official recruitment partner and to post job vacancies on our behalf on Job Portal platform (jobportal.com).
+
+SCOPE OF AUTHORIZATION:
+
+This authorization grants [AGENCY NAME] the following permissions:
+
+1. Post job listings for our company on jobportal.com
+2. Manage job applications and candidate screening on our behalf
+3. Shortlist and communicate with potential candidates
+4. Represent our company in all recruitment-related activities on the platform
+5. Access application data and candidate profiles relevant to our job postings
+
+CONTRACT PERIOD:
+
+This authorization is valid from: [START DATE: DD-MM-YYYY]
+                            to: [END DATE: DD-MM-YYYY]
+
+AUTHORIZED JOB CATEGORIES:
+
+The agency is authorized to post jobs in the following categories/departments:
+☐ Information Technology
+☐ Engineering
+☐ Sales & Marketing
+☐ Finance & Accounting
+☐ Human Resources
+☐ Operations & Logistics
+☐ All Categories
+
+AUTHORIZED LOCATIONS:
+
+The agency is authorized to post jobs for the following locations:
+☐ [City/State Name]
+☐ All India
+☐ Specific locations: _______________________
+
+MAXIMUM JOB POSTINGS:
+
+Maximum number of active job postings allowed: [NUMBER] (Leave blank for unlimited)
+
+COMPANY DETAILS:
+
+Company Name (as per registration): [CLIENT COMPANY LEGAL NAME]
+Company Registration Number (CIN): [CIN NUMBER]
+GST Number: [CLIENT GSTIN]
+PAN: [CLIENT PAN]
+Registered Address: [CLIENT REGISTERED ADDRESS]
+Company Email: [CLIENT EMAIL]
+Company Phone: [CLIENT PHONE]
+
+AUTHORIZED SIGNATORY:
+
+Name: [SIGNATORY NAME]
+Designation: [Director / HR Head / Authorized Person]
+Email: [SIGNATORY EMAIL]
+Phone: [SIGNATORY PHONE]
+Employee ID (if applicable): [EMPLOYEE ID]
+
+DECLARATION:
+
+We confirm that [AGENCY NAME] has our explicit permission to represent [CLIENT COMPANY NAME] for recruitment purposes on jobportal.com. We understand that:
+
+1. All job postings made by the agency will display our company name
+2. Applications received will be shared with the agency for processing
+3. The agency will act on our behalf in candidate communication
+4. We may revoke this authorization at any time by written notice
+5. This authorization is specific to jobportal.com platform only
+
+VERIFICATION CONTACT:
+
+For verification purposes, Job Portal team may contact:
+
+Primary Contact Person: [HR HEAD NAME]
+Designation: [HR HEAD DESIGNATION]
+Email: [HR HEAD EMAIL]
+Phone: [HR HEAD PHONE]
+
+Alternative Contact: [NAME]
+Email: [EMAIL]
+Phone: [PHONE]
+
+SIGNATURES:
+
+For [CLIENT COMPANY NAME]:
+
+Signature: ___________________
+Name: [AUTHORIZED SIGNATORY NAME]
+Designation: [DESIGNATION]
+Date: [DD-MM-YYYY]
+
+[COMPANY SEAL/STAMP]
+
+For [AGENCY NAME] (Acknowledgement):
+
+Signature: ___________________
+Name: [AGENCY REPRESENTATIVE NAME]
+Designation: [DESIGNATION]
+Date: [DD-MM-YYYY]
+
+---
+
+IMPORTANT NOTES:
+
+1. This letter must be on the client company's official letterhead
+2. Must be signed by an authorized signatory (Director/HR Head/Authorized Person)
+3. Company seal/stamp is mandatory
+4. Keep a copy for your records
+5. Submit this letter along with:
+   - Client's Certificate of Incorporation (COI)
+   - Client's GST Certificate
+   - Client's PAN Card
+   - Client's Address Proof
+   - Service Agreement (if available)
+
+For any queries, contact Job Portal Support at support@jobportal.com
+
+---
+
+TEMPLATE VERSION: 1.0
+ISSUED BY: Job Portal - Recruiter Services
+DATE: January 2025
+
+

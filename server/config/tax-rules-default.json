@@ -1,0 +1,231 @@
+{
+  "fy": "2025-26",
+  "source": "Income Tax Department of India - Official Tax Rules",
+  "lastUpdated": "2025-01-17T00:00:00.000Z",
+  "regimes": {
+    "old": {
+      "name": "Old Tax Regime",
+      "standardDeduction": 50000,
+      "slabs": [
+        { "upto": 250000, "rate": 0 },
+        { "upto": 500000, "rate": 5 },
+        { "upto": 1000000, "rate": 20 },
+        { "upto": null, "rate": 30 }
+      ],
+      "rebate": { "threshold": 500000, "amount": 12500 },
+      "allowedDeductions": ["80C", "80D", "80CCD1B", "80TTA", "80G", "HRA", "LTA", "interestHomeLoan", "medicalInsurance"],
+      "specialRateIncomesExcludedFromRebate": false,
+      "cessPercent": 4,
+      "surchargeRules": {
+        "thresholds": [
+          { "upto": 5000000, "rate": 0 },
+          { "upto": 10000000, "rate": 10 },
+          { "upto": 20000000, "rate": 15 },
+          { "upto": 50000000, "rate": 25 },
+          { "upto": null, "rate": 37 }
+        ]
+      }
+    },
+    "new": {
+      "name": "New Tax Regime",
+      "standardDeduction": 75000,
+      "slabs": [
+        { "upto": 300000, "rate": 0 },
+        { "upto": 700000, "rate": 5 },
+        { "upto": 1000000, "rate": 10 },
+        { "upto": 1200000, "rate": 15 },
+        { "upto": 1500000, "rate": 20 },
+        { "upto": null, "rate": 30 }
+      ],
+      "rebate": { "threshold": 1200000, "amount": 25000 },
+      "allowedDeductions": ["employerNPS80CCD2"],
+      "specialRateIncomesExcludedFromRebate": true,
+      "cessPercent": 4,
+      "surchargeRules": {
+        "thresholds": [
+          { "upto": 5000000, "rate": 0 },
+          { "upto": 10000000, "rate": 10 },
+          { "upto": 20000000, "rate": 15 },
+          { "upto": 50000000, "rate": 25 },
+          { "upto": null, "rate": 37 }
+        ]
+      }
+    },
+    "new_post_2025": {
+      "name": "New Tax Regime (Post FY 2025-26)",
+      "standardDeduction": 75000,
+      "slabs": [
+        { "upto": 400000, "rate": 0 },
+        { "upto": 800000, "rate": 5 },
+        { "upto": 1200000, "rate": 10 },
+        { "upto": 1600000, "rate": 15 },
+        { "upto": 2000000, "rate": 20 },
+        { "upto": 2400000, "rate": 25 },
+        { "upto": null, "rate": 30 }
+      ],
+      "rebate": { "threshold": 1200000, "amount": 60000 },
+      "allowedDeductions": ["employerNPS80CCD2"],
+      "specialRateIncomesExcludedFromRebate": true,
+      "cessPercent": 4,
+      "surchargeRules": {
+        "thresholds": [
+          { "upto": 5000000, "rate": 0 },
+          { "upto": 10000000, "rate": 10 },
+          { "upto": 20000000, "rate": 15 },
+          { "upto": 50000000, "rate": 25 },
+          { "upto": null, "rate": 37 }
+        ]
+      }
+    }
+  },
+  "deductionLimits": {
+    "80C": 150000,
+    "80D": 25000,
+    "80CCD1B": 50000,
+    "80TTA": 10000,
+    "80G": 100000,
+    "interestHomeLoan": 200000,
+    "medicalInsurance": 25000,
+    "employerNPS80CCD2": 100000
+  },
+  "professionalTax": {
+    "Maharashtra": [
+      { "upto": 7500, "amount": 175 },
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Karnataka": [
+      { "upto": 15000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "West Bengal": [
+      { "upto": 10000, "amount": 110 },
+      { "upto": 15000, "amount": 130 },
+      { "upto": 25000, "amount": 150 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Tamil Nadu": [
+      { "upto": 21000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Gujarat": [
+      { "upto": 12000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Andhra Pradesh": [
+      { "upto": 15000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Telangana": [
+      { "upto": 15000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Kerala": [
+      { "upto": 11999, "amount": 120 },
+      { "upto": 17999, "amount": 180 },
+      { "upto": 23999, "amount": 240 },
+      { "upto": 29999, "amount": 300 },
+      { "upto": 35999, "amount": 360 },
+      { "upto": 41999, "amount": 420 },
+      { "upto": 47999, "amount": 480 },
+      { "upto": 53999, "amount": 540 },
+      { "upto": 59999, "amount": 600 },
+      { "upto": null, "amount": 600 }
+    ],
+    "Delhi": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Punjab": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Haryana": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Rajasthan": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Madhya Pradesh": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Uttar Pradesh": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Bihar": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Jharkhand": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Odisha": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Chhattisgarh": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Himachal Pradesh": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Uttarakhand": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Assam": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Manipur": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Meghalaya": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Mizoram": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Nagaland": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Tripura": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Sikkim": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Goa": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Jammu and Kashmir": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Ladakh": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "Arunachal Pradesh": [
+      { "upto": 10000, "amount": 200 },
+      { "upto": null, "amount": 200 }
+    ],
+    "default": [
+      { "upto": null, "amount": 0 }
+    ]
+  }
+}
