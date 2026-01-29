@@ -480,8 +480,9 @@ const startServer = async () => {
       console.warn('⚠️ Migration step skipped due to error:', migrateErr?.message || migrateErr);
     }
 
-    // Fix ALL database issues (missing columns, tables, constraints)
-    if (process.env.NODE_ENV === 'production' || process.env.RUN_DB_FIXES === 'true') {
+    // Fix ALL database issues (missing columns, tables, constraints) -- DEPRECATED: Handled by migrations
+    // Only run if explicitly requested via env var, as the script might be missing
+    if (process.env.RUN_DB_FIXES === 'true') {
       try {
         console.log('🔧 Running comprehensive database fixes...');
         const { exec } = require('child_process');
