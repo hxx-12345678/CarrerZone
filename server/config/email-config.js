@@ -8,15 +8,15 @@ const nodemailer = require('nodemailer');
 // Production email configuration
 function getEmailConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   // Default configuration
   const config = {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: process.env.SMTP_SECURE === 'true' || false,
     auth: {
-      user: process.env.SMTP_USER || 'hempatel777@yahoo.com',
-      pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD
+      user: process.env.SMTP_USER || process.env.GMAIL_USER || 'hempatel777@yahoo.com',
+      pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.GMAIL_APP_PASSWORD
     },
     tls: {
       rejectUnauthorized: false
@@ -46,10 +46,10 @@ function getEmailConfig() {
 // Create email transporter
 function createEmailTransporter() {
   const config = getEmailConfig();
-  
+
   try {
     const transporter = nodemailer.createTransporter(config);
-    
+
     // Verify connection
     transporter.verify((error, success) => {
       if (error) {
@@ -58,7 +58,7 @@ function createEmailTransporter() {
         console.log('✅ Email service is ready to send messages');
       }
     });
-    
+
     return transporter;
   } catch (error) {
     console.error('❌ Failed to create email transporter:', error.message);
@@ -84,7 +84,7 @@ class EmailService {
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
         ...options
       });
-      
+
       console.log('✅ Email sent successfully:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
@@ -95,7 +95,7 @@ class EmailService {
 
   async sendVerificationEmail(email, token) {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
-    
+
     return this.sendEmail({
       to: email,
       subject: 'Verify Your Email - Job Portal',
@@ -115,7 +115,7 @@ class EmailService {
 
   async sendPasswordResetEmail(email, token) {
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-    
+
     return this.sendEmail({
       to: email,
       subject: 'Reset Your Password - Job Portal',

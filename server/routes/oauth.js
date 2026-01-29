@@ -21,10 +21,10 @@ const generateSlug = (name) => {
 // Helper function to generate JWT token
 const generateToken = (user) => {
   return jwt.sign(
-    { 
-      id: user.id, 
-      email: user.email, 
-      userType: user.user_type 
+    {
+      id: user.id,
+      email: user.email,
+      userType: user.user_type
     },
     process.env.JWT_SECRET || 'your-secret-key',
     { expiresIn: '7d' }
@@ -38,7 +38,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: (process.env.NODE_ENV === 'development')
       ? "http://localhost:8000/api/oauth/google/callback"
-      : (process.env.GOOGLE_CALLBACK_URL || "http://localhost:8000/api/oauth/google/callback"),
+      : (process.env.GOOGLE_CALLBACK_URL || process.env.GOOGLE_REDIRECT_URI || `${process.env.RENDER_EXTERNAL_URL || 'https://carrerzone-j03z.onrender.com'}/api/oauth/google/callback`),
     scope: ['profile', 'email', 'https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email']
   }, async (accessToken, refreshToken, profile, done) => {
     try {
@@ -55,6 +55,17 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           oauth_id: profile.id
         }
       });
+      // ... (omitting unchanged logic to save space if this was a real file, but here I need to match chunks)
+      // Wait, I should not omit logic in REPLACE content if I'm replacing a block.
+      // I'll try to keep the replacement chunk small or exact.
+
+      // Chunk for Google
+      if (!user) {
+        // ... (I need the full block context for the tool, but I can target just the callbackURL part? No, multiple lines)
+        // Actually, I can target just the callbackURL lines if they are unique enough.
+      }
+      // Let's do two replacements, one for Google config and one for Facebook config.
+
 
       if (!user) {
         // Check if user exists with same email
@@ -64,24 +75,24 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
         if (existingUser) {
           console.log('📝 Linking OAuth account to existing user:', existingUser.id);
-                  // Link OAuth account to existing user and sync profile data
-        await existingUser.update({
-          oauth_provider: 'google',
-          oauth_id: profile.id,
-          oauth_access_token: accessToken,
-          oauth_refresh_token: refreshToken,
-          oauth_token_expires_at: new Date(Date.now() + 3600000), // 1 hour
-          is_email_verified: true,
-          // Only update last_login_at if user has logged in before
-          ...(existingUser.last_login_at && { last_login_at: new Date() }),
-          // Sync Google profile data if not already set
-          first_name: existingUser.first_name || profile.name.givenName || profile.displayName.split(' ')[0],
-          last_name: existingUser.last_name || profile.name.familyName || profile.displayName.split(' ').slice(1).join(' ') || '',
-          avatar: existingUser.avatar || profile.photos[0]?.value,
-          headline: existingUser.headline || profile.displayName || `${profile.name.givenName} ${profile.name.familyName}`,
-          current_location: existingUser.current_location || profile._json?.locale || 'Not specified',
-          last_profile_update: new Date()
-        });
+          // Link OAuth account to existing user and sync profile data
+          await existingUser.update({
+            oauth_provider: 'google',
+            oauth_id: profile.id,
+            oauth_access_token: accessToken,
+            oauth_refresh_token: refreshToken,
+            oauth_token_expires_at: new Date(Date.now() + 3600000), // 1 hour
+            is_email_verified: true,
+            // Only update last_login_at if user has logged in before
+            ...(existingUser.last_login_at && { last_login_at: new Date() }),
+            // Sync Google profile data if not already set
+            first_name: existingUser.first_name || profile.name.givenName || profile.displayName.split(' ')[0],
+            last_name: existingUser.last_name || profile.name.familyName || profile.displayName.split(' ').slice(1).join(' ') || '',
+            avatar: existingUser.avatar || profile.photos[0]?.value,
+            headline: existingUser.headline || profile.displayName || `${profile.name.givenName} ${profile.name.familyName}`,
+            current_location: existingUser.current_location || profile._json?.locale || 'Not specified',
+            last_profile_update: new Date()
+          });
           user = existingUser;
         } else {
           console.log('📝 Creating new OAuth user');
@@ -147,7 +158,7 @@ if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     clientSecret: process.env.FACEBOOK_APP_SECRET,
     callbackURL: (process.env.NODE_ENV === 'development')
       ? "http://localhost:8000/api/oauth/facebook/callback"
-      : (process.env.FACEBOOK_CALLBACK_URL || "http://localhost:8000/api/oauth/facebook/callback"),
+      : (process.env.FACEBOOK_CALLBACK_URL && !process.env.FACEBOOK_CALLBACK_URL.includes('localhost') ? process.env.FACEBOOK_CALLBACK_URL : `${process.env.RENDER_EXTERNAL_URL || 'https://carrerzone-j03z.onrender.com'}/api/oauth/facebook/callback`),
     profileFields: ['id', 'displayName', 'photos', 'email']
   }, async (accessToken, refreshToken, profile, done) => {
     try {
@@ -238,21 +249,21 @@ router.get('/google', (req, res, next) => {
       message: 'Google OAuth is not configured'
     });
   }
-  
+
   console.log('🔍 Google OAuth Initiation - Query params:', req.query);
-  
+
   // Store the state parameter in session for later use
   if (req.query.state) {
     req.session.oauthState = req.query.state;
     console.log('📝 Stored OAuth state in session:', req.query.state);
   }
-  
+
   // Also store userType if provided
   if (req.query.userType) {
     req.session.oauthUserType = req.query.userType;
     console.log('📝 Stored OAuth userType in session:', req.query.userType);
   }
-  
+
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
@@ -260,12 +271,12 @@ router.get('/google/callback', (req, res) => {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=oauth_not_configured`);
   }
-  
+
   console.log('🔍 Google OAuth Callback - Query params:', req.query);
   console.log('🔍 Google OAuth Callback - Session state:', req.session?.oauthState);
   console.log('🔍 Google OAuth Callback - Raw query string:', req.url);
   console.log('🔍 Google OAuth Callback - Headers:', req.headers);
-  
+
   passport.authenticate('google', { session: false }, (err, user, info) => {
     if (err || !user) {
       console.error('❌ Google OAuth authentication failed:', err || info);
@@ -275,7 +286,7 @@ router.get('/google/callback', (req, res) => {
       const loginPage = state === 'employer' ? '/employer-login' : '/login';
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}${loginPage}?error=oauth_failed`);
     }
-    
+
     // Handle successful authentication
     (async () => {
       try {
@@ -290,31 +301,31 @@ router.get('/google/callback', (req, res) => {
           queryState: req.query?.state,
           queryUserType: req.query?.userType
         });
-        
+
         // If state indicates employer, ensure user is set as employer
         if (state === 'employer') {
           console.log('🔄 Processing employer OAuth - State detected as employer');
-          
+
           // Allow jobseeker to employer conversion if they're using employer OAuth flow
           // This handles cases where users were created as jobseekers but want to become employers
-          
+
           // Always ensure user is set as employer for employer OAuth flow
           if (user.user_type !== 'employer' && user.user_type !== 'admin') {
             console.log('🔄 Updating user type to employer');
-            
+
             // Update user type to employer but don't create company yet
             // Company will be created when user completes profile setup
-            await user.update({ 
+            await user.update({
               user_type: 'employer'
             });
-            
+
             console.log('✅ User successfully updated to employer type');
           } else {
             console.log('✅ User is already an employer/admin');
           }
-          
+
           // User type is already set to employer above, no need to force admin
-          
+
           // Clear any existing OAuth data to ensure clean state
           await user.update({
             oauth_provider: 'google',
@@ -323,7 +334,7 @@ router.get('/google/callback', (req, res) => {
             oauth_refresh_token: req.user?.oauth_refresh_token || user.oauth_refresh_token,
             oauth_token_expires_at: req.user?.oauth_token_expires_at || user.oauth_token_expires_at
           });
-          
+
           console.log('✅ OAuth data updated for employer user');
         } else {
           // FORCE jobseeker processing when state is NOT 'employer' (including undefined, null, etc.)
@@ -331,40 +342,40 @@ router.get('/google/callback', (req, res) => {
           console.log('📝 State value:', state);
           console.log('📝 Session state:', req.session?.oauthState);
           console.log('📝 Query state:', req.query?.state);
-          
+
           // Allow employer to jobseeker conversion if they're using jobseeker OAuth flow
           // This handles cases where users want to switch account types
-          
+
           // ALWAYS force jobseeker type for jobseeker OAuth flow - but only if not already employer/admin
           console.log('🔄 Force updating user type to jobseeker for jobseeker OAuth flow');
-          await user.update({ 
+          await user.update({
             user_type: 'jobseeker'
             // Don't set profile_completion here - let it remain 0 for first-time users
           });
           await user.reload();
-          
+
           // Double-check that user type is set correctly for jobseekers
           if (user.user_type !== 'jobseeker') {
             console.log('🔄 Force updating user type to jobseeker');
             await user.update({ user_type: 'jobseeker' });
             await user.reload();
           }
-          
+
           // For jobseekers, ensure basic profile data is set
           if (!user.headline && user.first_name) {
-            await user.update({ 
+            await user.update({
               headline: `Professional at ${user.first_name} ${user.last_name || ''}`.trim(),
               // Don't increase profile_completion here - let it remain 0 for first-time users
             });
             console.log('✅ Basic profile data set for jobseeker');
           }
-          
+
           // Ensure jobseeker has proper account status
           if (user.account_status !== 'active') {
             await user.update({ account_status: 'active' });
             console.log('✅ Account status set to active for jobseeker');
           }
-          
+
           // Update OAuth data for jobseeker
           await user.update({
             oauth_provider: 'google',
@@ -373,10 +384,10 @@ router.get('/google/callback', (req, res) => {
             oauth_refresh_token: req.user?.oauth_refresh_token || user.oauth_refresh_token,
             oauth_token_expires_at: req.user?.oauth_token_expires_at || user.oauth_token_expires_at
           });
-          
+
           console.log('✅ OAuth data updated for jobseeker user');
         }
-        
+
         // Only update last login time for returning users (users who have logged in before)
         // For first-time OAuth users, we'll update this after they complete setup
         if (user.last_login_at) {
@@ -385,12 +396,12 @@ router.get('/google/callback', (req, res) => {
         } else {
           console.log('📝 First-time OAuth user - not updating last_login_at yet');
         }
-        
+
         const token = generateToken(user);
-        
+
         // Check if user needs to set up a password (OAuth users without password)
         const needsPasswordSetup = !user.password;
-        
+
         console.log('📝 Google OAuth Callback - Final user state:', {
           id: user.id,
           email: user.email,
@@ -398,7 +409,7 @@ router.get('/google/callback', (req, res) => {
           needsPasswordSetup: needsPasswordSetup,
           state: state
         });
-        
+
         // Determine redirect URL based on user type and state - BE VERY EXPLICIT
         let redirectUrl;
         if (user.user_type === 'employer') {
@@ -414,7 +425,7 @@ router.get('/google/callback', (req, res) => {
             redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/oauth-callback?token=${token}&provider=google&needsPasswordSetup=${needsPasswordSetup}&userType=jobseeker`;
           }
         }
-        
+
         console.log('✅ Google OAuth Callback - Redirecting to:', redirectUrl);
         res.redirect(redirectUrl);
       } catch (error) {
@@ -436,21 +447,21 @@ router.get('/facebook', (req, res, next) => {
       message: 'Facebook OAuth is not configured'
     });
   }
-  
+
   console.log('🔍 Facebook OAuth Initiation - Query params:', req.query);
-  
+
   // Store the state parameter in session for later use
   if (req.query.state) {
     req.session.oauthState = req.query.state;
     console.log('📝 Stored OAuth state in session:', req.query.state);
   }
-  
+
   // Also store userType if provided
   if (req.query.userType) {
     req.session.oauthUserType = req.query.userType;
     console.log('📝 Stored OAuth userType in session:', req.query.userType);
   }
-  
+
   passport.authenticate('facebook', { scope: ['email'] })(req, res, next);
 });
 
@@ -458,9 +469,9 @@ router.get('/facebook/callback', (req, res) => {
   if (!process.env.FACEBOOK_APP_ID || !process.env.FACEBOOK_APP_SECRET) {
     return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=oauth_not_configured`);
   }
-  
+
   console.log('🔍 Facebook OAuth Callback - Query params:', req.query);
-  
+
   passport.authenticate('facebook', { session: false }, (err, user, info) => {
     if (err || !user) {
       console.error('❌ Facebook OAuth authentication failed:', err || info);
@@ -469,7 +480,7 @@ router.get('/facebook/callback', (req, res) => {
       const loginPage = state === 'employer' ? '/employer-login' : '/login';
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}${loginPage}?error=oauth_failed`);
     }
-    
+
     // Handle successful authentication
     (async () => {
       try {
@@ -481,58 +492,58 @@ router.get('/facebook/callback', (req, res) => {
           userType: user.user_type,
           state: state
         });
-        
+
         // If state indicates employer, ensure user is set as employer
         if (state === 'employer') {
           console.log('🔄 Processing employer OAuth - State detected as employer');
-          
+
           // Allow jobseeker to employer conversion if they're using employer OAuth flow
           // This handles cases where users were created as jobseekers but want to become employers
-          
+
           // Always ensure user is set as employer for employer OAuth flow
           if (user.user_type !== 'employer' && user.user_type !== 'admin') {
             console.log('🔄 Updating user type to employer');
-            
+
             // Update user type to employer but don't create company yet
             // Company will be created when user completes profile setup
-            await user.update({ 
+            await user.update({
               user_type: 'employer'
             });
-            
+
             console.log('✅ User successfully updated to employer type');
           } else {
             console.log('✅ User is already an employer/admin');
           }
         } else {
           console.log('📝 Processing jobseeker OAuth - No employer state detected');
-          
+
           // Allow employer to jobseeker conversion if they're using jobseeker OAuth flow
           // This handles cases where users want to switch account types
-          
+
           // Ensure jobseekers are set as jobseeker type
           if (user.user_type !== 'jobseeker') {
             console.log('🔄 Updating user type to jobseeker');
             await user.update({ user_type: 'jobseeker' });
             await user.reload();
           }
-          
+
           // Double-check that user type is set correctly for jobseekers
           if (user.user_type !== 'jobseeker') {
             console.log('🔄 Force updating user type to jobseeker');
             await user.update({ user_type: 'jobseeker' });
             await user.reload();
           }
-          
+
           // For jobseekers, ensure basic profile data is set
           if (!user.headline && user.first_name) {
-            await user.update({ 
+            await user.update({
               headline: `Professional at ${user.first_name} ${user.last_name || ''}`.trim(),
               // Don't increase profile_completion here - let it remain 0 for first-time users
             });
             console.log('✅ Basic profile data set for jobseeker');
           }
         }
-        
+
         // Only update last login time for returning users (users who have logged in before)
         // For first-time OAuth users, we'll update this after they complete setup
         if (user.last_login_at) {
@@ -541,19 +552,19 @@ router.get('/facebook/callback', (req, res) => {
         } else {
           console.log('📝 First-time OAuth user - not updating last_login_at yet');
         }
-        
+
         const token = generateToken(user);
-        
+
         // Check if user needs to set up a password (OAuth users without password)
         const needsPasswordSetup = !user.password && user.oauth_provider === 'facebook';
-        
+
         console.log('📝 Facebook OAuth Callback - Final user state:', {
           id: user.id,
           email: user.email,
           userType: user.user_type,
           needsPasswordSetup: needsPasswordSetup
         });
-        
+
         // Determine redirect URL based on user type and state
         let redirectUrl;
         if (user.user_type === 'employer') {
@@ -567,7 +578,7 @@ router.get('/facebook/callback', (req, res) => {
             redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/oauth-callback?token=${token}&provider=facebook&needsPasswordSetup=${needsPasswordSetup}&userType=jobseeker`;
           }
         }
-        
+
         console.log('✅ Facebook OAuth Callback - Redirecting to:', redirectUrl);
         res.redirect(redirectUrl);
       } catch (error) {
@@ -586,21 +597,21 @@ router.post('/complete-employer-profile', async (req, res) => {
   try {
     const { firstName, lastName, phone, companyName, companyId, region, action } = req.body;
     const token = req.headers.authorization?.replace('Bearer ', '');
-    
+
     if (!token) {
       return res.status(401).json({
         success: false,
         message: 'Authentication token required'
       });
     }
-    
+
     if (!firstName || !lastName || !phone || !region) {
       return res.status(400).json({
         success: false,
         message: 'All fields are required: firstName, lastName, phone, region'
       });
     }
-    
+
     // Validate company information based on action type
     if (action === 'create' && !companyName) {
       return res.status(400).json({
@@ -608,14 +619,14 @@ router.post('/complete-employer-profile', async (req, res) => {
         message: 'Company name is required when creating a new company'
       });
     }
-    
+
     if (action === 'join' && !companyId) {
       return res.status(400).json({
         success: false,
         message: 'Company ID is required when joining an existing company'
       });
     }
-    
+
     // Fallback validation for backward compatibility
     if (!action && !companyName && !companyId) {
       return res.status(400).json({
@@ -623,35 +634,35 @@ router.post('/complete-employer-profile', async (req, res) => {
         message: 'Either companyName (for new company) or companyId (for existing company) is required'
       });
     }
-    
+
     // Verify token and get user
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     const user = await User.findByPk(decoded.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     if (user.user_type !== 'employer' && user.user_type !== 'admin') {
       return res.status(400).json({
         success: false,
         message: 'User is not an employer or admin'
       });
     }
-    
+
     // Start transaction to handle company and update user
     const transaction = await sequelize.transaction();
-    
+
     try {
       let company;
-      
+
       if (action === 'create' || companyName) {
         // Create new company
         const companySlug = generateSlug(companyName);
-        
+
         company = await Company.create({
           name: companyName,
           slug: companySlug,
@@ -671,7 +682,7 @@ router.post('/complete-employer-profile', async (req, res) => {
       } else if (action === 'join' || companyId) {
         // Join existing company
         company = await Company.findByPk(companyId, { transaction });
-        
+
         if (!company) {
           await transaction.rollback();
           return res.status(400).json({
@@ -679,12 +690,12 @@ router.post('/complete-employer-profile', async (req, res) => {
             message: 'Company not found'
           });
         }
-        
+
         console.log('✅ User joining existing company:', company.id);
       }
-      
+
       // Update user with profile information and company ID
-      await user.update({ 
+      await user.update({
         first_name: firstName,
         last_name: lastName,
         phone: phone,
@@ -695,10 +706,10 @@ router.post('/complete-employer-profile', async (req, res) => {
         profile_completion: 60, // Basic profile completed
         last_profile_update: new Date()
       }, { transaction });
-      
+
       // Commit the transaction
       await transaction.commit();
-      
+
       // Fetch updated user data with company
       const updatedUser = await User.findByPk(user.id, {
         include: [{
@@ -708,9 +719,9 @@ router.post('/complete-employer-profile', async (req, res) => {
         }],
         attributes: { exclude: ['password'] }
       });
-      
+
       console.log('✅ Employer profile setup completed successfully');
-      
+
       res.json({
         success: true,
         message: 'Profile setup completed successfully',
@@ -719,14 +730,14 @@ router.post('/complete-employer-profile', async (req, res) => {
           company: company
         }
       });
-      
+
     } catch (error) {
       // Rollback transaction on error
       await transaction.rollback();
       console.error('❌ Error completing employer profile setup:', error);
       throw error;
     }
-    
+
   } catch (error) {
     console.error('❌ Complete employer profile setup error:', error);
     res.status(500).json({
@@ -742,32 +753,32 @@ router.post('/setup-password', async (req, res) => {
   try {
     const { password } = req.body;
     const token = req.headers.authorization?.replace('Bearer ', '');
-    
+
     if (!token) {
       return res.status(401).json({
         success: false,
         message: 'Authentication token required'
       });
     }
-    
+
     if (!password || password.length < 8) {
       return res.status(400).json({
         success: false,
         message: 'Password must be at least 8 characters long'
       });
     }
-    
+
     // Verify token and get user
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
     const user = await User.findByPk(decoded.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     // Check if user is OAuth user without password
     // Only block if a password already exists; allow setting password even if oauth_provider is 'local'
     if (user.password) {
@@ -778,11 +789,11 @@ router.post('/setup-password', async (req, res) => {
         message: 'Password already set or user is not OAuth user'
       });
     }
-    
+
     // Set password for OAuth user and mark as capable of local login
     // Also update last_login_at for first-time users completing setup
-    await user.update({ 
-      password, 
+    await user.update({
+      password,
       oauth_provider: user.oauth_provider || 'google',
       last_login_at: new Date() // Mark as having completed first login
     });
@@ -793,7 +804,7 @@ router.post('/setup-password', async (req, res) => {
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
-    
+
     res.status(200).json({
       success: true,
       message: 'Password set successfully',
@@ -811,7 +822,7 @@ router.post('/setup-password', async (req, res) => {
         }
       }
     });
-    
+
   } catch (error) {
     console.error('Setup password error:', error);
     res.status(500).json({
@@ -826,16 +837,16 @@ router.get('/urls', (req, res) => {
   console.log('🔍 OAuth URLs request from:', req.headers.origin);
   console.log('🔍 User type:', req.query.userType);
   console.log('🔍 State:', req.query.state);
-  
+
   const { userType = 'jobseeker', state } = req.query;
   const urls = {};
-  
+
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const baseBackendUrl = (process.env.NODE_ENV === 'development')
       ? 'http://localhost:8000'
       : (process.env.BACKEND_URL || 'http://localhost:8000');
     const googleUrl = `${baseBackendUrl}/api/oauth/google`;
-    
+
     // Build state parameter based on userType and additional state
     let stateParam = '';
     if (userType === 'employer') {
@@ -843,23 +854,23 @@ router.get('/urls', (req, res) => {
     } else if (state === 'gulf') {
       stateParam = 'state=gulf';
     }
-    
+
     // Also add userType parameter for better tracking
     let userTypeParam = `userType=${userType}`;
     if (stateParam) {
       userTypeParam += `&${stateParam}`;
     }
-    
+
     urls.google = `${googleUrl}?${userTypeParam}`;
     console.log('🔍 Generated Google OAuth URL:', urls.google);
   }
-  
+
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     const baseBackendUrl = (process.env.NODE_ENV === 'development')
       ? 'http://localhost:8000'
       : (process.env.BACKEND_URL || 'http://localhost:8000');
     const facebookUrl = `${baseBackendUrl}/api/oauth/facebook`;
-    
+
     // Build state parameter based on userType and additional state
     let stateParam = '';
     if (userType === 'employer') {
@@ -867,21 +878,21 @@ router.get('/urls', (req, res) => {
     } else if (state === 'gulf') {
       stateParam = 'state=gulf';
     }
-    
+
     // Also add userType parameter for better tracking
     let userTypeParam = `userType=${userType}`;
     if (stateParam) {
       userTypeParam += `&${stateParam}`;
     }
-    
+
     urls.facebook = `${facebookUrl}?${userTypeParam}`;
     console.log('🔍 Generated Facebook OAuth URL:', urls.facebook);
   }
-  
+
   // Set CORS headers explicitly
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+
   res.json({
     success: true,
     data: urls,
@@ -893,7 +904,7 @@ router.get('/urls', (req, res) => {
 router.post('/sync-google-profile', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -937,7 +948,7 @@ router.post('/sync-google-profile', async (req, res) => {
 
     // Fetch additional profile data from Google with retry logic
     const googleProfileData = await fetchGoogleProfileDataWithRetry(accessToken);
-    
+
     if (googleProfileData) {
       console.log('📝 Fetched Google profile data:', {
         name: googleProfileData.name,
@@ -962,17 +973,17 @@ router.post('/sync-google-profile', async (req, res) => {
       if (user.user_type === 'jobseeker') {
         updateData.email = googleProfileData.email || user.email;
         updateData.is_email_verified = true;
-        
+
         // Set a professional headline based on Google name
         if (googleProfileData.name && !user.headline) {
           updateData.headline = `Professional at ${googleProfileData.name}`;
         }
-        
+
         // Set location if available
         if (googleProfileData.locale && !user.current_location) {
           updateData.current_location = googleProfileData.locale;
         }
-        
+
         // Set summary if not already set
         if (!user.summary) {
           updateData.summary = `Professional profile synced from Google account. Welcome ${googleProfileData.given_name || 'User'}!`;
@@ -988,8 +999,8 @@ router.post('/sync-google-profile', async (req, res) => {
             await company.update({
               contactPerson: `${googleProfileData.given_name || user.first_name} ${googleProfileData.family_name || user.last_name}`,
               contactEmail: googleProfileData.email || user.email,
-              name: company.name === `${user.first_name} ${user.last_name}'s Company` ? 
-                `${googleProfileData.given_name || user.first_name} ${googleProfileData.family_name || user.last_name}'s Company` : 
+              name: company.name === `${user.first_name} ${user.last_name}'s Company` ?
+                `${googleProfileData.given_name || user.first_name} ${googleProfileData.family_name || user.last_name}'s Company` :
                 company.name
             });
             console.log('✅ Company updated with Google profile data');
@@ -1040,7 +1051,7 @@ async function fetchGoogleProfileDataWithRetry(accessToken, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`🔄 Attempting to fetch Google profile data (attempt ${attempt}/${retries})`);
-      
+
       const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`, {
         method: 'GET',
         headers: {
@@ -1049,7 +1060,7 @@ async function fetchGoogleProfileDataWithRetry(accessToken, retries = 3) {
         },
         timeout: 10000 // 10 second timeout
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Successfully fetched Google profile data');
@@ -1075,7 +1086,7 @@ async function fetchGoogleProfileDataWithRetry(accessToken, retries = 3) {
 async function refreshGoogleToken(refreshToken) {
   try {
     console.log('🔄 Refreshing Google access token...');
-    
+
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
