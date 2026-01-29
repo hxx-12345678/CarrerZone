@@ -3,7 +3,7 @@
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     const transaction = await queryInterface.sequelize.transaction();
-    
+
     try {
       // Add missing user columns with error handling for existing columns
       const columnsToAdd = [
@@ -20,21 +20,30 @@ module.exports = {
         { name: 'department', type: Sequelize.STRING, comment: 'User department' }
       ];
 
+      // Check which columns already exist
+      const tableInfo = await queryInterface.describeTable('users');
+
       for (const column of columnsToAdd) {
-        try {
-          await queryInterface.addColumn('users', column.name, {
-            type: column.type,
-            allowNull: true,
-            defaultValue: column.defaultValue,
-            comment: column.comment
-          }, { transaction });
-          console.log(`✅ Added column: ${column.name}`);
-        } catch (error) {
-          if (error.message.includes('already exists')) {
-            console.log(`⚠️ Column ${column.name} already exists, skipping...`);
-          } else {
-            throw error;
+        if (!tableInfo[column.name]) {
+          try {
+            await queryInterface.addColumn('users', column.name, {
+              type: column.type,
+              allowNull: true,
+              defaultValue: column.defaultValue,
+              comment: column.comment
+            }, { transaction });
+            console.log(`✅ Added column: ${column.name}`);
+          } catch (error) {
+            console.error(`❌ Error adding column ${column.name}:`, error.message);
+            // Verify if it failed because it exists (race condition check)
+            if (error.message.includes('already exists')) {
+              console.log(`⚠️ Column ${column.name} already exists (race condition), skipping...`);
+            } else {
+              throw error;
+            }
           }
+        } else {
+          console.log(`⚠️ Column ${column.name} already exists, skipping...`);
         }
       }
 
@@ -49,7 +58,7 @@ module.exports = {
 
   down: async (queryInterface, Sequelize) => {
     const transaction = await queryInterface.sequelize.transaction();
-    
+
     try {
       // Remove the added columns
       await queryInterface.removeColumn('users', 'current_company', { transaction });
