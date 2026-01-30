@@ -16,7 +16,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   clearError: () => void;
   updateUser: (userData: User) => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: (force?: boolean) => Promise<void>;
   debouncedRefreshUser: () => void;
   manualRefreshUser: () => Promise<void>;
   refreshing: boolean;
@@ -95,19 +95,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Initialize sample job manager from storage first
     sampleJobManager.initializeFromStorage();
-    
+
     // Check if user is already authenticated
     const checkAuth = async () => {
       try {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         const storedUser = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-        
+
         console.log('🔍 AuthProvider - Initializing auth:', {
           hasToken: !!token,
           hasStoredUser: !!storedUser,
           tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
         });
-        
+
         // If we have both token and stored user, set user immediately to avoid race conditions
         if (token && storedUser) {
           try {
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
             setUser(userData);
             sampleJobManager.setCurrentUser(userData.id);
-            
+
             // Verify token in background without blocking UI
             setTimeout(async () => {
               try {
@@ -146,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Don't clear auth on network errors, just log
               }
             }, 100);
-            
+
           } catch (error) {
             console.error('Error parsing stored user data:', error);
             apiService.clearAuth();
@@ -205,9 +205,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       setLoading(true);
-      
+
       const response = await apiService.signup(data);
-      
+
       if (response.success && response.data?.user) {
         const normalized = mapUserFromApi(response.data.user as any);
         setUser(normalized);
@@ -234,9 +234,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       setLoading(true);
-      
+
       const response = await apiService.employerSignup(data);
-      
+
       if (response.success && response.data?.user) {
         const normalized = mapUserFromApi(response.data.user as any);
         setUser(normalized);
@@ -267,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       apiService.clearAuth();
 
       const response = await apiService.login(data);
-      
+
       if (response.success && response.data?.user) {
         const normalized = mapUserFromApi(response.data.user as any);
         setUser(normalized);
@@ -276,10 +276,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (typeof window !== 'undefined') {
           localStorage.setItem('user', JSON.stringify(normalized));
         }
-        
+
         // Dashboard stats update removed temporarily to fix login issues
         // TODO: Re-enable dashboard stats update once the endpoint is working properly
-        
+
         // Return the response data so the calling component can handle redirection
         return { ...response.data, user: normalized } as any;
       } else {
@@ -326,7 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async (force = false) => {
     const now = Date.now();
-    
+
     // Check if enough time has passed since last refresh (unless forced)
     if (!force && now - lastRefreshTime < MIN_REFRESH_INTERVAL) {
       console.log('🔄 Rate limiting refreshUser - too soon since last refresh');
@@ -343,7 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setRefreshing(true);
       setLastRefreshTime(now);
-      
+
       if (apiService.isAuthenticated()) {
         // Use getUserProfile for more complete data including all profile fields
         let response = await apiService.getUserProfile();
@@ -363,19 +363,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error refreshing user data:', error);
-      
+
       // If it's a rate limit error, schedule a retry with exponential backoff
       if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message.includes('Too many requests')) {
         console.log('🔄 Rate limited - scheduling retry with backoff');
         toast.warning('Too many requests. Retrying automatically in a moment...');
         const retryDelay = Math.min(30000, MIN_REFRESH_INTERVAL * 2); // Max 30 seconds
-        
+
         refreshTimeoutRef.current = setTimeout(() => {
           console.log('🔄 Retrying refresh after rate limit');
           refreshUser();
         }, retryDelay);
       }
-      
+
       // Don't update lastRefreshTime on error to allow retry
       setLastRefreshTime(now - MIN_REFRESH_INTERVAL);
     } finally {
@@ -388,7 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (refreshTimeoutRef.current) {
       clearTimeout(refreshTimeoutRef.current);
     }
-    
+
     refreshTimeoutRef.current = setTimeout(() => {
       refreshUser();
     }, 1000); // 1 second debounce
@@ -396,34 +396,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Manual refresh function that bypasses rate limiting for user-initiated refreshes
   const manualRefreshUser = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      
-      if (apiService.isAuthenticated()) {
-        // Use getUserProfile for more complete data including all profile fields
-        let response = await apiService.getUserProfile();
-        if (!response.success || !response.data?.user) {
-          // Fallback to getCurrentUser if getUserProfile fails
-          response = await apiService.getCurrentUser();
-        }
-        if (response.success && response.data?.user) {
-          const normalized = mapUserFromApi(response.data.user as any);
-          setUser(normalized);
-          // Sync with sample job manager
-          sampleJobManager.setCurrentUser(normalized.id);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('user', JSON.stringify(normalized));
-          }
-          toast.success('User data refreshed successfully');
-        }
-      }
-    } catch (error: any) {
-      console.error('Error manually refreshing user data:', error);
-      toast.error(error.message || 'Failed to refresh user data');
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
+    await refreshUser(true);
+  }, [refreshUser]);
 
   const clearError = () => {
     setError(null);

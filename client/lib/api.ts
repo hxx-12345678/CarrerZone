@@ -1,4 +1,20 @@
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const getBaseUrl = () => {
+  // If explicitly set in environment, use that
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+
+  // Try to detect production environment in browser
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname.endsWith('.vercel.app') || hostname.includes('carrerzone')) {
+      return 'https://carrerzone-j03z.onrender.com';
+    }
+  }
+
+  // Default to localhost for development
+  return 'http://localhost:8000';
+};
+
+export const BASE_URL = getBaseUrl();
 export const API_BASE_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
 
 // Utility function to construct avatar URLs correctly

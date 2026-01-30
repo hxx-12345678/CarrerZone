@@ -43,12 +43,12 @@ import { EmployerAuthGuard } from "@/components/employer-auth-guard"
 import { EmployerProfileCompletionDialog } from "@/components/profile-completion-dialog"
 
 export default function EmployerDashboard() {
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser, updateUser } = useAuth()
 
   // Check if mock mode is enabled
-  const isMockMode = typeof window !== 'undefined' && 
-    (localStorage.getItem('useMockData') === 'true' || 
-     window.location.search.includes('mock=true'))
+  const isMockMode = typeof window !== 'undefined' &&
+    (localStorage.getItem('useMockData') === 'true' ||
+      window.location.search.includes('mock=true'))
 
   // If mock mode, bypass auth guard and use mock user
   if (isMockMode) {
@@ -74,23 +74,23 @@ export default function EmployerDashboard() {
       isVerified: true,
       createdAt: "2024-01-15T10:00:00Z"
     }
-    return <EmployerDashboardContent user={mockUser} refreshUser={async () => {}} />
+    return <EmployerDashboardContent user={mockUser} refreshUser={async () => { }} updateUser={async () => { }} />
   }
 
   return (
     <EmployerAuthGuard>
-      <EmployerDashboardContent user={user} refreshUser={refreshUser} />
+      <EmployerDashboardContent user={user} refreshUser={refreshUser} updateUser={updateUser} />
     </EmployerAuthGuard>
   )
 }
 
-function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUser: () => Promise<void> }) {
+function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any; refreshUser: (force?: boolean) => Promise<void>; updateUser: (userData: any) => void }) {
   const router = useRouter()
-  
+
   // Check if mock mode is enabled
-  const isMockMode = typeof window !== 'undefined' && 
-    (localStorage.getItem('useMockData') === 'true' || 
-     window.location.search.includes('mock=true'))
+  const isMockMode = typeof window !== 'undefined' &&
+    (localStorage.getItem('useMockData') === 'true' ||
+      window.location.search.includes('mock=true'))
 
   // Mock data for local development
   const mockStats = [
@@ -252,7 +252,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
   const [upcomingInterviews, setUpcomingInterviews] = useState<any[]>(isMockMode ? mockUpcomingInterviews : [])
   const [showProfileCompletion, setShowProfileCompletion] = useState(false)
   const [profileCheckDone, setProfileCheckDone] = useState(false)
-  
+
   // Initialize profile check state based on user data
   useEffect(() => {
     if (user) {
@@ -261,7 +261,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         localStorageCompleted: localStorage.getItem('profileCompleted'),
         userEmail: user.email
       });
-      
+
       // If profile is completed, immediately set states to prevent dialog
       if (user.preferences?.profileCompleted === true || localStorage.getItem('profileCompleted') === 'true') {
         console.log('🚀 INITIAL CHECK: Profile is completed - setting initial states to prevent dialog');
@@ -281,11 +281,11 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           const companyResponse = await apiService.getCompany(user.companyId)
           if (companyResponse.success && companyResponse.data) {
             const company = companyResponse.data
-            const isAgency = company.companyAccountType === 'recruiting_agency' || 
-                           company.companyAccountType === 'consulting_firm'
-            const needsKYC = company.verificationStatus === 'pending' || 
-                           company.verificationStatus === 'unverified'
-            
+            const isAgency = company.companyAccountType === 'recruiting_agency' ||
+              company.companyAccountType === 'consulting_firm'
+            const needsKYC = company.verificationStatus === 'pending' ||
+              company.verificationStatus === 'unverified'
+
             if (isAgency && needsKYC) {
               toast.info('⚠️ KYC verification required to post jobs and access features')
               setTimeout(() => {
@@ -298,7 +298,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         console.error('Agency verification check error:', error)
       }
     }
-    
+
     checkAgencyVerification()
   }, [user, router])
 
@@ -311,6 +311,14 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         preferences: user.preferences,
         profileCompleted: user.preferences?.profileCompleted
       });
+
+      // CRITICAL: Check session flag first
+      if (sessionStorage.getItem('profileCheckHandled') === 'true') {
+        console.log('✅ Profile check already handled in this session');
+        setShowProfileCompletion(false)
+        setProfileCheckDone(true)
+        return
+      }
 
       // CRITICAL: First check - if profile is completed, NEVER show dialog
       if (user.preferences?.profileCompleted === true) {
@@ -325,7 +333,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         setProfileCheckDone(true)
         return
       }
-      
+
       // Additional check: localStorage backup
       try {
         const storedCompletion = localStorage.getItem('profileCompleted');
@@ -349,7 +357,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         setProfileCheckDone(true)
         return
       }
-      
+
       // Check if profile is incomplete and show completion dialog
       const isIncomplete = () => {
         // DEBUG: Log user preferences for debugging
@@ -360,13 +368,13 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           hasPreferences: !!user.preferences,
           preferencesKeys: user.preferences ? Object.keys(user.preferences) : 'none'
         });
-        
+
         // CRITICAL: If user has marked profile as complete, NEVER show dialog again
         if (user.preferences?.profileCompleted === true) {
           console.log('✅ Profile already completed - dialog will NEVER show again');
           return false
         }
-        
+
         // FALLBACK: Check localStorage as backup
         try {
           const storedCompletion = localStorage.getItem('profileCompleted');
@@ -386,12 +394,12 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           console.log('🚫 EMERGENCY FIX in isIncomplete: hxx@gmail.com - dialog will NEVER show');
           return false
         }
-        
+
         // Check if user has skipped and the skip period hasn't expired (12 hours regardless of session)
         if (user.preferences?.profileCompletionSkippedUntil) {
           const skipUntil = new Date(user.preferences.profileCompletionSkippedUntil)
           const now = new Date()
-          
+
           // Honor skip for 12 hours regardless of login session
           if (skipUntil > now) {
             console.log('⏰ Profile completion skipped until:', skipUntil.toISOString(), '(12 hour snooze)')
@@ -400,16 +408,16 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
             console.log('⏰ Skip period expired, showing dialog again')
           }
         }
-        
+
         // Required fields for employer - only check if profile is not completed
         const hasPhone = !!user.phone
         const hasDesignation = !!(user as any).designation
         const hasCompanyId = !!user.companyId
         const isAdmin = user.userType === 'admin'
-        
+
         // For admin users, companyId is not required
         const hasRequiredFields = hasPhone && hasDesignation && (hasCompanyId || isAdmin)
-        
+
         console.log('🔍 Required fields check:', {
           phone: hasPhone,
           designation: hasDesignation,
@@ -417,24 +425,24 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           isAdmin: isAdmin,
           hasRequiredFields
         });
-        
+
         return !hasRequiredFields
       }
-      
+
       const incomplete = isIncomplete()
-      console.log('🔍 Employer profile completion check:', { 
-        incomplete, 
-        user: { 
-          phone: user.phone, 
-          designation: (user as any).designation, 
+      console.log('🔍 Employer profile completion check:', {
+        incomplete,
+        user: {
+          phone: user.phone,
+          designation: (user as any).designation,
           companyId: user.companyId,
           userType: user.userType,
           preferences: user.preferences,
           profileCompleted: user.preferences?.profileCompleted,
           fullUserObject: user
-        } 
+        }
       })
-      
+
       if (incomplete) {
         // CRITICAL: Double-check that profile is not completed before showing dialog
         if (user.preferences?.profileCompleted === true) {
@@ -445,14 +453,14 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           try {
             const storedCompletion = localStorage.getItem('profileCompleted');
             let localStorageCompleted = false;
-            
+
             if (storedCompletion) {
               const completionData = JSON.parse(storedCompletion);
               if (completionData.completed === true && completionData.userType === user.userType) {
                 // Check if completion is recent (within last 30 days)
                 const completionAge = Date.now() - completionData.timestamp;
                 const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-                
+
                 if (completionAge < thirtyDaysInMs) {
                   localStorageCompleted = true;
                 } else {
@@ -461,7 +469,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
                 }
               }
             }
-            
+
             if (localStorageCompleted) {
               console.log('🚫 TRIPLE CHECK: Profile completed in localStorage - forcing dialog to stay hidden');
               setShowProfileCompletion(false)
@@ -490,7 +498,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
       setProfileCheckDone(true)
     }
   }, [user])
-  
+
   // Reset profile check when user updates (after skip or completion)
   // BUT NOT if profile is already completed
   useEffect(() => {
@@ -514,14 +522,14 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
 
   // Debounced dashboard data loading to prevent rapid API calls
   const [isRefreshing, setIsRefreshing] = useState(false)
-  
+
   const loadDashboardData = async () => {
     // Prevent multiple simultaneous refresh calls
     if (isRefreshing) {
       console.log('🔄 Dashboard refresh already in progress, skipping...')
       return
     }
-    
+
     try {
       setIsRefreshing(true)
       setLoading(true)
@@ -610,7 +618,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         let applications = []
         let jobs = []
         let hotVacancies = []
-        
+
         if (statsResponse.success && statsResponse.data) {
           applications = statsResponse.data.recentApplications || []
           jobs = statsResponse.data.recentJobs || []
@@ -624,13 +632,13 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           const applicationsResponse = await apiService.getEmployerApplications()
           const jobsResponse = await apiService.getEmployerJobs({ limit: 5 })
           const hotVacanciesResponse = await apiService.getEmployerHotVacancies()
-          
+
           if (applicationsResponse.success && applicationsResponse.data) {
             applications = applicationsResponse.data.slice(0, 5)
             setRecentApplications(applications)
             console.log('✅ Recent applications loaded from API:', applications.length)
           }
-          
+
           if (jobsResponse.success && jobsResponse.data) {
             jobs = jobsResponse.data.slice(0, 5)
             console.log('✅ Recent jobs loaded from API:', jobs.length)
@@ -641,12 +649,12 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
             console.log('✅ Recent hot vacancies loaded from API:', hotVacanciesResponse.data.length)
           }
         }
-        
+
         // Generate recent activity from real data
         const activityData = generateRecentActivity(applications, jobs, hotVacancies)
         setRecentActivity(activityData)
         console.log('✅ Recent activity generated:', activityData.length)
-        
+
       } catch (error) {
         console.error('❌ Error loading recent data:', error)
         // Set default activity if loading fails
@@ -681,7 +689,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
       if (user.oauth_provider === 'google') {
         console.log('✅ Google OAuth user detected, using Google account details')
         toast.success('Welcome! Your Google account details are loaded.')
-        
+
         // Update user data with Google profile information if available
         if (user.firstName || user.lastName || user.email) {
           const updatedUser = {
@@ -698,14 +706,14 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
 
     } catch (error: any) {
       console.error('❌ Error loading dashboard data:', error)
-      
+
       // Handle rate limiting specifically
       if (error.message && error.message.includes('Rate limit exceeded')) {
         toast.error('Too many requests. Please wait a moment before refreshing.')
       } else {
         toast.error('Failed to load dashboard data')
       }
-      
+
       // Set default stats if loading fails
       setStats([
         {
@@ -844,9 +852,9 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
   // Calculate profile completion based on user and company data
   const calculateProfileCompletion = () => {
     if (!user) return 0
-    
+
     let completion = 0
-    
+
     // User profile fields (40% of total)
     const userFields = [
       user.firstName, user.lastName, user.email, user.phone,
@@ -855,7 +863,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
     userFields.forEach(field => {
       if (field && field.trim() !== '') completion += 5.7
     })
-    
+
     // Company profile fields (60% of total)
     if (user.companyId && companyData) {
       const companyFields = [
@@ -869,21 +877,34 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
       // If user has companyId but companyData is not loaded yet, show partial completion
       completion += 30
     }
-    
+
     return Math.min(100, Math.round(completion))
   }
 
   const handleProfileUpdated = async (updatedData: any) => {
-    // Force refresh user data to get updated profile (bypass rate limiting)
-    await refreshUser()
+    console.log('✅ Profile update received in dashboard:', updatedData)
+    // Update local user state immediately with provided data
+    if (updatedData) {
+      updateUser(updatedData)
+    }
+
+    // Force refresh user data from server to be 100% sure
+    await refreshUser(true)
+
+    // Hide the dialog immediately
     setShowProfileCompletion(false)
+    setProfileCheckDone(true)
+
+    // Mark as completed in this session to prevent re-triggering during navigation
+    sessionStorage.setItem('profileCheckHandled', 'true')
+
     // Reload dashboard data to reflect changes
     loadDashboardData()
   }
 
   const generateRecentActivity = (applications: any[], jobs: any[], hotVacancies: any[] = []) => {
     const activities = []
-    
+
     // Add recent applications
     applications.slice(0, 3).forEach((app, index) => {
       activities.push({
@@ -895,7 +916,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         icon: Users,
       })
     })
-    
+
     // Add recent hot vacancy postings (prioritize these as they're premium)
     hotVacancies.slice(0, 2).forEach((hotVacancy, index) => {
       const isDraft = hotVacancy.status === 'draft'
@@ -903,14 +924,14 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         id: `hot-vacancy-${index}`,
         type: "hot_vacancy",
         title: isDraft ? "Hot Vacancy Created as Draft" : "Hot Vacancy Posted",
-        description: isDraft 
+        description: isDraft
           ? `${hotVacancy.title} created as draft - complete payment to go live`
           : `${hotVacancy.title} is now featured as a hot vacancy`,
         time: hotVacancy.createdAt ? new Date(hotVacancy.createdAt).toLocaleDateString() : 'Recently',
         icon: Flame,
       })
     })
-    
+
     // Add recent job postings
     jobs.slice(0, 2).forEach((job, index) => {
       activities.push({
@@ -922,7 +943,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         icon: Briefcase,
       })
     })
-    
+
     // If no real data, show placeholder
     if (activities.length === 0) {
       activities.push({
@@ -934,7 +955,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         icon: Clock,
       })
     }
-    
+
     return activities
   }
 
@@ -953,47 +974,47 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
         <div className="absolute top-1/4 left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
       </div>
 
-              {/* Welcome Banner */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="relative bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white overflow-hidden mb-6 shadow-[0_10px_40px_rgba(59,130,246,0.3)]"
-          >
-            <div className="relative z-10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center space-x-3 mb-3">
-                    <Briefcase className="w-7 h-7 text-blue-200" />
-                    <h1 className="serif-heading text-2xl sm:text-3xl font-bold drop-shadow">
-                      Employer Dashboard
-                    </h1>
-                  </div>
-                  <p className="text-blue-100/90 text-base mb-4 leading-relaxed">
-                    Welcome back, {user?.firstName ? user.firstName.toUpperCase() : 'EMPLOYER'}! Ready to find your next great hire?
-                  </p>
-                  <div className="flex items-center space-x-6">
-                    <div className="flex items-center space-x-2">
-                      <TrendingUp className="w-5 h-5 text-blue-200" />
-                      <span className="text-sm">{stats.find(s => s.title === "Active Jobs")?.value || "0"} Active Jobs</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-5 h-5 text-blue-200" />
-                      <span className="text-sm">{stats.find(s => s.title === "Total Applications")?.value || "0"} Applications</span>
-                    </div>
-                  </div>
+      {/* Welcome Banner */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="relative bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white overflow-hidden mb-6 shadow-[0_10px_40px_rgba(59,130,246,0.3)]"
+        >
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center space-x-3 mb-3">
+                  <Briefcase className="w-7 h-7 text-blue-200" />
+                  <h1 className="serif-heading text-2xl sm:text-3xl font-bold drop-shadow">
+                    Employer Dashboard
+                  </h1>
                 </div>
-                <div className="hidden lg:block">
-                  <div className="w-32 h-32 bg-white/10 ring-1 ring-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-[0_10px_40px_rgba(255,255,255,0.15)]">
-                    <Briefcase className="w-16 h-16 text-white/80" />
+                <p className="text-blue-100/90 text-base mb-4 leading-relaxed">
+                  Welcome back, {user?.firstName ? user.firstName.toUpperCase() : 'EMPLOYER'}! Ready to find your next great hire?
+                </p>
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center space-x-2">
+                    <TrendingUp className="w-5 h-5 text-blue-200" />
+                    <span className="text-sm">{stats.find(s => s.title === "Active Jobs")?.value || "0"} Active Jobs</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-5 h-5 text-blue-200" />
+                    <span className="text-sm">{stats.find(s => s.title === "Total Applications")?.value || "0"} Applications</span>
                   </div>
                 </div>
               </div>
+              <div className="hidden lg:block">
+                <div className="w-32 h-32 bg-white/10 ring-1 ring-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-[0_10px_40px_rgba(255,255,255,0.15)]">
+                  <Briefcase className="w-16 h-16 text-white/80" />
+                </div>
+              </div>
             </div>
-            <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl"></div>
-            <div className="absolute -bottom-16 -left-20 w-72 h-72 rounded-full bg-indigo-400/10 blur-3xl"></div>
-          </motion.div>
+          </div>
+          <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl"></div>
+          <div className="absolute -bottom-16 -left-20 w-72 h-72 rounded-full bg-indigo-400/10 blur-3xl"></div>
+        </motion.div>
 
         {/* Company Registration Section */}
         {!user?.companyId && (
@@ -1003,7 +1024,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
             transition={{ duration: 0.6 }}
             className="mb-8"
           >
-            <CompanyRegistration 
+            <CompanyRegistration
               onCompanyCreated={async () => {
                 // Wait a moment for backend to complete user update
                 setTimeout(async () => {
@@ -1048,61 +1069,61 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {loading ? (
-            <div className="col-span-full flex justify-center items-center py-8">
-              <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-            </div>
-          ) : stats.length > 0 ? (
-            stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.06, duration: 0.45 }}
-                className="group"
-              >
-                {stat.link ? (
-                  <Link href={stat.link}>
-                    <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300 cursor-pointer hover:-translate-y-1.5 hover:scale-[1.02]">
+            {loading ? (
+              <div className="col-span-full flex justify-center items-center py-8">
+                <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+              </div>
+            ) : stats.length > 0 ? (
+              stats.map((stat, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.06, duration: 0.45 }}
+                  className="group"
+                >
+                  {stat.link ? (
+                    <Link href={stat.link}>
+                      <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300 cursor-pointer hover:-translate-y-1.5 hover:scale-[1.02]">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[11px] tracking-widest uppercase text-slate-500">{stat.title}</p>
+                              <p className="text-4xl font-extrabold leading-tight text-slate-900 group-hover:brightness-110 transition-all">{stat.value}</p>
+                              <p className="text-xs font-medium text-blue-700/90 mt-1">{stat.change}</p>
+                            </div>
+                            <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-r ${stat.color} flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.1)]`}>
+                              <div className="absolute inset-0 rounded-2xl blur-md opacity-40 bg-white" />
+                              <stat.icon className="relative w-6 h-6 text-white" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ) : (
+                    <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-[11px] tracking-widest uppercase text-slate-500">{stat.title}</p>
-                            <p className="text-4xl font-extrabold leading-tight text-slate-900 group-hover:brightness-110 transition-all">{stat.value}</p>
+                            <p className="text-4xl font-extrabold leading-tight text-slate-900">{stat.value}</p>
                             <p className="text-xs font-medium text-blue-700/90 mt-1">{stat.change}</p>
                           </div>
-                          <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-r ${stat.color} flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.1)]`}>
+                          <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-r ${stat.color} flex items-center justify-center`}>
                             <div className="absolute inset-0 rounded-2xl blur-md opacity-40 bg-white" />
                             <stat.icon className="relative w-6 h-6 text-white" />
                           </div>
                         </div>
                       </CardContent>
                     </Card>
-                  </Link>
-                ) : (
-                  <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[11px] tracking-widest uppercase text-slate-500">{stat.title}</p>
-                          <p className="text-4xl font-extrabold leading-tight text-slate-900">{stat.value}</p>
-                          <p className="text-xs font-medium text-blue-700/90 mt-1">{stat.change}</p>
-                        </div>
-                        <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-r ${stat.color} flex items-center justify-center`}>
-                          <div className="absolute inset-0 rounded-2xl blur-md opacity-40 bg-white" />
-                          <stat.icon className="relative w-6 h-6 text-white" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </motion.div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-8">
-              <p className="text-slate-600">No dashboard data available.</p>
-            </div>
-          )}
+                  )}
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-slate-600">No dashboard data available.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1116,7 +1137,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <CompanyJobsDisplay 
+                <CompanyJobsDisplay
                   companyId={user.companyId}
                   onJobUpdated={() => {
                     // Refresh dashboard data
@@ -1223,9 +1244,9 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
 
           {/* Right Column - Profile & Support */}
           <div className="space-y-6">
-                          {/* Company Information */}
-              {user?.companyId && (
-                              <CompanyInfoDisplay companyId={user.companyId} />
+            {/* Company Information */}
+            {user?.companyId && (
+              <CompanyInfoDisplay companyId={user.companyId} />
             )}
 
 
@@ -1260,9 +1281,9 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
                   <div className="text-sm text-slate-600">
                     {calculateProfileCompletion() >= 80 ? 'Great! Your profile is well completed.' : 'Complete your profile to attract better candidates'}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full bg-transparent"
                     onClick={() => router.push('/employer-dashboard/settings')}
                   >
@@ -1299,13 +1320,13 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
                         <div className="flex-1">
                           <p className="text-sm font-medium text-slate-900">{interview.title}</p>
                           <p className="text-xs text-slate-600">
-                            {interview.jobApplication?.applicant?.first_name && interview.jobApplication?.applicant?.last_name 
+                            {interview.jobApplication?.applicant?.first_name && interview.jobApplication?.applicant?.last_name
                               ? `${interview.jobApplication.applicant.first_name} ${interview.jobApplication.applicant.last_name}`
                               : interview.jobApplication?.applicant?.email || 'Unknown Candidate'
                             }
                           </p>
                           <p className="text-xs text-slate-500 mt-1">
-                            {new Date(interview.scheduledAt).toLocaleDateString()} at {new Date(interview.scheduledAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            {new Date(interview.scheduledAt).toLocaleDateString()} at {new Date(interview.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                           {interview.interviewType && (
                             <span className="inline-block mt-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-full">
@@ -1371,7 +1392,7 @@ function EmployerDashboardContent({ user, refreshUser }: { user: any; refreshUse
           onProfileUpdated={handleProfileUpdated}
         />
       )}
-      
+
     </div>
   )
 }
