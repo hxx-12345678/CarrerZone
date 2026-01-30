@@ -101,7 +101,7 @@ const Resume = sequelize.define('Resume', {
           hasDefaultResume: resume.isDefault,
           lastResumeUpdate: new Date()
         });
-        
+
         // Record activity
         await DashboardService.recordActivity(resume.userId, 'resume_upload', {
           resumeId: resume.id,
@@ -115,18 +115,18 @@ const Resume = sequelize.define('Resume', {
     afterUpdate: async (resume) => {
       try {
         const DashboardService = require('../services/dashboardService');
-        
+
         const updates = {
           lastResumeUpdate: new Date()
         };
-        
+
         // Check if default status changed
         if (resume.changed('isDefault')) {
           updates.hasDefaultResume = resume.isDefault;
         }
-        
+
         await DashboardService.updateDashboardStats(resume.userId, updates);
-        
+
         // Record activity
         await DashboardService.recordActivity(resume.userId, 'resume_update', {
           resumeId: resume.id,
@@ -143,7 +143,7 @@ const Resume = sequelize.define('Resume', {
         await DashboardService.updateDashboardStats(resume.userId, {
           totalResumes: sequelize.literal('totalResumes - 1')
         });
-        
+
         // Record activity
         await DashboardService.recordActivity(resume.userId, 'resume_delete', {
           resumeId: resume.id,
@@ -157,24 +157,32 @@ const Resume = sequelize.define('Resume', {
 });
 
 // Instance methods
-Resume.prototype.getSkillsString = function() {
+Resume.prototype.getSkillsString = function () {
   const skills = Array.isArray(this.skills) ? this.skills : [];
   return skills.join(', ');
 };
 
-Resume.prototype.getLanguagesString = function() {
+Resume.prototype.getLanguagesString = function () {
   const languages = Array.isArray(this.languages) ? this.languages : [];
   return languages.map(lang => `${lang.name} (${lang.proficiency})`).join(', ');
 };
 
-Resume.prototype.getCertificationsString = function() {
+Resume.prototype.getCertificationsString = function () {
   const certifications = Array.isArray(this.certifications) ? this.certifications : [];
   return certifications.map(cert => `${cert.name} - ${cert.issuer}`).join(', ');
 };
 
-Resume.prototype.getTotalExperience = function() {
+Resume.prototype.getTotalExperience = function () {
   // This would be calculated from work experience entries
   return 0; // Placeholder
+};
+
+// Define associations
+Resume.associate = (models) => {
+  Resume.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'creator'
+  });
 };
 
 module.exports = Resume; 

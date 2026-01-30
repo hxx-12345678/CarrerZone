@@ -20,6 +20,7 @@ function findResumeFile(filename, metadata) {
   const possiblePaths = [
     // First try absolute path from metadata (most reliable)
     metadata?.absolutePath,
+    metadata?.localPath,
     // Development paths (most common)
     path.join(__dirname, '../uploads/resumes', filename),
     path.join(process.cwd(), 'server', 'uploads', 'resumes', filename),
@@ -30,7 +31,7 @@ function findResumeFile(filename, metadata) {
     path.join('/tmp/uploads/resumes', filename),
     path.join('/var', 'tmp', 'uploads', 'resumes', filename),
     // Metadata-based paths
-    metadata?.filePath ? path.join(process.cwd(), metadata.filePath.replace(/^\//, '')) : null,
+    metadata?.filePath ? (path.isAbsolute(metadata.filePath) ? metadata.filePath : path.join(process.cwd(), metadata.filePath.replace(/^\//, ''))) : null,
     metadata?.filePath ? path.join(__dirname, '..', metadata.filePath.replace(/^\//, '')) : null,
     // Direct metadata filePath
     metadata?.filePath ? metadata.filePath : null
@@ -4074,6 +4075,10 @@ router.get('/resumes/:id/view', authenticateToken, async (req, res) => {
     const filePath = findResumeFile(filename, metadata);
 
     if (!filePath) {
+      if (metadata.cloudinaryUrl) {
+        console.log('☁️ Fallback to Cloudinary URL redirection as last resort');
+        return res.redirect(metadata.cloudinaryUrl);
+      }
       return res.status(404).json({
         success: false,
         message: 'Resume file not found on server. Please re-upload your resume.',
@@ -4081,12 +4086,15 @@ router.get('/resumes/:id/view', authenticateToken, async (req, res) => {
       });
     }
 
+    // Ensure filePath is absolute for res.sendFile
+    const absoluteFilePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath);
+
     // Set headers for file view
     res.setHeader('Content-Type', metadata.mimeType || 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');
 
     // Send file
-    res.sendFile(filePath);
+    res.sendFile(absoluteFilePath);
   } catch (error) {
     console.error('Error viewing resume:', error);
     res.status(500).json({

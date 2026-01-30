@@ -3521,11 +3521,52 @@ class ApiService {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = response.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'resume.pdf';
+    const contentDisposition = response.headers.get('content-disposition');
+    let filename = 'resume.pdf';
+    if (contentDisposition && contentDisposition.includes('filename=')) {
+      filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+    }
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  }
+
+  async viewResume(id: string): Promise<void> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers: HeadersInit = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/resumes/${id}/view`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (errorData.code === 'FILE_NOT_FOUND') {
+        throw new Error('Resume file not found on server. Please re-upload your resume.');
+      }
+      if (errorData.code === 'NO_FILE_UPLOADED') {
+        throw new Error('This resume has no file attached. Please upload a resume file first.');
+      }
+      throw new Error('Failed to view resume');
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const newWindow = window.open(url, '_blank');
+
+    if (!newWindow) {
+      throw new Error('Please allow popups to view the resume');
+    }
+
+    // Clean up the URL after a delay
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 1000);
   }
 
   // Fetch resume file (for viewing in a new tab)

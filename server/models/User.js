@@ -316,7 +316,7 @@ const User = sequelize.define('User', {
 });
 
 // Instance methods
-User.prototype.comparePassword = async function(candidatePassword) {
+User.prototype.comparePassword = async function (candidatePassword) {
   // Users without passwords (OAuth users) can't login with password
   if (!this.password) {
     return false;
@@ -329,15 +329,30 @@ User.prototype.comparePassword = async function(candidatePassword) {
   }
 };
 
-User.prototype.getFullName = function() {
+User.prototype.getFullName = function () {
   return `${this.first_name} ${this.last_name}`;
 };
 
-User.prototype.getInitials = function() {
+User.prototype.getInitials = function () {
   return `${this.first_name.charAt(0)}${this.last_name.charAt(0)}`.toUpperCase();
 };
 
 // Note: User-Company association is automatically created by Company.hasMany
 // No need to manually define User.belongsTo here as it causes duplicate alias error
+
+// Define associations
+User.associate = (models) => {
+  // User belongs to Company (for employers)
+  User.belongsTo(models.Company, {
+    foreignKey: 'companyId',
+    as: 'company'
+  });
+
+  // User has many Resumes
+  User.hasMany(models.Resume, {
+    foreignKey: 'userId',
+    as: 'resumes'
+  });
+};
 
 module.exports = User; 
