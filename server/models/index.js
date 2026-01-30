@@ -39,26 +39,9 @@ const AgencyClientAuthorization = require('./AgencyClientAuthorization');
 const AdminNotification = require('./AdminNotification');
 const SystemSetting = require('./SystemSetting');
 
-// Import Sequelize
+// Import Sequelize instance from centralized config
+const { sequelize } = require('../config/sequelize');
 const { Sequelize } = require('sequelize');
-
-// Import database configuration
-const config = require('../config/database');
-
-// Get environment-specific config
-const env = process.env.NODE_ENV || 'development';
-const dbConfig = config[env];
-
-// Create Sequelize instance
-const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
-  host: dbConfig.host,
-  port: dbConfig.port,
-  dialect: dbConfig.dialect,
-  logging: dbConfig.logging,
-  pool: dbConfig.pool,
-  define: dbConfig.define,
-  dialectOptions: dbConfig.dialectOptions
-});
 
 // Initialize models - they are already defined in their respective files
 const JobTemplate = JobTemplateFactory(sequelize);

@@ -96,7 +96,7 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser(async (id, done) => {
   try {
-    const User = require('./models/User');
+    const { User } = require('./models');
     const user = await User.findByPk(id);
     done(null, user);
   } catch (error) {
@@ -141,7 +141,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:5173', // Common Vite port
-  'https://carrer-zone-bvnp.vercel.app' // Main production URL
+  'https://carrer-zone-bvnp.vercel.app', // Main production URL
+  'https://carrer-zone-6z1f.vercel.app'  // Specific preview URL from logs
 ];
 
 const corsOptions = {
@@ -155,7 +156,10 @@ const corsOptions = {
     }
 
     // Dynamic checks for Vercel previews and Render deployments
-    if (origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
+    if (origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com') ||
+      origin.includes('vercel-preview') ||
+      origin.includes('carrer-zone')) {
       return callback(null, true);
     }
 
@@ -180,18 +184,21 @@ const corsOptions = {
   maxAge: 86400
 };
 
-app.use(cors(corsOptions));
-
-// CORS is handled by the cors middleware above
-
-// Logging middleware to track request content types
+// Logging middleware to track request content types - MUST BE VERY EARLY
 app.use((req, res, next) => {
   const contentType = req.get('Content-Type') || '';
   const path = req.path || '';
   const origin = req.headers.origin || 'no-origin';
-  console.log('🔍 Request to:', path, 'Content-Type:', contentType, 'Origin:', origin);
+  const method = req.method;
+
+  if (method === 'OPTIONS' || !path.includes('.')) {
+    console.log(`🔍 [${method}] ${path} | Origin: ${origin} | CT: ${contentType}`);
+  }
   next();
 });
+
+// Enhanced CORS configuration - MUST BE BEFORE ALL ROUTES
+app.use(cors(corsOptions));
 
 // ⚠️ CRITICAL: Register bulk import routes BEFORE body parsers
 // This allows multer to handle multipart/form-data before express.json tries to parse it
@@ -576,7 +583,7 @@ const startServer = async () => {
 
     // Seed default public job templates for India and Gulf
     try {
-      const JobTemplate = require('./models/JobTemplate');
+      const { JobTemplate } = require('./models');
       const defaults = [
         {
           name: 'Software Engineer (India) - Full-time',
