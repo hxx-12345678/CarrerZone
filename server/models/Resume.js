@@ -177,12 +177,4 @@ Resume.prototype.getTotalExperience = function () {
   return 0; // Placeholder
 };
 
-// Define associations
-Resume.associate = (models) => {
-  Resume.belongsTo(models.User, {
-    foreignKey: 'userId',
-    as: 'creator'
-  });
-};
-
 module.exports = Resume; 

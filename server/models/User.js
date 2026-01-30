@@ -340,19 +340,4 @@ User.prototype.getInitials = function () {
 // Note: User-Company association is automatically created by Company.hasMany
 // No need to manually define User.belongsTo here as it causes duplicate alias error
 
-// Define associations
-User.associate = (models) => {
-  // User belongs to Company (for employers)
-  User.belongsTo(models.Company, {
-    foreignKey: 'companyId',
-    as: 'company'
-  });
-
-  // User has many Resumes
-  User.hasMany(models.Resume, {
-    foreignKey: 'userId',
-    as: 'resumes'
-  });
-};
-
 module.exports = User; 
