@@ -266,7 +266,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="flex justify-between text-xs">
                         <span>Pending:</span>
-                        <span className="font-semibold">{stats?.companies?.unverified || 0}</span>
+                        <span className="font-semibold">{stats?.companies?.pending || 0}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -375,7 +375,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <div className="bg-white/5 rounded p-2">
                         <div className="text-gray-400">Pending</div>
-                        <div className="text-lg font-bold">{stats?.companies?.unverified || 0}</div>
+                        <div className="text-lg font-bold">{stats?.companies?.pending || 0}</div>
                       </div>
                     </div>
                   </CardContent>
@@ -431,7 +431,7 @@ export default function AdminDashboardPage() {
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-white/5 rounded p-2">
                         <div className="text-gray-400">Pending</div>
-                        <div className="text-lg font-bold">{stats?.companies?.unverified || 0}</div>
+                        <div className="text-lg font-bold">{stats?.companies?.pending || 0}</div>
                       </div>
                       <div className="bg-white/5 rounded p-2">
                         <div className="text-gray-400">Verified</div>

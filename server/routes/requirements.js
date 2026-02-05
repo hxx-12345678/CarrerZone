@@ -1469,9 +1469,102 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       finalCandidateIds = matchingCandidateIds;
     }
 
+    // Post-query final validations (mirror /candidates endpoint):
+    // 1) Exclude any candidates that have excluded skills (final safety check)
+    // 2) Apply currentDesignation matching using work_experiences (lenient, prefers current role)
+    // This ensures stats total matches the /requirements/:id/candidates endpoint exactly
+    // Note: `statsExcludeSkills` is declared earlier in this handler; reuse the existing variable for final validation.
+
+    if (Array.isArray(statsExcludeSkills) && statsExcludeSkills.length > 0 && finalCandidateIds.length > 0) {
+      try {
+        const candidateRows = await User.findAll({
+          where: { id: { [Op.in]: finalCandidateIds } },
+          attributes: ['id', 'skills', 'key_skills', 'headline', 'summary'],
+          raw: true
+        });
+
+        const excludeSet = new Set();
+        candidateRows.forEach((c) => {
+          const combined = `${c.skills ? JSON.stringify(c.skills) : ''} ${c.key_skills ? JSON.stringify(c.key_skills) : ''} ${c.headline || ''} ${c.summary || ''}`.toLowerCase();
+          for (const skill of statsExcludeSkills.filter(s => s)) {
+            if (skill && combined.includes(skill.toLowerCase())) {
+              excludeSet.add(String(c.id));
+              break;
+            }
+          }
+        });
+
+        if (excludeSet.size > 0) {
+          finalCandidateIds = finalCandidateIds.filter(id => !excludeSet.has(String(id)));
+          console.log(`⚠️ Removed ${excludeSet.size} candidates due to excluded skills in stats`);
+        }
+      } catch (esError) {
+        console.warn('⚠️ Could not apply excludeSkills filter in stats endpoint:', esError.message || esError);
+      }
+    }
+
+    // Apply currentDesignation filter (lenient) using work_experiences when specified
+    // Reuse existing `currentDesignationForStats` declared earlier in the handler
+    if (currentDesignationForStats && finalCandidateIds.length > 0) {
+      try {
+        const workExpRows = await sequelize.query(`
+          SELECT user_id, title, is_current
+          FROM work_experiences
+          WHERE user_id IN (:ids)
+          ORDER BY user_id, is_current DESC, start_date DESC
+        `, { replacements: { ids: finalCandidateIds }, type: QueryTypes.SELECT });
+
+        const workMap = new Map();
+        workExpRows.forEach(w => {
+          const uid = String(w.user_id);
+          if (!workMap.has(uid)) workMap.set(uid, []);
+          workMap.get(uid).push(w);
+        });
+
+        const designationLower = currentDesignationForStats.toLowerCase().trim();
+        const keepSet = new Set();
+
+        finalCandidateIds.forEach(id => {
+          const uid = String(id);
+          const userWork = workMap.get(uid) || [];
+
+          // Check current experience first
+          const currentExp = userWork.find(exp => exp.is_current === true || String(exp.is_current).toLowerCase() === 'true');
+          if (currentExp && currentExp.title && currentExp.title.toLowerCase().includes(designationLower)) {
+            keepSet.add(uid);
+            return;
+          }
+
+          // Fallback: check any work experience title
+          const anyMatch = userWork.some(exp => exp.title && exp.title.toLowerCase().includes(designationLower));
+          if (anyMatch) {
+            keepSet.add(uid);
+            return;
+          }
+
+          // Also allow if user table fields already matched (we didn't fetch them here), so be lenient and keep by default
+          // We'll only remove users if we found work experiences and none of them matched
+          if (userWork.length === 0) {
+            keepSet.add(uid);
+          }
+        });
+
+        // Filter finalCandidateIds to only those kept
+        const beforeCount = finalCandidateIds.length;
+        finalCandidateIds = finalCandidateIds.filter(id => keepSet.has(String(id)));
+        const removed = beforeCount - finalCandidateIds.length;
+        if (removed > 0) {
+          console.log(`🎯 Current designation filter removed ${removed} candidates from stats set`);
+        }
+      } catch (weErr) {
+        console.warn('⚠️ Could not apply currentDesignation work_experience filter in stats endpoint:', weErr.message || weErr);
+      }
+    }
+
+    // Final total after post-query validations
     const totalCandidates = finalCandidateIds.length;
 
-    console.log(`✅ Total candidates matching requirement: ${totalCandidates}`);
+    console.log(`✅ Total candidates matching requirement (after final validation): ${totalCandidates}`);
 
     // Get accessed candidates count - only count UNIQUE candidates that match this requirement
     const { ViewTracking } = require('../config/index');
