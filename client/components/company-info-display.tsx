@@ -193,9 +193,9 @@ export function CompanyInfoDisplay({ companyId }: CompanyInfoDisplayProps) {
               {getInitials(company.name)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-2">
-              <h3 className="text-xl font-semibold text-slate-900">{company.name}</h3>
+              <h3 className="text-xl font-semibold text-slate-900 truncate">{company.name}</h3>
               {company.isVerified && (
                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
                   <Star className="w-3 h-3 mr-1" />
@@ -203,7 +203,7 @@ export function CompanyInfoDisplay({ companyId }: CompanyInfoDisplayProps) {
                 </Badge>
               )}
             </div>
-            <p className="text-slate-600">{company.industry}</p>
+            <p className="text-slate-600 truncate">{company.industry}</p>
             {company.rating && (
               <div className="flex items-center mt-1">
                 <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
@@ -222,13 +222,13 @@ export function CompanyInfoDisplay({ companyId }: CompanyInfoDisplayProps) {
         {company.description && (
           <div>
             <h4 className="font-medium text-slate-900 mb-2">About</h4>
-            <p className="text-slate-600 text-sm leading-relaxed">{company.description}</p>
+            <p className="text-slate-600 text-sm leading-relaxed break-words">{company.description}</p>
           </div>
         )}
 
         {/* Company Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
+          <div className="space-y-3 min-w-0">
             <div className="flex items-center space-x-2">
               <Users className="w-4 h-4 text-slate-500" />
               <span className="text-sm text-slate-600">Company Size:</span>
@@ -251,7 +251,7 @@ export function CompanyInfoDisplay({ companyId }: CompanyInfoDisplayProps) {
                   href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-blue-600 hover:underline"
+                  className="text-sm font-medium text-blue-600 hover:underline truncate"
                 >
                   {company.website}
                 </a>
@@ -259,28 +259,28 @@ export function CompanyInfoDisplay({ companyId }: CompanyInfoDisplayProps) {
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 min-w-0">
             {company.email && (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 min-w-0">
                 <Mail className="w-4 h-4 text-slate-500" />
                 <span className="text-sm text-slate-600">Email:</span>
-                <span className="text-sm font-medium">{company.email}</span>
+                <span className="text-sm font-medium truncate">{company.email}</span>
               </div>
             )}
 
             {company.phone && (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 min-w-0">
                 <Phone className="w-4 h-4 text-slate-500" />
                 <span className="text-sm text-slate-600">Phone:</span>
-                <span className="text-sm font-medium">{company.phone}</span>
+                <span className="text-sm font-medium truncate">{company.phone}</span>
               </div>
             )}
 
             {(company.address || company.city || company.state) && (
-              <div className="flex items-start space-x-2">
+              <div className="flex items-start space-x-2 min-w-0">
                 <MapPin className="w-4 h-4 text-slate-500 mt-0.5" />
                 <span className="text-sm text-slate-600">Address:</span>
-                <span className="text-sm font-medium">
+                <span className="text-sm font-medium break-words">
                   {[company.address, company.city, company.state, company.country]
                     .filter(Boolean)
                     .join(', ')}
