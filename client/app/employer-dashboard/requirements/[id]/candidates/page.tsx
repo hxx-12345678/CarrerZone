@@ -84,6 +84,7 @@ export default function CandidatesPage() {
   const [savingCandidate, setSavingCandidate] = useState<string | null>(null)
   const [contactDialogOpen, setContactDialogOpen] = useState(false)
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  const [contactLoading, setContactLoading] = useState(false)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -1435,9 +1436,23 @@ export default function CandidatesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setSelectedCandidate(candidate)
-                                setContactDialogOpen(true)
+                              onClick={async () => {
+                                try {
+                                  setContactDialogOpen(true)
+                                  setSelectedCandidate(null)
+                                  setContactLoading(true)
+                                  const response = await apiService.getCandidateProfile(params.id as string, candidate.id)
+                                  if (response && response.success && response.data && response.data.candidate) {
+                                    setSelectedCandidate(response.data.candidate)
+                                  } else {
+                                    toast.error(response.message || 'Failed to fetch candidate details')
+                                  }
+                                } catch (err) {
+                                  console.error('Error fetching candidate profile for modal:', err)
+                                  toast.error('Failed to fetch candidate details')
+                                } finally {
+                                  setContactLoading(false)
+                                }
                               }}
                               className="text-xs"
                             >
@@ -1564,7 +1579,13 @@ export default function CandidatesPage() {
                   <Mail className="w-4 h-4" />
                   Email Address
                 </Label>
-                {selectedCandidate?.email ? (
+
+                {contactLoading ? (
+                  <div className="flex items-center justify-center p-3 bg-slate-50 rounded-lg border">
+                    <Loader2 className="w-5 h-5 animate-spin text-slate-700" />
+                    <span className="ml-2 text-sm text-slate-600">Loading contact details...</span>
+                  </div>
+                ) : (selectedCandidate?.email ? (
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
                     <span className="text-sm font-medium">{selectedCandidate.email}</span>
                     {selectedCandidate.emailVerified && (
@@ -1575,8 +1596,9 @@ export default function CandidatesPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500">No email available</p>
-                )}
-                {selectedCandidate?.email && (
+                ))}
+
+                {(!contactLoading && selectedCandidate?.email) && (
                   <Button
                     variant="default"
                     className="w-full"
@@ -1596,7 +1618,12 @@ export default function CandidatesPage() {
                   <Phone className="w-4 h-4" />
                   Phone Number
                 </Label>
-                {selectedCandidate?.phone ? (
+                {contactLoading ? (
+                  <div className="flex items-center justify-center p-3 bg-slate-50 rounded-lg border">
+                    <Loader2 className="w-5 h-5 animate-spin text-slate-700" />
+                    <span className="ml-2 text-sm text-slate-600">Loading contact details...</span>
+                  </div>
+                ) : (selectedCandidate?.phone ? (
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
                     <span className="text-sm font-medium">{selectedCandidate.phone}</span>
                     {selectedCandidate.phoneVerified && (
@@ -1607,8 +1634,8 @@ export default function CandidatesPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500">No phone number available</p>
-                )}
-                {selectedCandidate?.phone && (
+                ))}
+                {!contactLoading && selectedCandidate?.phone && (
                   <Button
                     variant="default"
                     className="w-full"
