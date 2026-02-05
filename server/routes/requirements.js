@@ -2487,11 +2487,70 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
       (institute !== null)
     );
 
-    // NEVER use fallback if we have strict criteria - this prevents irrelevant candidates
+    // If strict criteria produced zero matches, attempt a controlled fallback
     if (finalCount === 0 && hasStrictCriteria) {
-      console.log(`⚠️ No candidates matched strict criteria. Returning empty results (no fallback to prevent irrelevant candidates).`);
-      finalCandidates = [];
-      finalCount = 0;
+      console.log(`⚠️ No candidates matched strict criteria. Attempting controlled relaxed fallback (remove experience/salary constraints).`);
+
+      try {
+        // Build relaxed matching: keep skills, locations, designations but remove experience and salary constraints
+        const baseWhere = {
+          user_type: 'jobseeker',
+          is_active: true,
+          account_status: 'active'
+        };
+
+        const relaxedAnds = [];
+
+        // Skills (includeSkills from metadata or requirement fields)
+        const relaxedSkillConds = [];
+        const reqSkills = (metadata && metadata.includeSkills && metadata.includeSkills.length > 0) ? metadata.includeSkills : (requirement.skills || []);
+        (reqSkills || []).forEach(s => {
+          if (!s) return;
+          relaxedSkillConds.push({ [Op.or]: [
+            sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+            sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+            { summary: { [Op.iLike]: `%${s}%` } }
+          ]});
+        });
+        if (relaxedSkillConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedSkillConds });
+
+        // Locations (candidateLocations)
+        const relaxedLocationConds = [];
+        (candidateLocations || []).forEach(loc => {
+          if (!loc) return;
+          relaxedLocationConds.push({ current_location: { [Op.iLike]: `%${loc}%` } });
+          relaxedLocationConds.push(sequelize.where(sequelize.cast(sequelize.col('preferred_locations'), 'text'), { [Op.iLike]: `%${loc}%` }));
+        });
+        if (relaxedLocationConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedLocationConds });
+
+        // Designations (candidateDesignations)
+        const relaxedDesignationConds = [];
+        (candidateDesignations || []).forEach(d => {
+          if (!d) return;
+          relaxedDesignationConds.push({ designation: { [Op.iLike]: `%${d}%` } });
+        });
+        if (relaxedDesignationConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedDesignationConds });
+
+        // Build final relaxed where
+        const relaxedWhere = { ...baseWhere };
+        if (relaxedAnds.length > 0) relaxedWhere[Op.and] = relaxedAnds;
+
+        const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
+        if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
+          finalCandidates = await User.findAll({ where: { id: { [Op.in]: relaxedMatches.map(m => m.id) } }, limit: 100, order: [['profile_completion', 'DESC']] });
+          finalCount = relaxedMatches.length;
+          fallbackApplied = true;
+          console.log(`✅ Relaxed fallback succeeded: ${finalCount} candidates found after removing experience/salary filters.`);
+        } else {
+          console.log(`⚠️ Relaxed fallback returned no candidates. Keeping strict-empty result.`);
+          finalCandidates = [];
+          finalCount = 0;
+        }
+      } catch (fallbackErr) {
+        console.error('❌ Error while performing relaxed fallback:', fallbackErr);
+        finalCandidates = [];
+        finalCount = 0;
+      }
     }
 
     // ========== IMPROVED RELEVANCE SCORING ALGORITHM ==========
