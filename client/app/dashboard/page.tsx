@@ -113,11 +113,10 @@ export default function DashboardPage() {
           }
         }
 
-        // Required fields for jobseeker
+        // Required fields for jobseeker (experienceYears removed - calculated from work experience)
         return !user.phone ||
           !user.currentLocation ||
           !user.headline ||
-          (user.experienceYears === undefined || user.experienceYears === null) ||
           !(user as any).gender ||
           !(user as any).dateOfBirth
       }
@@ -1510,7 +1509,7 @@ export default function DashboardPage() {
                   <Link href="/dashboard" className="block text-slate-400 hover:text-white transition-colors text-sm">
                     Dashboard
                   </Link>
-                  <Link href="/profile" className="block text-slate-400 hover:text-white transition-colors text-sm">
+                  <Link href="/account" className="block text-slate-400 hover:text-white transition-colors text-sm">
                     Profile
                   </Link>
                 </div>

@@ -262,11 +262,38 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
         userEmail: user.email
       });
 
-      // If profile is completed, immediately set states to prevent dialog
-      if (user.preferences?.profileCompleted === true || localStorage.getItem('profileCompleted') === 'true') {
+      // Check localStorage with proper parsing
+      let localStorageCompleted = false
+      try {
+        const stored = localStorage.getItem('profileCompleted')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed.completed === true && parsed.userType === user.userType) {
+            // Check if completion is recent (within last 90 days)
+            const completionAge = Date.now() - (parsed.timestamp || 0)
+            const ninetyDaysInMs = 90 * 24 * 60 * 60 * 1000
+            if (completionAge < ninetyDaysInMs) {
+              localStorageCompleted = true
+            }
+          }
+        }
+      } catch (e) {
+        console.log('⚠️ Error parsing localStorage profile completion:', e)
+      }
+
+      // If profile is completed (either in preferences or localStorage), immediately set states to prevent dialog
+      if (user.preferences?.profileCompleted === true || localStorageCompleted) {
         console.log('🚀 INITIAL CHECK: Profile is completed - setting initial states to prevent dialog');
         setShowProfileCompletion(false)
         setProfileCheckDone(true)
+        // Ensure localStorage is set for future sessions
+        if (!localStorageCompleted) {
+          localStorage.setItem('profileCompleted', JSON.stringify({
+            completed: true,
+            timestamp: Date.now(),
+            userType: user.userType
+          }))
+        }
       } else {
         console.log('🚀 INITIAL CHECK: Profile not completed - will check later');
       }
@@ -321,14 +348,29 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       }
 
       // CRITICAL: First check - if profile is completed, NEVER show dialog
-      if (user.preferences?.profileCompleted === true) {
-        console.log('🚫 ULTIMATE CHECK: Profile is completed - dialog will NEVER show');
+      // Also check if user has all required fields filled (auto-complete check)
+      const hasAllRequiredFields = hasPhone && hasDesignation && (hasCompanyId || isAdmin)
+      
+      if (user.preferences?.profileCompleted === true || (hasAllRequiredFields && user.phone && (user as any).designation)) {
+        console.log('🚫 ULTIMATE CHECK: Profile is completed or has all required fields - dialog will NEVER show');
         // Also store in localStorage as backup
         localStorage.setItem('profileCompleted', JSON.stringify({
           completed: true,
           timestamp: Date.now(),
           userType: user.userType
         }));
+        // If profileCompleted is not set but user has all fields, update it
+        if (!user.preferences?.profileCompleted && hasAllRequiredFields) {
+          console.log('🔄 Auto-setting profileCompleted to true since all required fields are filled');
+          apiService.updateProfile({
+            preferences: {
+              ...(user.preferences || {}),
+              profileCompleted: true
+            }
+          }).then(() => {
+            refreshUser(true)
+          }).catch(err => console.error('Error auto-setting profileCompleted:', err))
+        }
         setShowProfileCompletion(false)
         setProfileCheckDone(true)
         return
@@ -417,6 +459,25 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
 
         // For admin users, companyId is not required
         const hasRequiredFields = hasPhone && hasDesignation && (hasCompanyId || isAdmin)
+        
+        // If user has all required fields but profileCompleted is not set, auto-set it
+        if (hasRequiredFields && !user.preferences?.profileCompleted) {
+          console.log('🔄 User has all required fields but profileCompleted not set - auto-setting');
+          // Auto-set profileCompleted in background (don't wait for response)
+          apiService.updateProfile({
+            preferences: {
+              ...(user.preferences || {}),
+              profileCompleted: true
+            }
+          }).then(() => {
+            console.log('✅ Auto-set profileCompleted to true');
+            refreshUser(true)
+          }).catch(err => {
+            console.error('Error auto-setting profileCompleted:', err)
+          })
+          // Return false to not show dialog
+          return false
+        }
 
         console.log('🔍 Required fields check:', {
           phone: hasPhone,
@@ -886,6 +947,15 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
     // Update local user state immediately with provided data
     if (updatedData) {
       updateUser(updatedData)
+      // Ensure profileCompleted is set in the updated data
+      if (updatedData.preferences?.profileCompleted === true) {
+        // Store in localStorage as permanent backup
+        localStorage.setItem('profileCompleted', JSON.stringify({
+          completed: true,
+          timestamp: Date.now(),
+          userType: updatedData.userType || user?.userType
+        }))
+      }
     }
 
     // Force refresh user data from server to be 100% sure
@@ -897,6 +967,15 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
 
     // Mark as completed in this session to prevent re-triggering during navigation
     sessionStorage.setItem('profileCheckHandled', 'true')
+    
+    // Also mark in localStorage permanently
+    if (updatedData?.preferences?.profileCompleted === true) {
+      localStorage.setItem('profileCompleted', JSON.stringify({
+        completed: true,
+        timestamp: Date.now(),
+        userType: updatedData.userType || user?.userType
+      }))
+    }
 
     // Reload dashboard data to reflect changes
     loadDashboardData()

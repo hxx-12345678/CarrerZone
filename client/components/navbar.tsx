@@ -405,7 +405,7 @@ export function Navbar() {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center">
+                    <Link href="/account" className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
                       Profile
                     </Link>
@@ -529,7 +529,7 @@ export function Navbar() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Link href="/profile" className="block text-sm text-slate-700 dark:text-slate-300">
+                      <Link href="/account" className="block text-sm text-slate-700 dark:text-slate-300">
                         Profile
                       </Link>
                       <Link href={user?.userType === 'employer' ? (user?.region === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard') : (user?.region === 'gulf' ? '/jobseeker-gulf-dashboard' : '/dashboard')} className="block text-sm text-slate-700 dark:text-slate-300">

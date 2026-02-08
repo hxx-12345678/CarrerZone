@@ -1561,10 +1561,76 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       }
     }
 
-    // Final total after post-query validations
-    const totalCandidates = finalCandidateIds.length;
+    // Apply relaxed fallback if no strict matches (same logic as candidates endpoint)
+    let relaxedCandidateIds = [];
+    let fallbackApplied = false;
+    
+    if (finalCandidateIds.length === 0 && hasStrictCriteriaForStats) {
+      console.log(`⚠️ No candidates matched strict criteria in stats. Attempting relaxed fallback (remove experience/salary constraints).`);
+      
+      try {
+        // Build relaxed matching: keep skills, locations, designations but remove experience and salary constraints
+        const baseWhere = {
+          user_type: 'jobseeker',
+          is_active: true,
+          account_status: 'active'
+        };
 
-    console.log(`✅ Total candidates matching requirement (after final validation): ${totalCandidates}`);
+        const relaxedAnds = [];
+
+        // Skills (statsRequiredSkills)
+        const relaxedSkillConds = [];
+        (statsRequiredSkills || []).forEach(s => {
+          if (!s) return;
+          relaxedSkillConds.push({ [Op.or]: [
+            sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+            sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+            { summary: { [Op.iLike]: `%${s}%` } }
+          ]});
+        });
+        if (relaxedSkillConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedSkillConds });
+
+        // Locations (candidateLocations)
+        const relaxedLocationConds = [];
+        (candidateLocations || []).forEach(loc => {
+          if (!loc) return;
+          relaxedLocationConds.push({ current_location: { [Op.iLike]: `%${loc}%` } });
+          relaxedLocationConds.push(sequelize.where(sequelize.cast(sequelize.col('preferred_locations'), 'text'), { [Op.iLike]: `%${loc}%` }));
+        });
+        if (relaxedLocationConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedLocationConds });
+
+        // Designations (candidateDesignations)
+        const relaxedDesignationConds = [];
+        (candidateDesignations || []).forEach(d => {
+          if (!d) return;
+          relaxedDesignationConds.push({ designation: { [Op.iLike]: `%${d}%` } });
+        });
+        if (relaxedDesignationConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedDesignationConds });
+
+        // Build final relaxed where
+        const relaxedWhere = { ...baseWhere };
+        if (relaxedAnds.length > 0) relaxedWhere[Op.and] = relaxedAnds;
+
+        const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
+        if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
+          relaxedCandidateIds = relaxedMatches.map(m => m.id);
+          fallbackApplied = true;
+          console.log(`✅ Relaxed fallback succeeded in stats: ${relaxedCandidateIds.length} candidates found after removing experience/salary filters.`);
+        } else {
+          console.log(`⚠️ Relaxed fallback returned no candidates in stats. Keeping strict-empty result.`);
+        }
+      } catch (fallbackErr) {
+        console.error('❌ Error while performing relaxed fallback in stats:', fallbackErr);
+      }
+    }
+
+    // Use relaxed candidates if fallback was applied, otherwise use strict matches
+    const finalCandidateIdsForCount = fallbackApplied ? relaxedCandidateIds : finalCandidateIds;
+    
+    // Final total after post-query validations (including relaxed fallback)
+    const totalCandidates = finalCandidateIdsForCount.length;
+
+    console.log(`✅ Total candidates matching requirement (after final validation${fallbackApplied ? ' with relaxed fallback' : ''}): ${totalCandidates}`);
 
     // Get accessed candidates count - only count UNIQUE candidates that match this requirement
     const { ViewTracking } = require('../config/index');
@@ -1572,20 +1638,20 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     // Initialize to 0 - will only increment if valid views are found
     let accessedCandidates = 0;
 
-    // CRITICAL: Only count if there are matching candidates
-    if (finalCandidateIds.length === 0) {
+    // CRITICAL: Only count if there are matching candidates (use finalCandidateIdsForCount which includes relaxed fallback)
+    if (finalCandidateIdsForCount.length === 0) {
       accessedCandidates = 0;
       console.log(`✅ No matching candidates for requirement ${requirement.id}, accessed count = 0`);
     } else {
       try {
         // Count DISTINCT profile views where:
-        // 1. The viewed candidate matches this requirement (in finalCandidateIds)
+        // 1. The viewed candidate matches this requirement (in finalCandidateIdsForCount - includes relaxed fallback)
         // 2. The viewer is this employer
         // 3. View type is profile_view
         // IMPORTANT: Only count views of candidates that actually match this requirement
 
-        // Convert finalCandidateIds to strings for consistent comparison
-        const matchingIdsStr = finalCandidateIds.map(id => String(id).trim()).filter(Boolean);
+        // Convert finalCandidateIdsForCount to strings for consistent comparison
+        const matchingIdsStr = finalCandidateIdsForCount.map(id => String(id).trim()).filter(Boolean);
 
         if (matchingIdsStr.length === 0) {
           accessedCandidates = 0;
@@ -1651,9 +1717,9 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
             console.log(`   - Found ${verifyViews.length} views for this requirement (including legacy views without jobId)`);
 
             // Count unique candidates viewed
-            // CRITICAL: Only count candidates that are in finalCandidateIds (they match the requirement)
+            // CRITICAL: Only count candidates that are in finalCandidateIdsForCount (they match the requirement, including relaxed fallback)
             const viewedCandidateIds = new Set();
-            const finalCandidateIdsStr = finalCandidateIds.map(id => String(id).trim());
+            const finalCandidateIdsStr = finalCandidateIdsForCount.map(id => String(id).trim());
 
             if (Array.isArray(verifyViews) && verifyViews.length > 0) {
               verifyViews.forEach((view) => {
@@ -1710,13 +1776,13 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     }
 
     // CRITICAL SAFETY: If no matching candidates, accessed MUST be 0
-    if (finalCandidateIds.length === 0) {
+    if (finalCandidateIdsForCount.length === 0) {
       finalAccessedCount = 0;
       console.log(`⚠️ Safety check: No matching candidates, forcing accessed count to 0`);
     }
 
     // DOUBLE SAFETY: If count > 0 but no matching candidates, force to 0
-    if (finalAccessedCount > 0 && finalCandidateIds.length === 0) {
+    if (finalAccessedCount > 0 && finalCandidateIdsForCount.length === 0) {
       console.log(`⚠️ CRITICAL: Found ${finalAccessedCount} accesses but no matching candidates - FORCING TO 0`);
       finalAccessedCount = 0;
     }
@@ -1732,7 +1798,7 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 
     // Log final result with full context
     console.log(`✅✅✅ FINAL accessed count for requirement "${requirement.title}" (${requirement.id}): ${accessedCandidates}`);
-    console.log(`   - Matching candidates: ${finalCandidateIds.length}`);
+    console.log(`   - Matching candidates: ${finalCandidateIdsForCount.length}${fallbackApplied ? ' (relaxed fallback applied)' : ''}`);
     console.log(`   - Valid views found: ${accessedCandidates}`);
     console.log(`   - Employer ID: ${req.user.id}`);
     console.log(`   - Status: ${accessedCandidates === 0 ? 'NO ACCESSES (Correct for new requirements)' : accessedCandidates + ' candidates accessed'}`);
@@ -1747,6 +1813,7 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
         totalCandidates: Number(totalCandidates) || 0,
         accessedCandidates: Number(accessedCandidates) || 0,
         cvAccessLeft,
+        fallbackApplied: fallbackApplied || false,
         requirement: {
           id: requirement.id,
           title: requirement.title,

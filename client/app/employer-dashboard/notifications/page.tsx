@@ -91,6 +91,10 @@ function NotificationsPageContent({ user }: { user: any }) {
           )
         )
         toast.success('Notification marked as read')
+        // Dispatch custom event to refresh navbar notification count
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('notificationRead'))
+        }
       } else {
         toast.error(response.message || 'Failed to mark notification as read')
       }

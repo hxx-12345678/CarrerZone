@@ -82,7 +82,6 @@ export function JobseekerProfileCompletionDialog({
     const hasRequiredFields = user.phone && 
                               user.currentLocation && 
                               user.headline && 
-                              (user.experienceYears !== undefined && user.experienceYears !== null) &&
                               user.gender &&
                               (user as any).dateOfBirth
 
@@ -237,7 +236,7 @@ export function JobseekerProfileCompletionDialog({
         currentLocation: formData.currentLocation,
         headline: formData.headline,
         summary: formData.summary || undefined,
-        experienceYears: formData.experienceYears ? parseInt(formData.experienceYears) : 0,
+        // experienceYears removed - will be calculated from work experience
         expectedSalary: formData.expectedSalary ? parseFloat(formData.expectedSalary) : undefined,
         noticePeriod: formData.noticePeriod ? parseInt(formData.noticePeriod) : undefined,
         skills: formData.skills ? formData.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -342,7 +341,7 @@ export function JobseekerProfileCompletionDialog({
                 Phone Verified
               </Badge>
             )}
-            {user.profileCompletion && user.profileCompletion >= 80 && (
+            {user.profileCompletion && user.profileCompletion > 0 && user.profileCompletion >= 80 && (
               <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">
                 <Award className="w-3 h-3 mr-1" />
                 Profile {user.profileCompletion}% Complete
@@ -477,17 +476,28 @@ export function JobseekerProfileCompletionDialog({
                     );
                   }
                   return (
-                    <div className="border border-slate-200 rounded-lg p-3 bg-white dark:bg-slate-800">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">{currentExp.jobTitle}</span>
-                        <Badge className="bg-green-100 text-green-800 text-xs">Current</Badge>
+                    <div className="border border-slate-200 rounded-lg p-3 bg-white dark:bg-slate-800 flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm">{currentExp.jobTitle}</span>
+                          <Badge className="bg-green-100 text-green-800 text-xs">Current</Badge>
+                        </div>
+                        {currentExp.currentDesignation && (
+                          <p className="text-xs text-slate-600 dark:text-slate-400 italic mb-1">
+                            Designation: {currentExp.currentDesignation}
+                          </p>
+                        )}
+                        <p className="text-xs text-slate-600 dark:text-slate-400">{currentExp.companyName}</p>
                       </div>
-                      {currentExp.currentDesignation && (
-                        <p className="text-xs text-slate-600 dark:text-slate-400 italic mb-1">
-                          Designation: {currentExp.currentDesignation}
-                        </p>
-                      )}
-                      <p className="text-xs text-slate-600 dark:text-slate-400">{currentExp.companyName}</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => currentExp.id && handleDeleteWorkExperience(currentExp.id)}
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
                     </div>
                   );
                 })()}
@@ -638,18 +648,6 @@ export function JobseekerProfileCompletionDialog({
             <h3 className="font-semibold text-sm text-green-900 dark:text-green-100">Other Professional Details</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="experienceYears">Years of Experience</Label>
-                <Input
-                  id="experienceYears"
-                  type="number"
-                  min="0"
-                  placeholder="e.g., 5"
-                  value={formData.experienceYears}
-                  onChange={(e) => setFormData(prev => ({ ...prev, experienceYears: e.target.value }))}
-                />
-              </div>
-
               <div>
                 <Label htmlFor="highestEducation">Highest Education</Label>
                 <Select value={formData.highestEducation} onValueChange={(value) => setFormData(prev => ({ ...prev, highestEducation: value }))}>
@@ -1460,14 +1458,26 @@ export function EmployerProfileCompletionDialog({
       
       const response = await apiService.updateProfile(updateData)
       if (response.success) {
-        toast.success('Profile completion reminder snoozed for 12 hours (this session)')
+        toast.success('Profile completion reminder snoozed for 12 hours')
         // Refresh user data to update preferences in memory
         onProfileUpdated(response.data)
       }
       onClose()
+      // Redirect directly to employer dashboard - no intermediate redirects
+      if (typeof window !== 'undefined') {
+        const userRegion = user.region || 'india'
+        const dashboardPath = userRegion === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'
+        window.location.href = dashboardPath
+      }
     } catch (error) {
       console.error('Error updating skip preference:', error)
       onClose()
+      // Still redirect even if update fails
+      if (typeof window !== 'undefined') {
+        const userRegion = user.region || 'india'
+        const dashboardPath = userRegion === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'
+        window.location.href = dashboardPath
+      }
     }
   }
 
@@ -1570,11 +1580,11 @@ export function EmployerProfileCompletionDialog({
       return;
     }
     
-    // If dialog is being closed, trigger skip logic (12 hour snooze)
+    // If dialog is being closed, trigger skip logic (12 hour snooze) and redirect
     if (!open && isOpen) {
-      console.log('📌 User closed dialog - triggering snooze');
+      console.log('📌 User closed dialog - triggering snooze and redirect');
       await handleSkip()
-      return; // Don't call onClose() again, handleSkip already does it
+      return; // handleSkip handles redirect, don't call onClose() again
     }
     
     console.log('✅ Dialog close allowed');

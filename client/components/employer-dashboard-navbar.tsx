@@ -89,6 +89,20 @@ export function EmployerDashboardNavbar() {
     fetchUnseenNotifications()
   }, [user, isMockMode])
 
+  // Listen for notification read events to refresh count
+  useEffect(() => {
+    const handleNotificationRead = () => {
+      fetchUnseenNotifications()
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('notificationRead', handleNotificationRead)
+      return () => {
+        window.removeEventListener('notificationRead', handleNotificationRead)
+      }
+    }
+  }, [])
+
   // Refresh notifications when clicking on notification button
   const handleNotificationClick = () => {
     fetchUnseenNotifications()

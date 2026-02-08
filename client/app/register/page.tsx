@@ -661,7 +661,7 @@ export default function RegisterPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/profile" className="text-slate-400 hover:text-white transition-colors text-sm">
+                  <Link href="/account" className="text-slate-400 hover:text-white transition-colors text-sm">
                     My Profile
                   </Link>
                 </li>
