@@ -11,6 +11,7 @@ const Resume = require('../models/Resume');
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -146,6 +147,149 @@ async function extractPDFContent(filePath) {
 
   } catch (error) {
     console.error('❌ Error extracting PDF content:', error);
+    return null;
+  }
+}
+
+/**
+ * Extract text content from Word document (.docx) file
+ */
+async function extractWordContent(filePath) {
+  try {
+    console.log('📄 Extracting content from Word document:', filePath);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.log('❌ Word file does not exist:', filePath);
+      return null;
+    }
+
+    console.log('📄 Word file exists, extracting content...');
+    console.log('📄 File size:', fs.statSync(filePath).size, 'bytes');
+
+    // Get file extension
+    const ext = path.extname(filePath).toLowerCase();
+
+    // Handle .docx files (modern Word format)
+    if (ext === '.docx') {
+      try {
+        console.log('📄 Method: Using mammoth for .docx...');
+        const result = await mammoth.extractRawText({ path: filePath });
+        
+        if (result && result.value && result.value.length > 0) {
+          console.log('✅ mammoth extraction successful');
+          console.log('📄 Content length:', result.value.length, 'characters');
+          console.log('📄 Content preview:', result.value.substring(0, 300) + '...');
+
+          // Clean up the text
+          const cleanText = result.value
+            .replace(/\s+/g, ' ')
+            .replace(/\n\s*\n/g, '\n')
+            .trim();
+
+          console.log('📄 Cleaned text length:', cleanText.length, 'characters');
+          return cleanText;
+        } else {
+          console.log('⚠️ mammoth extracted empty content');
+          return null;
+        }
+      } catch (mammothError) {
+        console.log('⚠️ mammoth extraction failed:', mammothError.message);
+        
+        // Try alternative method: extract with HTML conversion
+        try {
+          console.log('📄 Trying mammoth with HTML conversion...');
+          const htmlResult = await mammoth.convertToHtml({ path: filePath });
+          
+          if (htmlResult && htmlResult.value) {
+            // Extract text from HTML
+            const textFromHtml = htmlResult.value
+              .replace(/<[^>]*>/g, ' ') // Remove HTML tags
+              .replace(/\s+/g, ' ')
+              .replace(/\n\s*\n/g, '\n')
+              .trim();
+            
+            if (textFromHtml.length > 0) {
+              console.log('✅ HTML conversion successful, extracted text');
+              return textFromHtml;
+            }
+          }
+        } catch (htmlError) {
+          console.log('⚠️ HTML conversion also failed:', htmlError.message);
+        }
+        
+        return null;
+      }
+    }
+    
+    // Handle .doc files (older Word format) - requires additional library
+    if (ext === '.doc') {
+      console.log('⚠️ .doc format detected. This format requires additional processing.');
+      console.log('⚠️ Attempting to read as binary and extract text...');
+      
+      try {
+        // For .doc files, we'll try to use a text extraction approach
+        // Note: Full .doc support would require 'textract' or 'antiword' which may need system dependencies
+        // For now, we'll return a message indicating the limitation
+        console.log('⚠️ .doc file format requires system-level tools (textract/antiword)');
+        console.log('⚠️ Please convert .doc to .docx or PDF for better compatibility');
+        
+        // Try basic text extraction from binary (limited success)
+        const fileBuffer = fs.readFileSync(filePath);
+        const textMatch = fileBuffer.toString('utf8', 0, Math.min(fileBuffer.length, 100000));
+        
+        // Extract readable text (very basic, may not work well)
+        const readableText = textMatch
+          .replace(/[^\x20-\x7E\n\r]/g, ' ') // Remove non-printable characters
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        if (readableText.length > 100) {
+          console.log('⚠️ Extracted partial text from .doc (may be incomplete)');
+          return readableText;
+        }
+        
+        return null;
+      } catch (docError) {
+        console.log('❌ .doc extraction failed:', docError.message);
+        return null;
+      }
+    }
+
+    console.log('❌ Unsupported file format:', ext);
+    return null;
+
+  } catch (error) {
+    console.error('❌ Error extracting Word content:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Extract text content from any supported file format (PDF, DOCX, DOC)
+ */
+async function extractFileContent(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) {
+    console.log('❌ File does not exist:', filePath);
+    return null;
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  console.log(`📄 Extracting content from ${ext} file:`, filePath);
+
+  try {
+    if (ext === '.pdf') {
+      return await extractPDFContent(filePath);
+    } else if (ext === '.docx') {
+      return await extractWordContent(filePath);
+    } else if (ext === '.doc') {
+      return await extractWordContent(filePath);
+    } else {
+      console.log('⚠️ Unsupported file format:', ext);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error in extractFileContent:', error.message);
     return null;
   }
 }
@@ -839,19 +983,26 @@ async function calculateATSScore(candidateId, requirementId) {
     if (resume) {
       resumeContent = extractResumeContent(resume);
 
-      // If resume has no detailed content but has a PDF file, try to extract content
+      // If resume has no detailed content but has a file, try to extract content
       if (!resume.metadata?.content && resume.metadata?.localPath) {
-        console.log('📄 Attempting to extract PDF content...');
+        const filePath = resume.metadata.localPath;
+        const ext = path.extname(filePath).toLowerCase();
+        
+        console.log(`📄 Attempting to extract content from ${ext} file...`);
         try {
-          const pdfContent = await extractPDFContent(resume.metadata.localPath);
-          if (pdfContent) {
-            console.log('📄 PDF content extracted successfully');
-            resumeContent += `\n\nExtracted PDF Content:\n${pdfContent}`;
+          // Use the unified extractFileContent function that handles PDF, DOCX, and DOC
+          const extractedContent = await extractFileContent(filePath);
+          if (extractedContent) {
+            console.log(`📄 ${ext.toUpperCase()} content extracted successfully`);
+            resumeContent += `\n\nExtracted ${ext.toUpperCase()} Content:\n${extractedContent}`;
+          } else {
+            console.log(`⚠️ ${ext.toUpperCase()} content extraction returned empty`);
+            throw new Error(`Failed to extract content from ${ext} file`);
           }
         } catch (error) {
-          console.log('⚠️ PDF content extraction failed:', error.message);
+          console.log(`⚠️ ${ext.toUpperCase()} content extraction failed:`, error.message);
 
-          // If PDF extraction fails, create a comprehensive resume content based on the candidate's profile
+          // If extraction fails, create a comprehensive resume content based on the candidate's profile
           console.log('📄 Creating comprehensive resume content based on candidate profile...');
           const comprehensiveContent = createComprehensiveResumeContent(candidate, resume);
           resumeContent = comprehensiveContent; // Replace the basic content with comprehensive content
