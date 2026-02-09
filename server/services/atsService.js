@@ -1246,13 +1246,12 @@ Provide ONLY the JSON response, no additional text.
     let atsData;
 
     try {
-      // Use Gemini 1.5 Flash for better stability and lower latency
-      // Use Gemini 1.5 Flash for better stability and lower latency
+      // Use Gemini AI for ATS scoring
       const genAI = getGenAI();
       if (!genAI) throw new Error('Gemini AI not initialized - check API key');
 
-      // Prioritize stable models: 1.5-flash and flash-latest
-      const modelNames = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-pro', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+      // Use only verified working models - gemini-2.0-flash variants are the current stable models
+      const modelNames = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
       let lastError;
 
       for (const modelName of modelNames) {
@@ -1273,7 +1272,8 @@ Provide ONLY the JSON response, no additional text.
           // Retry logic for 429 errors within a global queue
           let retries = 3;
           let delay = 5000; // Start with 5 seconds to be safe
-          let result;
+          let result = null;
+          let apiErrorOccurred = null;
 
           // Enqueue the API call to enforce serialization
           await new Promise((resolveQueue) => {
@@ -1282,7 +1282,7 @@ Provide ONLY the JSON response, no additional text.
                 while (retries > 0) {
                   try {
                     // Add a small delay between requests even if successful to play nice with rate limits
-                    await new Promise(r => setTimeout(r, 2000));
+                    await new Promise(r => setTimeout(r, 3000));
                     result = await model.generateContent(prompt);
                     break; // Success
                   } catch (apiError) {
@@ -1292,7 +1292,9 @@ Provide ONLY the JSON response, no additional text.
                       delay *= 2; // Exponential backoff
                       retries--;
                     } else {
-                      throw apiError; // Throw other errors immediately
+                      // Store the error but don't throw - let the outer loop try next model
+                      apiErrorOccurred = apiError;
+                      break;
                     }
                   }
                 }
@@ -1302,7 +1304,12 @@ Provide ONLY the JSON response, no additional text.
             });
           });
 
-          if (!result && retries === 0) {
+          // If an API error occurred (not rate limit), throw it to try next model
+          if (apiErrorOccurred) {
+            throw apiErrorOccurred;
+          }
+
+          if (!result) {
             throw new Error(`Rate limit exceeded for ${modelName} after multiple retries`);
           }
 
@@ -1320,11 +1327,11 @@ Provide ONLY the JSON response, no additional text.
               break; // Success! exit loop
             } catch (parseErr) {
               console.warn(`⚠️ Failed to parse JSON from ${modelName} response:`, parseErr.message);
-              console.log('📄 Raw response:', text);
+              console.log('📄 Raw response:', text.substring(0, 500));
               throw parseErr;
             }
           } else {
-            console.log('📄 Raw response (no JSON found):', text);
+            console.log('📄 Raw response (no JSON found):', text.substring(0, 500));
             throw new Error('No valid JSON found in response');
           }
         } catch (err) {
