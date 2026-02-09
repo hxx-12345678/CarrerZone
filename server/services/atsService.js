@@ -13,7 +13,18 @@ const path = require('path');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+let genAI_instance = null;
+function getGenAI() {
+  if (!genAI_instance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'undefined') {
+      console.error('❌ GEMINI_API_KEY is not set');
+      return null;
+    }
+    genAI_instance = new GoogleGenerativeAI(apiKey);
+  }
+  return genAI_instance;
+}
 
 /**
  * Extract text content from PDF file using multiple methods
@@ -1124,6 +1135,9 @@ Provide ONLY the JSON response, no additional text.
 
     try {
       // Use Gemini 1.5 Flash for better stability and lower latency
+      const genAI = getGenAI();
+      if (!genAI) throw new Error('Gemini AI not initialized - check API key');
+
       const model = genAI.getGenerativeModel({
         model: 'gemini-1.5-flash',
         generationConfig: {
@@ -1337,5 +1351,8 @@ async function getATSScore(candidateId, requirementId) {
 module.exports = {
   calculateATSScore,
   calculateBatchATSScores,
-  getATSScore
+  getATSScore,
+  extractRequirementDetails,
+  extractCandidateProfile,
+  createComprehensiveResumeContent
 };
