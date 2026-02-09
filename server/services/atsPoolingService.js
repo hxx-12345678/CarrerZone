@@ -332,17 +332,12 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
     is_active: true
   };
 
-  // Experience range matching
+  // Experience range matching - Only enforce minimum experience
   if (workExperienceMin !== null && workExperienceMin !== undefined) {
     const minExp = Number(workExperienceMin);
-    const maxExp = workExperienceMax !== null && workExperienceMax !== undefined
-      ? Number(workExperienceMax) : 50;
 
     whereClause.experience_years = {
-      [Op.and]: [
-        { [Op.gte]: minExp },
-        { [Op.lte]: maxExp }
-      ]
+      [Op.gte]: minExp
     };
   }
 

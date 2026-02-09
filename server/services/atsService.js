@@ -33,10 +33,32 @@ async function extractPDFContent(filePath) {
   try {
     console.log('📄 Extracting content from PDF:', filePath);
 
-    // Check if file exists
+    // Check if file exists, if not try to find it in common upload directories
     if (!fs.existsSync(filePath)) {
-      console.log('❌ PDF file does not exist:', filePath);
-      return null;
+      console.log('⚠️ PDF file not found at path:', filePath);
+      const fileName = path.basename(filePath);
+      const possiblePaths = [
+        path.join(__dirname, '../uploads/resumes', fileName),
+        path.join(__dirname, '../../uploads/resumes', fileName),
+        path.join(process.cwd(), 'uploads/resumes', fileName),
+        path.join(process.cwd(), 'server/uploads/resumes', fileName)
+      ];
+
+      let foundPath = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          console.log('✅ Found PDF file at alternative path:', p);
+          foundPath = p;
+          break;
+        }
+      }
+
+      if (foundPath) {
+        filePath = foundPath;
+      } else {
+        console.log('❌ PDF file not found in any common directory');
+        return null;
+      }
     }
 
     console.log('📄 PDF file exists, extracting content...');
@@ -169,10 +191,32 @@ async function extractWordContent(filePath) {
   try {
     console.log('📄 Extracting content from Word document:', filePath);
 
-    // Check if file exists
+    // Check if file exists, if not try to find it in common upload directories
     if (!fs.existsSync(filePath)) {
-      console.log('❌ Word file does not exist:', filePath);
-      return null;
+      console.log('⚠️ Word file not found at path:', filePath);
+      const fileName = path.basename(filePath);
+      const possiblePaths = [
+        path.join(__dirname, '../uploads/resumes', fileName),
+        path.join(__dirname, '../../uploads/resumes', fileName),
+        path.join(process.cwd(), 'uploads/resumes', fileName),
+        path.join(process.cwd(), 'server/uploads/resumes', fileName)
+      ];
+
+      let foundPath = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          console.log('✅ Found Word file at alternative path:', p);
+          foundPath = p;
+          break;
+        }
+      }
+
+      if (foundPath) {
+        filePath = foundPath;
+      } else {
+        console.log('❌ Word file not found in any common directory');
+        return null;
+      }
     }
 
     console.log('📄 Word file exists, extracting content...');
@@ -280,9 +324,38 @@ async function extractWordContent(filePath) {
  * Extract text content from any supported file format (PDF, DOCX, DOC)
  */
 async function extractFileContent(filePath) {
+  // Check if file exists, if not try to find it in common upload directories
   if (!filePath || !fs.existsSync(filePath)) {
-    console.log('❌ File does not exist:', filePath);
-    return null;
+    console.log('⚠️ File not found at path:', filePath);
+
+    if (filePath) {
+      const fileName = path.basename(filePath);
+      const possiblePaths = [
+        path.join(__dirname, '../uploads/resumes', fileName),
+        path.join(__dirname, '../../uploads/resumes', fileName),
+        path.join(process.cwd(), 'uploads/resumes', fileName),
+        path.join(process.cwd(), 'server/uploads/resumes', fileName)
+      ];
+
+      let foundPath = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          console.log('✅ Found file at alternative path:', p);
+          foundPath = p;
+          break;
+        }
+      }
+
+      if (foundPath) {
+        filePath = foundPath;
+      } else {
+        console.log('❌ File not found in any common directory');
+        return null;
+      }
+    } else {
+      console.log('❌ No file path provided');
+      return null;
+    }
   }
 
   const ext = path.extname(filePath).toLowerCase();
@@ -385,8 +458,11 @@ async function extractSkillsFromResumeContent(resumeContent) {
     console.log('🤖 Extracting skills from resume content using AI analysis...');
 
     // Use Gemini AI to extract skills from resume content
+    const genAI = getGenAI();
+    if (!genAI) throw new Error('Gemini AI not initialized');
+
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-exp",
+      model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.7,
         topP: 0.8,
@@ -1171,33 +1247,57 @@ Provide ONLY the JSON response, no additional text.
       const genAI = getGenAI();
       if (!genAI) throw new Error('Gemini AI not initialized - check API key');
 
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        generationConfig: {
-          temperature: 0.2, // Lower temperature for more consistent ATS scoring
-          topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 2048,
+      const modelNames = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+      let lastError;
+
+      for (const modelName of modelNames) {
+        try {
+          console.log(`🤖 Trying Gemini model: ${modelName}...`);
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              temperature: 0.2, // Lower temperature for more consistent ATS scoring
+              topP: 0.8,
+              topK: 40,
+              maxOutputTokens: 2048,
+            }
+          });
+
+          console.log(`🧠 Sending to Gemini AI (${prompt.length} chars) using ${modelName}...`);
+          const result = await model.generateContent(prompt);
+          const response = await result.response;
+          const text = response.text();
+
+          console.log(`✅ Gemini AI response received from ${modelName} (Length: ${text.length})`);
+
+          // Extract JSON from response (Gemini sometimes wraps JSON in markdown blocks)
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              atsData = JSON.parse(jsonMatch[0].trim());
+              console.log(`✅ Gemini AI JSON parsed successfully from ${modelName}`);
+              break; // Success! exit loop
+            } catch (parseErr) {
+              console.warn(`⚠️ Failed to parse JSON from ${modelName} response:`, parseErr.message);
+              console.log('📄 Raw response:', text);
+              throw parseErr;
+            }
+          } else {
+            console.log('📄 Raw response (no JSON found):', text);
+            throw new Error('No valid JSON found in response');
+          }
+        } catch (err) {
+          console.warn(`⚠️ Gemini model ${modelName} failed:`, err.message);
+          lastError = err;
         }
-      });
+      }
 
-      console.log(`🧠 Sending to Gemini AI (${prompt.length} chars)...`);
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-
-      console.log('✅ Gemini AI response received (Length:', text.length, ')');
-
-      // Parse the JSON response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        atsData = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
+      if (!atsData) {
+        throw lastError || new Error('All Gemini models failed');
       }
 
     } catch (geminiError) {
-      console.log('⚠️ Gemini AI failed, using rule-based scoring:', geminiError.message);
+      console.log('⚠️ Gemini AI failed completely, using rule-based scoring:', geminiError.message);
 
       // Fallback: Use rule-based ATS scoring
       // Pass the actual candidate object, not the extracted text
