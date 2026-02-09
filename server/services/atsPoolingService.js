@@ -17,18 +17,18 @@ const CONFIG = {
   // Maximum tokens per request (Gemini 2.0 Flash has ~1M context window, but we use conservative limits)
   MAX_TOKENS_PER_REQUEST: 800000, // 800K tokens (conservative limit)
   ESTIMATED_TOKENS_PER_CANDIDATE: 2000, // Estimated tokens per candidate evaluation
-  MAX_CANDIDATES_PER_BATCH: 10, // Maximum candidates to process in parallel
+  MAX_CANDIDATES_PER_BATCH: 1, // REDUCED: Process one candidate at a time to avoid rate limits
 
-  // Rate limiting
-  REQUESTS_PER_SECOND: 2, // Maximum requests per second to AI API
-  MIN_DELAY_BETWEEN_REQUESTS: 500, // Minimum delay in milliseconds
+  // Rate limiting - INCREASED to handle Gemini free tier limits
+  REQUESTS_PER_SECOND: 0.2, // Maximum 1 request per 5 seconds
+  MIN_DELAY_BETWEEN_REQUESTS: 5000, // INCREASED: 5 seconds between requests to avoid rate limiting
 
   // Retry configuration
   MAX_RETRIES: 3,
-  RETRY_DELAY: 2000, // 2 seconds
+  RETRY_DELAY: 5000, // INCREASED: 5 seconds between retries
 
   // Progress update frequency
-  PROGRESS_UPDATE_INTERVAL: 5, // Update progress every N candidates
+  PROGRESS_UPDATE_INTERVAL: 1, // Update progress every candidate since we're processing one at a time
 };
 
 /**
