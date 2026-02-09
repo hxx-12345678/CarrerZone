@@ -175,7 +175,7 @@ async function extractWordContent(filePath) {
       try {
         console.log('📄 Method: Using mammoth for .docx...');
         const result = await mammoth.extractRawText({ path: filePath });
-        
+
         if (result && result.value && result.value.length > 0) {
           console.log('✅ mammoth extraction successful');
           console.log('📄 Content length:', result.value.length, 'characters');
@@ -195,12 +195,12 @@ async function extractWordContent(filePath) {
         }
       } catch (mammothError) {
         console.log('⚠️ mammoth extraction failed:', mammothError.message);
-        
+
         // Try alternative method: extract with HTML conversion
         try {
           console.log('📄 Trying mammoth with HTML conversion...');
           const htmlResult = await mammoth.convertToHtml({ path: filePath });
-          
+
           if (htmlResult && htmlResult.value) {
             // Extract text from HTML
             const textFromHtml = htmlResult.value
@@ -208,7 +208,7 @@ async function extractWordContent(filePath) {
               .replace(/\s+/g, ' ')
               .replace(/\n\s*\n/g, '\n')
               .trim();
-            
+
             if (textFromHtml.length > 0) {
               console.log('✅ HTML conversion successful, extracted text');
               return textFromHtml;
@@ -217,38 +217,38 @@ async function extractWordContent(filePath) {
         } catch (htmlError) {
           console.log('⚠️ HTML conversion also failed:', htmlError.message);
         }
-        
+
         return null;
       }
     }
-    
+
     // Handle .doc files (older Word format) - requires additional library
     if (ext === '.doc') {
       console.log('⚠️ .doc format detected. This format requires additional processing.');
       console.log('⚠️ Attempting to read as binary and extract text...');
-      
+
       try {
         // For .doc files, we'll try to use a text extraction approach
         // Note: Full .doc support would require 'textract' or 'antiword' which may need system dependencies
         // For now, we'll return a message indicating the limitation
         console.log('⚠️ .doc file format requires system-level tools (textract/antiword)');
         console.log('⚠️ Please convert .doc to .docx or PDF for better compatibility');
-        
+
         // Try basic text extraction from binary (limited success)
         const fileBuffer = fs.readFileSync(filePath);
         const textMatch = fileBuffer.toString('utf8', 0, Math.min(fileBuffer.length, 100000));
-        
+
         // Extract readable text (very basic, may not work well)
         const readableText = textMatch
           .replace(/[^\x20-\x7E\n\r]/g, ' ') // Remove non-printable characters
           .replace(/\s+/g, ' ')
           .trim();
-        
+
         if (readableText.length > 100) {
           console.log('⚠️ Extracted partial text from .doc (may be incomplete)');
           return readableText;
         }
-        
+
         return null;
       } catch (docError) {
         console.log('❌ .doc extraction failed:', docError.message);
@@ -363,6 +363,8 @@ CERTIFICATIONS:
 }
 const User = require('../models/User');
 const Requirement = require('../models/Requirement');
+const WorkExperience = require('../models/WorkExperience');
+const Education = require('../models/Education');
 
 /**
  * Extract skills from resume content using AI-powered analysis
@@ -550,7 +552,7 @@ function extractResumeContent(resume) {
 /**
  * Extract candidate profile information
  */
-function extractCandidateProfile(user) {
+function extractCandidateProfile(user, workExperiences = [], educations = []) {
   if (!user) return '';
 
   const parts = [];
@@ -576,6 +578,23 @@ function extractCandidateProfile(user) {
     parts.push(`Profile Skills: ${user.skills.join(', ')}`);
   }
 
+  // Work Experience
+  if (workExperiences.length > 0) {
+    parts.push('\nWORK HISTORY:');
+    workExperiences.forEach(exp => {
+      parts.push(`- ${exp.jobTitle} at ${exp.companyName || 'Unknown Corp'} (${exp.startDate} to ${exp.isCurrent ? 'Present' : exp.endDate})`);
+      if (exp.description) parts.push(`  Description: ${exp.description}`);
+    });
+  }
+
+  // Education
+  if (educations.length > 0) {
+    parts.push('\nEDUCATION:');
+    educations.forEach(edu => {
+      parts.push(`- ${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution} (${edu.startDate} to ${edu.isCurrent ? 'Present' : edu.endDate})`);
+    });
+  }
+
   // Preferred locations
   if (user.preferred_locations && Array.isArray(user.preferred_locations) && user.preferred_locations.length > 0) {
     parts.push(`Preferred Locations: ${user.preferred_locations.join(', ')}`);
@@ -588,7 +607,7 @@ function extractCandidateProfile(user) {
  * Create comprehensive resume content based on candidate profile
  * This is used when PDF extraction fails to ensure the AI has enough content to analyze
  */
-function createComprehensiveResumeContent(candidate, resume) {
+function createComprehensiveResumeContent(candidate, resume, workExperiences = [], educations = []) {
   const parts = [];
 
   // Basic information
@@ -607,10 +626,31 @@ function createComprehensiveResumeContent(candidate, resume) {
 
   // Experience
   if (candidate.experience_years) {
-    parts.push(`\nEXPERIENCE:\nSoftware Developer (${candidate.experience_years} year${candidate.experience_years > 1 ? 's' : ''})`);
+    parts.push(`\nTOTAL EXPERIENCE: ${candidate.experience_years} years`);
   }
 
-  // Skills - Enhanced with AI/ML skills if the candidate is interested in AI/ML
+  // Work Experience
+  if (workExperiences.length > 0) {
+    parts.push('\nDETAILED WORK EXPERIENCE:');
+    workExperiences.forEach(exp => {
+      parts.push(`- ${exp.jobTitle} at ${exp.companyName || 'Unknown Corp'}`);
+      parts.push(`  Period: ${exp.startDate} to ${exp.isCurrent ? 'Present' : exp.endDate}`);
+      if (exp.description) parts.push(`  Description: ${exp.description}`);
+      if (exp.skills && exp.skills.length > 0) parts.push(`  Skills used: ${exp.skills.join(', ')}`);
+    });
+  }
+
+  // Education
+  if (educations.length > 0) {
+    parts.push('\nDETAILED EDUCATION:');
+    educations.forEach(edu => {
+      parts.push(`- ${edu.degree} in ${edu.fieldOfStudy}`);
+      parts.push(`  Institution: ${edu.institution}`);
+      parts.push(`  Period: ${edu.startDate} to ${edu.isCurrent ? 'Present' : edu.endDate}`);
+    });
+  }
+
+  // Skills
   const skills = candidate.skills || [];
   const resumeSkills = resume.skills || [];
   const allSkills = [...new Set([...skills, ...resumeSkills])];
@@ -620,60 +660,6 @@ function createComprehensiveResumeContent(candidate, resume) {
     allSkills.forEach(skill => {
       parts.push(`- ${skill}`);
     });
-
-    // Add AI/ML skills if the candidate is interested in AI/ML
-    if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
-      parts.push(`\nAI/ML SKILLS:`);
-      parts.push(`- Python Programming (Advanced)`);
-      parts.push(`- Machine Learning (Supervised & Unsupervised)`);
-      parts.push(`- Deep Learning with TensorFlow and PyTorch`);
-      parts.push(`- Data Science and Analytics`);
-      parts.push(`- NumPy for numerical computing`);
-      parts.push(`- Pandas for data manipulation`);
-      parts.push(`- Scikit-learn for machine learning algorithms`);
-      parts.push(`- TensorFlow for deep learning models`);
-      parts.push(`- Model Training and Deployment`);
-      parts.push(`- Production-level Model Assembly`);
-      parts.push(`- Dataset Formation and Preprocessing`);
-      parts.push(`- Artificial Intelligence (AI)`);
-      parts.push(`- Machine Learning (ML)`);
-      parts.push(`- Data Science`);
-      parts.push(`- Neural Networks`);
-      parts.push(`- Model Deployment`);
-      parts.push(`- Production Systems`);
-    }
-  }
-
-  // Projects - Add relevant projects if AI/ML interested
-  if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
-    parts.push(`\nPROJECTS:`);
-    parts.push(`1. Customer Churn Prediction Model`);
-    parts.push(`   - Used Python, TensorFlow, and Scikit-learn`);
-    parts.push(`   - Implemented data preprocessing with NumPy and Pandas`);
-    parts.push(`   - Achieved 85% accuracy in prediction`);
-    parts.push(`   - Deployed to production environment`);
-    parts.push(``);
-    parts.push(`2. Image Classification System`);
-    parts.push(`   - Deep learning model using TensorFlow`);
-    parts.push(`   - Neural network architecture design`);
-    parts.push(`   - Data science pipeline implementation`);
-    parts.push(`   - Production deployment and monitoring`);
-  }
-
-  // Education
-  parts.push(`\nEDUCATION:`);
-  parts.push(`Bachelor's in Computer Science`);
-  if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
-    parts.push(`- Focus on Artificial Intelligence and Machine Learning`);
-    parts.push(`- Coursework in Data Science and Analytics`);
-  }
-
-  // Certifications
-  if (candidate.summary && candidate.summary.toLowerCase().includes('ai')) {
-    parts.push(`\nCERTIFICATIONS:`);
-    parts.push(`- TensorFlow Developer Certificate`);
-    parts.push(`- Machine Learning with Python`);
-    parts.push(`- Data Science Specialization`);
   }
 
   return parts.join('\n');
@@ -897,24 +883,51 @@ function extractRequirementDetails(requirement) {
   // Basic information
   if (requirement.title) parts.push(`Job Title: ${requirement.title}`);
   if (requirement.description) parts.push(`Description: ${requirement.description}`);
-  if (requirement.job_type) parts.push(`Job Type: ${requirement.job_type}`);
-  if (requirement.experience_required) parts.push(`Experience Required: ${requirement.experience_required}`);
+
+  // Job Type (try property then metadata)
+  const jobType = requirement.jobType || (requirement.metadata && requirement.metadata.jobType);
+  if (jobType) parts.push(`Job Type: ${jobType}`);
+
+  // Experience level
+  const expMin = requirement.experienceMin;
+  const expMax = requirement.experienceMax;
+  if (expMin !== undefined && expMin !== null) {
+    parts.push(`Experience Required: ${expMin}${expMax ? '-' + expMax : '+'} years`);
+  }
+
   if (requirement.location) parts.push(`Location: ${requirement.location}`);
 
   // Skills and qualifications
-  if (requirement.required_skills && Array.isArray(requirement.required_skills) && requirement.required_skills.length > 0) {
-    parts.push(`Required Skills: ${requirement.required_skills.join(', ')}`);
+  const reqSkills = requirement.skills || [];
+  const prefSkills = requirement.keySkills || [];
+
+  if (reqSkills.length > 0) {
+    parts.push(`Required Skills: ${reqSkills.join(', ')}`);
   }
-  if (requirement.preferred_skills && Array.isArray(requirement.preferred_skills) && requirement.preferred_skills.length > 0) {
-    parts.push(`Preferred Skills: ${requirement.preferred_skills.join(', ')}`);
+  if (prefSkills.length > 0) {
+    parts.push(`Preferred Skills: ${prefSkills.join(', ')}`);
   }
 
-  // Salary and other details
-  if (requirement.salary_min && requirement.salary_max) {
-    parts.push(`Salary Range: ${requirement.salary_min} - ${requirement.salary_max}`);
+  // Salary Range
+  const salMin = requirement.salaryMin;
+  const salMax = requirement.salaryMax;
+  const currency = requirement.currency || 'INR';
+  if (salMin || salMax) {
+    parts.push(`Salary Range: ${currency} ${salMin || 0} - ${salMax || 'Negotiable'}`);
   }
-  if (requirement.department) parts.push(`Department: ${requirement.department}`);
-  if (requirement.employment_type) parts.push(`Employment Type: ${requirement.employment_type}`);
+
+  // Education (try property then metadata)
+  const education = requirement.education || (requirement.metadata && requirement.metadata.education);
+  if (education) parts.push(`Education Required: ${education}`);
+
+  // Additional details from metadata
+  if (requirement.metadata) {
+    if (requirement.metadata.department) parts.push(`Department: ${requirement.metadata.department}`);
+    if (requirement.metadata.industry) parts.push(`Industry: ${requirement.metadata.industry}`);
+    if (requirement.metadata.candidateLocations && requirement.metadata.candidateLocations.length > 0) {
+      parts.push(`Preferred Candidate Locations: ${requirement.metadata.candidateLocations.join(', ')}`);
+    }
+  }
 
   return parts.join('\n');
 }
@@ -944,6 +957,19 @@ async function calculateATSScore(candidateId, requirementId) {
     if (!candidate) {
       throw new Error('Candidate not found');
     }
+
+    // Manually fetch work experience and education since associations may be missing
+    const userWorkExperiences = await WorkExperience.findAll({
+      where: { userId: candidateId },
+      order: [['startDate', 'DESC']]
+    });
+
+    const userEducations = await Education.findAll({
+      where: { userId: candidateId },
+      order: [['startDate', 'DESC']]
+    });
+
+    console.log(`📊 Fetched ${userWorkExperiences.length} work experiences and ${userEducations.length} education records`);
 
     // Fetch candidate's resume
     const resume = await Resume.findOne({
@@ -976,7 +1002,7 @@ async function calculateATSScore(candidateId, requirementId) {
 
     // Extract content
     const requirementDetails = extractRequirementDetails(requirement);
-    const candidateProfile = extractCandidateProfile(candidate);
+    const candidateProfile = extractCandidateProfile(candidate, userWorkExperiences, userEducations);
 
     // Try to extract PDF content if resume exists but has no detailed content
     let resumeContent = 'No resume available';
@@ -987,7 +1013,7 @@ async function calculateATSScore(candidateId, requirementId) {
       if (!resume.metadata?.content && resume.metadata?.localPath) {
         const filePath = resume.metadata.localPath;
         const ext = path.extname(filePath).toLowerCase();
-        
+
         console.log(`📄 Attempting to extract content from ${ext} file...`);
         try {
           // Use the unified extractFileContent function that handles PDF, DOCX, and DOC
@@ -1004,7 +1030,7 @@ async function calculateATSScore(candidateId, requirementId) {
 
           // If extraction fails, create a comprehensive resume content based on the candidate's profile
           console.log('📄 Creating comprehensive resume content based on candidate profile...');
-          const comprehensiveContent = createComprehensiveResumeContent(candidate, resume);
+          const comprehensiveContent = createComprehensiveResumeContent(candidate, resume, userWorkExperiences, userEducations);
           resumeContent = comprehensiveContent; // Replace the basic content with comprehensive content
         }
       }
@@ -1097,20 +1123,23 @@ Provide ONLY the JSON response, no additional text.
     let atsData;
 
     try {
+      // Use Gemini 1.5 Flash for better stability and lower latency
       const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-1.5-flash',
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.2, // Lower temperature for more consistent ATS scoring
           topP: 0.8,
           topK: 40,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
         }
       });
+
+      console.log(`🧠 Sending to Gemini AI (${prompt.length} chars)...`);
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
 
-      console.log('✅ Gemini AI response received');
+      console.log('✅ Gemini AI response received (Length:', text.length, ')');
 
       // Parse the JSON response
       const jsonMatch = text.match(/\{[\s\S]*\}/);

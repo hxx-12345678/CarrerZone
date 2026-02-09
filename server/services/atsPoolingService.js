@@ -18,15 +18,15 @@ const CONFIG = {
   MAX_TOKENS_PER_REQUEST: 800000, // 800K tokens (conservative limit)
   ESTIMATED_TOKENS_PER_CANDIDATE: 2000, // Estimated tokens per candidate evaluation
   MAX_CANDIDATES_PER_BATCH: 10, // Maximum candidates to process in parallel
-  
+
   // Rate limiting
   REQUESTS_PER_SECOND: 2, // Maximum requests per second to AI API
   MIN_DELAY_BETWEEN_REQUESTS: 500, // Minimum delay in milliseconds
-  
+
   // Retry configuration
   MAX_RETRIES: 3,
   RETRY_DELAY: 2000, // 2 seconds
-  
+
   // Progress update frequency
   PROGRESS_UPDATE_INTERVAL: 5, // Update progress every N candidates
 };
@@ -37,20 +37,20 @@ const CONFIG = {
 function estimateTokenUsage(candidate, requirement) {
   // Base tokens for prompt template
   let tokens = 1000;
-  
+
   // Add tokens for requirement details
   if (requirement.title) tokens += requirement.title.length / 4;
   if (requirement.description) tokens += requirement.description.length / 4;
   if (requirement.keySkills) tokens += requirement.keySkills.join(' ').length / 4;
-  
+
   // Add tokens for candidate data
   if (candidate.summary) tokens += candidate.summary.length / 4;
   if (candidate.skills) tokens += candidate.skills.join(' ').length / 4;
   if (candidate.experience_years) tokens += 50;
-  
+
   // Add tokens for resume content (estimated)
   tokens += 500; // Estimated resume content
-  
+
   return Math.ceil(tokens);
 }
 
@@ -85,7 +85,7 @@ class RequestPool {
       const now = Date.now();
       const timeSinceLastRequest = now - this.lastRequestTime;
       if (timeSinceLastRequest < CONFIG.MIN_DELAY_BETWEEN_REQUESTS) {
-        await new Promise(resolve => 
+        await new Promise(resolve =>
           setTimeout(resolve, CONFIG.MIN_DELAY_BETWEEN_REQUESTS - timeSinceLastRequest)
         );
       }
@@ -113,11 +113,11 @@ async function calculateATSScoreWithRetry(candidateId, requirementId, retries = 
       return { success: true, result, candidateId };
     } catch (error) {
       console.error(`❌ ATS calculation attempt ${attempt}/${retries} failed for candidate ${candidateId}:`, error.message);
-      
+
       if (attempt === retries) {
         return { success: false, error: error.message, candidateId };
       }
-      
+
       // Exponential backoff
       const delay = CONFIG.RETRY_DELAY * Math.pow(2, attempt - 1);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -168,7 +168,7 @@ async function streamATSScores(
 
   // Create request pool
   const pool = new RequestPool(maxConcurrent);
-  
+
   // Results tracking
   const results = [];
   const errors = [];
@@ -187,7 +187,7 @@ async function streamATSScores(
         if (result.success) {
           completedCount++;
           results.push(result.result);
-          
+
           // Call progress callback
           if (onProgress) {
             onProgress({
@@ -206,7 +206,7 @@ async function streamATSScores(
             candidateId: result.candidateId,
             error: result.error
           });
-          
+
           // Call progress callback for errors
           if (onProgress) {
             onProgress({
@@ -226,7 +226,7 @@ async function streamATSScores(
           candidateId,
           error: error.message
         });
-        
+
         if (onProgress) {
           onProgress({
             current: completedCount + failedCount,
@@ -249,9 +249,9 @@ async function streamATSScores(
   for (let i = 0; i < candidateIds.length; i += batchSize) {
     const batch = candidateIds.slice(i, i + batchSize);
     console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(candidateIds.length / batchSize)} (${batch.length} candidates)`);
-    
+
     await processBatch(batch);
-    
+
     // Small delay between batches to avoid overwhelming the system
     if (i + batchSize < candidateIds.length) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -294,17 +294,17 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
       'id',
       'title',
       'description',
-      'experience_min',
-      'experience_max',
-      'salary_min',
-      'salary_max',
-      'required_skills',
-      'preferred_skills',
-      'location_type',
+      'experienceMin',
+      'experienceMax',
+      'salaryMin',
+      'salaryMax',
+      'skills',
+      'keySkills',
+      'remoteWork',
       'metadata'
     ]
   });
-  
+
   if (!requirement) {
     throw new Error('Requirement not found');
   }
@@ -313,17 +313,17 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
   let metadata = {};
   if (requirement.metadata) {
     try {
-      metadata = typeof requirement.metadata === 'string' 
-        ? JSON.parse(requirement.metadata) 
+      metadata = typeof requirement.metadata === 'string'
+        ? JSON.parse(requirement.metadata)
         : requirement.metadata;
     } catch (e) {
       console.warn('⚠️ Could not parse requirement metadata:', e);
     }
   }
 
-  // Get experience range - use the actual column names from DB
-  let workExperienceMin = requirement.experience_min;
-  let workExperienceMax = requirement.experience_max;
+  // Get experience range - use the actual property names from model
+  let workExperienceMin = requirement.experienceMin;
+  let workExperienceMax = requirement.experienceMax;
 
   // Build base where clause
   const whereClause = {
@@ -335,9 +335,9 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
   // Experience range matching
   if (workExperienceMin !== null && workExperienceMin !== undefined) {
     const minExp = Number(workExperienceMin);
-    const maxExp = workExperienceMax !== null && workExperienceMax !== undefined 
+    const maxExp = workExperienceMax !== null && workExperienceMax !== undefined
       ? Number(workExperienceMax) : 50;
-    
+
     whereClause.experience_years = {
       [Op.and]: [
         { [Op.gte]: minExp },
@@ -349,17 +349,17 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
   // Build matching conditions (same logic as main endpoint)
   const matchingConditions = [];
 
-  // Skills matching - use required_skills and preferred_skills
+  // Skills matching - use skills and keySkills
   const allSkills = [];
-  if (requirement.required_skills && Array.isArray(requirement.required_skills)) {
-    allSkills.push(...requirement.required_skills);
+  if (requirement.skills && Array.isArray(requirement.skills)) {
+    allSkills.push(...requirement.skills);
   }
-  if (requirement.preferred_skills && Array.isArray(requirement.preferred_skills)) {
-    allSkills.push(...requirement.preferred_skills);
+  if (requirement.keySkills && Array.isArray(requirement.keySkills)) {
+    allSkills.push(...requirement.keySkills);
   }
-  
+
   if (allSkills.length > 0) {
-    const skillsArray = allSkills;
+    const skillsArray = [...new Set(allSkills)];
     matchingConditions.push({
       [Op.or]: [
         sequelizeDB.where(
