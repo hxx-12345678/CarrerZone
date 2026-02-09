@@ -909,14 +909,25 @@ function extractRequirementDetails(requirement) {
   if (requirement.location) parts.push(`Location: ${requirement.location}`);
 
   // Skills and qualifications
-  const reqSkills = requirement.skills || [];
-  const prefSkills = requirement.keySkills || [];
+  let reqSkills = requirement.skills || [];
+  let prefSkills = requirement.keySkills || [];
+
+  // If skills are empty, check metadata as fallback
+  if (reqSkills.length === 0 && requirement.metadata && requirement.metadata.includeSkills) {
+    reqSkills = requirement.metadata.includeSkills;
+  }
+  if (prefSkills.length === 0 && requirement.metadata && requirement.metadata.keySkills) {
+    prefSkills = requirement.metadata.keySkills;
+  }
 
   if (reqSkills.length > 0) {
-    parts.push(`Required Skills: ${reqSkills.join(', ')}`);
+    parts.push(`Required Skills: ${Array.isArray(reqSkills) ? reqSkills.join(', ') : reqSkills}`);
+  } else {
+    parts.push('Required Skills: Not explicitly listed (Please infer from description)');
   }
+
   if (prefSkills.length > 0) {
-    parts.push(`Preferred Skills: ${prefSkills.join(', ')}`);
+    parts.push(`Preferred Skills: ${Array.isArray(prefSkills) ? prefSkills.join(', ') : prefSkills}`);
   }
 
   // Salary Range
@@ -937,6 +948,9 @@ function extractRequirementDetails(requirement) {
     if (requirement.metadata.industry) parts.push(`Industry: ${requirement.metadata.industry}`);
     if (requirement.metadata.candidateLocations && requirement.metadata.candidateLocations.length > 0) {
       parts.push(`Preferred Candidate Locations: ${requirement.metadata.candidateLocations.join(', ')}`);
+    }
+    if (requirement.metadata.benefits && requirement.metadata.benefits.length > 0) {
+      parts.push(`Benefits: ${Array.isArray(requirement.metadata.benefits) ? requirement.metadata.benefits.join(', ') : requirement.metadata.benefits}`);
     }
   }
 
