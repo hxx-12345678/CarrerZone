@@ -1035,8 +1035,27 @@ async function calculateATSScore(candidateId, requirementId) {
       resumeContent = extractResumeContent(resume);
 
       // If resume has no detailed content but has a file, try to extract content
-      if (!resume.metadata?.content && resume.metadata?.localPath) {
-        const filePath = resume.metadata.localPath;
+      const metadata = resume.metadata || {};
+      const filename = metadata.filename || metadata.originalName;
+      let filePath = metadata.localPath;
+
+      // If localPath is missing but filename exists, try to find the file
+      if (!filePath && filename) {
+        console.log(`🔍 localPath missing, searching for filename: ${filename}`);
+        const possiblePaths = [
+          path.join(__dirname, '../uploads/resumes', filename),
+          path.join(process.cwd(), 'server', 'uploads', 'resumes', filename),
+          path.join(process.cwd(), 'uploads', 'resumes', filename),
+          path.join('/opt/render/project/src/uploads/resumes', filename),
+          path.join('/opt/render/project/src/server/uploads/resumes', filename),
+          path.join('/tmp/uploads/resumes', filename)
+        ];
+
+        filePath = possiblePaths.find(p => fs.existsSync(p));
+        if (filePath) console.log(`✅ Found resume file at: ${filePath}`);
+      }
+
+      if (!resume.metadata?.content && filePath) {
         const ext = path.extname(filePath).toLowerCase();
 
         console.log(`📄 Attempting to extract content from ${ext} file...`);
