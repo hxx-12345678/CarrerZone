@@ -6075,6 +6075,14 @@ router.post('/work-experiences', authenticateToken, async (req, res) => {
       employmentType: employmentType || 'full-time'
     });
 
+    // Synchronize with User profile if this is the current job
+    if (isCurrent) {
+      await req.user.update({
+        current_company: companyName || null,
+        current_role: jobTitle || null
+      });
+    }
+
     // Extract currentDesignation from description if present
     const expData = workExperience.toJSON();
     let extractedCurrentDesignation = '';
@@ -6168,6 +6176,22 @@ router.put('/work-experiences/:id', authenticateToken, async (req, res) => {
 
     await workExperience.update(updateData);
 
+    // Synchronize with User profile if this is or became the current job
+    if (updateData.isCurrent === true || (workExperience.isCurrent && (updateData.companyName !== undefined || updateData.jobTitle !== undefined))) {
+      await req.user.update({
+        current_company: updateData.companyName !== undefined ? updateData.companyName : workExperience.companyName,
+        current_role: updateData.jobTitle !== undefined ? updateData.jobTitle : workExperience.jobTitle
+      });
+    } else if (updateData.isCurrent === false && workExperience.isCurrent) {
+      // If it's no longer current, we might want to clear it if it matches the user's current company
+      if (req.user.current_company === workExperience.companyName) {
+        await req.user.update({
+          current_company: null,
+          current_role: null
+        });
+      }
+    }
+
     // Refresh the updated work experience
     await workExperience.reload();
 
@@ -6219,6 +6243,14 @@ router.delete('/work-experiences/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Work experience not found'
+      });
+    }
+
+    // If this was the current company, clear it from User profile
+    if (workExperience.isCurrent) {
+      await req.user.update({
+        current_company: null,
+        current_role: null
       });
     }
 

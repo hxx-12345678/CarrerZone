@@ -347,11 +347,37 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
         return
       }
 
+      // Helper to compute required-fields status for employer
+      const getRequiredFieldStatus = () => {
+        const hasPhone = !!user.phone
+        const hasDesignation = !!(user as any).designation
+        const hasCompanyId = !!user.companyId
+        const isAdmin = user.userType === 'admin'
+        const hasAllRequiredFields = hasPhone && hasDesignation && (hasCompanyId || isAdmin)
+        const hasRequiredFields = hasAllRequiredFields
+
+        return {
+          hasPhone,
+          hasDesignation,
+          hasCompanyId,
+          isAdmin,
+          hasAllRequiredFields,
+          hasRequiredFields,
+        }
+      }
+
+      const {
+        hasPhone,
+        hasDesignation,
+        hasCompanyId,
+        isAdmin,
+        hasAllRequiredFields,
+        hasRequiredFields,
+      } = getRequiredFieldStatus()
+
       // CRITICAL: First check - if profile is completed, NEVER show dialog
       // Also check if user has all required fields filled (auto-complete check)
-      const hasAllRequiredFields = hasPhone && hasDesignation && (hasCompanyId || isAdmin)
-      
-      if (user.preferences?.profileCompleted === true || (hasAllRequiredFields && user.phone && (user as any).designation)) {
+      if (user.preferences?.profileCompleted === true || (hasAllRequiredFields && hasPhone && hasDesignation)) {
         console.log('🚫 ULTIMATE CHECK: Profile is completed or has all required fields - dialog will NEVER show');
         // Also store in localStorage as backup
         localStorage.setItem('profileCompleted', JSON.stringify({
@@ -451,17 +477,8 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
           }
         }
 
-        // Required fields for employer - only check if profile is not completed
-        const hasPhone = !!user.phone
-        const hasDesignation = !!(user as any).designation
-        const hasCompanyId = !!user.companyId
-        const isAdmin = user.userType === 'admin'
-
-        // For admin users, companyId is not required
-        const hasRequiredFields = hasPhone && hasDesignation && (hasCompanyId || isAdmin)
-        
         // If user has all required fields but profileCompleted is not set, auto-set it
-        if (hasRequiredFields && !user.preferences?.profileCompleted) {
+        if (hasAllRequiredFields && !user.preferences?.profileCompleted) {
           console.log('🔄 User has all required fields but profileCompleted not set - auto-setting');
           // Auto-set profileCompleted in background (don't wait for response)
           apiService.updateProfile({
@@ -967,7 +984,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
 
     // Mark as completed in this session to prevent re-triggering during navigation
     sessionStorage.setItem('profileCheckHandled', 'true')
-    
+
     // Also mark in localStorage permanently
     if (updatedData?.preferences?.profileCompleted === true) {
       localStorage.setItem('profileCompleted', JSON.stringify({

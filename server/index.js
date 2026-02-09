@@ -226,15 +226,35 @@ app.use(session(getSessionConfig()));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // More lenient in development
+  // Allow more requests in production to reduce 429s for normal browsing
+  max: process.env.NODE_ENV === 'development' ? 1000 : 500,
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
   },
   skip: (req) => {
-    // Allow higher throughput for lightweight endpoints
+    // Allow higher throughput for lightweight or frequently-polled endpoints
     const p = req.path || '';
-    return p.startsWith('/candidate-likes') || p === '/health';
+    const method = req.method || 'GET';
+
+    // Completely skip rate limiting for some safe, lightweight paths
+    if (p.startsWith('/candidate-likes') || p === '/health') {
+      return true;
+    }
+
+    // Relax rate limiting for common employer dashboard GET endpoints
+    // so that company jobs and notifications do not easily hit 429
+    if (
+      method === 'GET' &&
+      (
+        p.startsWith('/companies') ||
+        p.startsWith('/user/employer/notifications')
+      )
+    ) {
+      return true;
+    }
+
+    return false;
   }
 });
 
