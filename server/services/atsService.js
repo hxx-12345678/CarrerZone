@@ -26,6 +26,9 @@ function getGenAI() {
   return genAI_instance;
 }
 
+// Global queue for Gemini requests to prevent rate limiting (429) across concurrent HTTP requests
+let geminiQueue = Promise.resolve();
+
 /**
  * Extract text content from PDF file using multiple methods
  */
@@ -1244,10 +1247,12 @@ Provide ONLY the JSON response, no additional text.
 
     try {
       // Use Gemini 1.5 Flash for better stability and lower latency
+      // Use Gemini 1.5 Flash for better stability and lower latency
       const genAI = getGenAI();
       if (!genAI) throw new Error('Gemini AI not initialized - check API key');
 
-      const modelNames = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+      // Prioritize stable models: 1.5-flash and flash-latest
+      const modelNames = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-pro', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
       let lastError;
 
       for (const modelName of modelNames) {
@@ -1264,7 +1269,43 @@ Provide ONLY the JSON response, no additional text.
           });
 
           console.log(`🧠 Sending to Gemini AI (${prompt.length} chars) using ${modelName}...`);
-          const result = await model.generateContent(prompt);
+
+          // Retry logic for 429 errors within a global queue
+          let retries = 3;
+          let delay = 5000; // Start with 5 seconds to be safe
+          let result;
+
+          // Enqueue the API call to enforce serialization
+          await new Promise((resolveQueue) => {
+            geminiQueue = geminiQueue.then(async () => {
+              try {
+                while (retries > 0) {
+                  try {
+                    // Add a small delay between requests even if successful to play nice with rate limits
+                    await new Promise(r => setTimeout(r, 2000));
+                    result = await model.generateContent(prompt);
+                    break; // Success
+                  } catch (apiError) {
+                    if (apiError.message.includes('429') || apiError.message.includes('Too Many Requests')) {
+                      console.log(`⚠️ Rate limit hit for ${modelName}. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+                      await new Promise(resolve => setTimeout(resolve, delay));
+                      delay *= 2; // Exponential backoff
+                      retries--;
+                    } else {
+                      throw apiError; // Throw other errors immediately
+                    }
+                  }
+                }
+              } finally {
+                resolveQueue(); // Always move to next item in queue
+              }
+            });
+          });
+
+          if (!result && retries === 0) {
+            throw new Error(`Rate limit exceeded for ${modelName} after multiple retries`);
+          }
+
           const response = await result.response;
           const text = response.text();
 
