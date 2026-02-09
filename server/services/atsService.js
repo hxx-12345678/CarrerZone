@@ -839,7 +839,7 @@ async function calculateRuleBasedATSScore(candidate, resumeContent, requirement)
     ).length;
 
     const skillsMatchPercentage = (matchingSkillsCount / requirementSkills.length) * 100;
-    const skillsScore = Math.min(skillsMatchPercentage * 0.5, 50); // Max 50 points
+    const skillsScore = Math.min(skillsMatchPercentage * 0.4, 40); // Max 40 points (reduced to accommodate title matching)
     score += skillsScore;
 
     matchingSkills.push(...requirementSkills.filter(reqSkill =>
@@ -1251,7 +1251,7 @@ Provide ONLY the JSON response, no additional text.
       if (!genAI) throw new Error('Gemini AI not initialized - check API key');
 
       // Use only verified working models - gemini-2.0-flash variants are the current stable models
-      const modelNames = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+      const modelNames = ['gemini-2.5-flash', 'gemini-2.0-flash-lite'];
       let lastError;
 
       for (const modelName of modelNames) {
