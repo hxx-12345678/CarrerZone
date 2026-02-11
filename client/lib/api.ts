@@ -2726,12 +2726,55 @@ class ApiService {
     limit?: number;
     search?: string;
     sortBy?: string;
+    // Filter parameters
+    experience?: number[];
+    salary?: number[];
+    locationInclude?: string;
+    locationExclude?: string;
+    skillsInclude?: string;
+    skillsExclude?: string;
+    keyword?: string;
+    education?: string[];
+    availability?: string[];
+    verification?: string[];
+    lastActive?: string[];
+    saved?: boolean;
+    accessed?: boolean;
   }): Promise<ApiResponse<any>> {
     const queryParams = new URLSearchParams();
     if (params?.page !== undefined) queryParams.append('page', params.page.toString());
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.search) queryParams.append('search', params.search);
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    
+    // Filter parameters
+    if (params?.experience && params.experience.length === 2) {
+      queryParams.append('experienceMin', params.experience[0].toString());
+      queryParams.append('experienceMax', params.experience[1].toString());
+    }
+    if (params?.salary && params.salary.length === 2) {
+      queryParams.append('salaryMin', params.salary[0].toString());
+      queryParams.append('salaryMax', params.salary[1].toString());
+    }
+    if (params?.locationInclude) queryParams.append('locationInclude', params.locationInclude);
+    if (params?.locationExclude) queryParams.append('locationExclude', params.locationExclude);
+    if (params?.skillsInclude) queryParams.append('skillsInclude', params.skillsInclude);
+    if (params?.skillsExclude) queryParams.append('skillsExclude', params.skillsExclude);
+    if (params?.keyword) queryParams.append('keyword', params.keyword);
+    if (params?.education && params.education.length > 0) {
+      params.education.forEach(edu => queryParams.append('education', edu));
+    }
+    if (params?.availability && params.availability.length > 0) {
+      params.availability.forEach(avail => queryParams.append('availability', avail));
+    }
+    if (params?.verification && params.verification.length > 0) {
+      params.verification.forEach(verify => queryParams.append('verification', verify));
+    }
+    if (params?.lastActive && params.lastActive.length > 0) {
+      params.lastActive.forEach(active => queryParams.append('lastActive', active));
+    }
+    if (params?.saved !== undefined) queryParams.append('saved', params.saved.toString());
+    if (params?.accessed !== undefined) queryParams.append('accessed', params.accessed.toString());
 
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
     const response = await fetch(`${API_BASE_URL}/requirements/${requirementId}/candidates${query}`, {

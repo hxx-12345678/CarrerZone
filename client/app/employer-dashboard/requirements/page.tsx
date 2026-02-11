@@ -225,11 +225,20 @@ export default function RequirementsPage() {
     })
   }
 
+  const isRequirementExpired = (requirement: Requirement) => {
+    if (!requirement.validTill) return false;
+    return new Date(requirement.validTill) < new Date();
+  }
+
   const getCvAccessLeft = (requirement: Requirement) => {
     return requirementStats[requirement.id]?.cvAccessLeft || 0
   }
 
   const getCandidatesCount = (requirement: Requirement) => {
+    // If requirement is expired, show 0 candidates
+    if (isRequirementExpired(requirement)) {
+      return 0;
+    }
     return requirementStats[requirement.id]?.totalCandidates || 0
   }
 
@@ -603,11 +612,15 @@ export default function RequirementsPage() {
                         </div>
                         <div className="flex items-center space-x-6">
                           <div className="text-center">
-                            <Link href={`/employer-dashboard/requirements/${requirement.id}/candidates`}>
-                              <div className="text-2xl font-bold text-slate-900 hover:text-blue-600 cursor-pointer transition-colors">
-                                {getCandidatesCount(requirement)}
-                              </div>
-                            </Link>
+                            {isRequirementExpired(requirement) ? (
+                              <div className="text-2xl font-bold text-gray-400">0</div>
+                            ) : (
+                              <Link href={`/employer-dashboard/requirements/${requirement.id}/candidates`}>
+                                <div className="text-2xl font-bold text-slate-900 hover:text-blue-600 cursor-pointer transition-colors">
+                                  {getCandidatesCount(requirement)}
+                                </div>
+                              </Link>
+                            )}
                             <div className="text-sm text-slate-500">Candidates</div>
                           </div>
                           <div className="text-center">
@@ -615,12 +628,19 @@ export default function RequirementsPage() {
                             <div className="text-sm text-slate-500">Accessed</div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Link href={`/employer-dashboard/requirements/${requirement.id}/candidates`}>
-                              <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                            {isRequirementExpired(requirement) ? (
+                              <Button variant="outline" size="sm" disabled className="text-gray-400 border-gray-300 cursor-not-allowed">
                                 <Users className="w-4 h-4 mr-1" />
-                                View Candidates
+                                Requirement Expired
                               </Button>
-                            </Link>
+                            ) : (
+                              <Link href={`/employer-dashboard/requirements/${requirement.id}/candidates`}>
+                                <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                                  <Users className="w-4 h-4 mr-1" />
+                                  View Candidates
+                                </Button>
+                              </Link>
+                            )}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm">

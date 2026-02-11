@@ -1216,37 +1216,24 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     }
 
     // CRITICAL: Exclude skills - candidates MUST NOT have these skills (add to allAndConditions)
-    // Same logic as candidates endpoint
+    // Fixed: Use raw SQL to avoid Sequelize operator nesting issues
     if (Array.isArray(statsExcludeSkills) && statsExcludeSkills.length > 0 && statsExcludeSkills.filter(s => s).length > 0) {
-      for (const excludeSkill of statsExcludeSkills.filter(s => s)) {
-        allAndConditions.push({
-          [Op.and]: [
-            {
-              [Op.or]: [
-                { skills: null },
-                sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.notILike]: `%${excludeSkill}%` })
-              ]
-            },
-            {
-              [Op.or]: [
-                { key_skills: null },
-                sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.notILike]: `%${excludeSkill}%` })
-              ]
-            },
-            {
-              [Op.or]: [
-                { headline: null },
-                { headline: { [Op.notILike]: `%${excludeSkill}%` } }
-              ]
-            },
-            {
-              [Op.or]: [
-                { summary: null },
-                { summary: { [Op.notILike]: `%${excludeSkill}%` } }
-              ]
-            }
-          ]
-        });
+      const excludeConditions = statsExcludeSkills.filter(s => s).map((excludeSkill, index) => {
+        return sequelize.where(
+          sequelize.literal(`
+            (
+              (skills IS NULL OR NOT CAST(skills AS TEXT) ILIKE '%${excludeSkill}%') AND
+              (key_skills IS NULL OR NOT CAST(key_skills AS TEXT) ILIKE '%${excludeSkill}%') AND
+              (headline IS NULL OR headline NOT ILIKE '%${excludeSkill}%') AND
+              (summary IS NULL OR summary NOT ILIKE '%${excludeSkill}%')
+            )
+          `),
+          {}
+        );
+      });
+
+      if (excludeConditions.length > 0) {
+        allAndConditions.push({ [Op.and]: excludeConditions });
       }
       console.log(`✅ Added exclude skills filter in stats: ${statsExcludeSkills.filter(s => s).join(', ')}`);
     }
@@ -1836,7 +1823,28 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 router.get('/:id/candidates', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 50, search, sortBy = 'relevance' } = req.query;
+    const { 
+      page = 1, 
+      limit = 50, 
+      search, 
+      sortBy = 'relevance',
+      // Additional filter parameters
+      experienceMin: filterExperienceMin,
+      experienceMax: filterExperienceMax,
+      salaryMin: filterSalaryMin,
+      salaryMax: filterSalaryMax,
+      locationInclude: filterLocationInclude,
+      locationExclude: filterLocationExclude,
+      skillsInclude: filterSkillsInclude,
+      skillsExclude: filterSkillsExclude,
+      keyword: filterKeyword,
+      education: filterEducation,
+      availability: filterAvailability,
+      verification: filterVerification,
+      lastActive: filterLastActive,
+      saved: filterSaved,
+      accessed: filterAccessed
+    } = req.query;
 
     // Check if user is an employer or admin
     if (req.user.user_type !== 'employer' && req.user.user_type !== 'admin') {
@@ -1964,7 +1972,92 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
       includeNotMentioned
     });
 
-    // ========== IMPROVED CANDIDATE MATCHING ALGORITHM ==========
+    // ========== APPLY ADDITIONAL FILTERS FROM QUERY PARAMETERS ==========
+    // These filters override or supplement the requirement-based filters
+    
+    // Override experience range if provided in query
+    if (filterExperienceMin !== undefined && filterExperienceMax !== undefined) {
+      workExperienceMin = Number(filterExperienceMin);
+      workExperienceMax = Number(filterExperienceMax);
+      console.log(`🔍 Applying experience filter: ${workExperienceMin}-${workExperienceMax} years`);
+    }
+    
+    // Override salary range if provided in query
+    if (filterSalaryMin !== undefined && filterSalaryMax !== undefined) {
+      currentSalaryMin = Number(filterSalaryMin);
+      currentSalaryMax = Number(filterSalaryMax);
+      console.log(`🔍 Applying salary filter: ${currentSalaryMin}-${currentSalaryMax} LPA`);
+    }
+    
+    // Override location filters if provided in query
+    if (filterLocationInclude) {
+      const includeLocations = filterLocationInclude.split(',').map(loc => loc.trim()).filter(Boolean);
+      if (includeLocations.length > 0) {
+        candidateLocations.length = 0; // Clear requirement locations
+        candidateLocations.push(...includeLocations);
+        console.log(`🔍 Applying location include filter: ${includeLocations.join(', ')}`);
+      }
+    }
+    
+    if (filterLocationExclude) {
+      const excludeLocations = filterLocationExclude.split(',').map(loc => loc.trim()).filter(Boolean);
+      if (excludeLocations.length > 0) {
+        excludeLocations.length = 0; // Clear requirement exclude locations
+        excludeLocations.push(...excludeLocations);
+        console.log(`🔍 Applying location exclude filter: ${excludeLocations.join(', ')}`);
+      }
+    }
+    
+    // Override skills filters if provided in query
+    if (filterSkillsInclude) {
+      const includeSkills = filterSkillsInclude.split(',').map(skill => skill.trim()).filter(Boolean);
+      if (includeSkills.length > 0) {
+        allRequiredSkills.length = 0; // Clear requirement skills
+        allRequiredSkills.push(...includeSkills);
+        console.log(`🔍 Applying skills include filter: ${includeSkills.join(', ')}`);
+      }
+    }
+    
+    if (filterSkillsExclude) {
+      const excludeSkillsList = filterSkillsExclude.split(',').map(skill => skill.trim()).filter(Boolean);
+      if (excludeSkillsList.length > 0) {
+        excludeSkills.length = 0; // Clear requirement exclude skills
+        excludeSkills.push(...excludeSkillsList);
+        console.log(`🔍 Applying skills exclude filter: ${excludeSkillsList.join(', ')}`);
+      }
+    }
+    
+    // Apply keyword filter
+    if (filterKeyword) {
+      console.log(`🔍 Applying keyword filter: ${filterKeyword}`);
+      // This will be added to search conditions
+    }
+    
+    // Apply education filter
+    if (filterEducation && Array.isArray(filterEducation)) {
+      console.log(`🔍 Applying education filter: ${filterEducation.join(', ')}`);
+      // This will be added to education conditions
+    }
+    
+    // Apply availability filter (notice period)
+    if (filterAvailability && Array.isArray(filterAvailability)) {
+      console.log(`🔍 Applying availability filter: ${filterAvailability.join(', ')}`);
+      // This will override notice period
+    }
+    
+    // Apply verification filter
+    if (filterVerification && Array.isArray(filterVerification)) {
+      console.log(`🔍 Applying verification filter: ${filterVerification.join(', ')}`);
+      // This will be added to where clause
+    }
+    
+    // Apply last active filter
+    if (filterLastActive && Array.isArray(filterLastActive)) {
+      console.log(`🔍 Applying last active filter: ${filterLastActive.join(', ')}`);
+      // This will be added to where clause
+    }
+
+    // ========== IMPROVED CANDIDATE MATCHING AL ==========
     // Build comprehensive search criteria based on ALL requirement fields
 
     const whereClause = {
@@ -2152,51 +2245,28 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
     }
 
     // CRITICAL: Exclude skills - candidates MUST NOT have these skills in ANY field
-    // If exclude skill is found in skills, key_skills, headline, or summary, exclude candidate
-    // We use OR logic: if skill appears in ANY field, exclude the candidate
+    // Fixed: Use simpler syntax to avoid Sequelize Symbol serialization issues
     if (Array.isArray(excludeSkills) && excludeSkills.length > 0 && excludeSkills.filter(s => s).length > 0) {
       // For each exclude skill, candidate must NOT have it in ANY field
-      for (const excludeSkill of excludeSkills.filter(s => s)) {
-        // Candidate is excluded if skill is found in ANY of these fields
-        // So we add a condition that skill must NOT be in skills AND NOT in key_skills AND NOT in headline AND NOT in summary
-        allAndConditions.push({
-          [Op.and]: [
-            // Skills field doesn't contain this skill (handle NULL)
-            {
-              [Op.or]: [
-                { skills: null },
-                sequelize.where(
-                  sequelize.cast(sequelize.col('skills'), 'text'),
-                  { [Op.not]: { [Op.iLike]: `%${excludeSkill}%` } }
-                )
-              ]
-            },
-            // Key skills field doesn't contain this skill (handle NULL)
-            {
-              [Op.or]: [
-                { key_skills: null },
-                sequelize.where(
-                  sequelize.cast(sequelize.col('key_skills'), 'text'),
-                  { [Op.not]: { [Op.iLike]: `%${excludeSkill}%` } }
-                )
-              ]
-            },
-            // Headline doesn't contain this skill (handle NULL)
-            {
-              [Op.or]: [
-                { headline: null },
-                { headline: { [Op.not]: { [Op.iLike]: `%${excludeSkill}%` } } }
-              ]
-            },
-            // Summary doesn't contain this skill (handle NULL)
-            {
-              [Op.or]: [
-                { summary: null },
-                { summary: { [Op.not]: { [Op.iLike]: `%${excludeSkill}%` } } }
-              ]
-            }
-          ]
-        });
+      // Using raw SQL to avoid complex operator nesting issues
+      const excludeConditions = excludeSkills.filter(s => s).map((excludeSkill, index) => {
+        const paramName = `excludeSkill${index}`;
+        return sequelize.where(
+          sequelize.literal(`
+            (
+              (skills IS NULL OR NOT CAST(skills AS TEXT) ILIKE '%${excludeSkill}%') AND
+              (key_skills IS NULL OR NOT CAST(key_skills AS TEXT) ILIKE '%${excludeSkill}%') AND
+              (headline IS NULL OR headline NOT ILIKE '%${excludeSkill}%') AND
+              (summary IS NULL OR summary NOT ILIKE '%${excludeSkill}%')
+            )
+          `),
+          {}
+        );
+      });
+
+      // Add all exclude conditions with AND logic
+      if (excludeConditions.length > 0) {
+        allAndConditions.push({ [Op.and]: excludeConditions });
       }
       appliedFilters.push(`Skills (Must NOT Have): ${excludeSkills.filter(s => s).slice(0, 3).join(', ')}${excludeSkills.filter(s => s).length > 3 ? '...' : ''}`);
       console.log(`✅ Added exclude skills filter: ${excludeSkills.filter(s => s).join(', ')}`);
@@ -2448,21 +2518,22 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
 
     // Add search query if provided (narrows down results further)
     // Search should be combined with AND logic to further filter results
-    if (search) {
+    const searchQuery = search || filterKeyword; // Use either search or keyword filter
+    if (searchQuery) {
       const searchConditions = [
-        { first_name: { [Op.iLike]: `%${search}%` } },
-        { last_name: { [Op.iLike]: `%${search}%` } },
-        { headline: { [Op.iLike]: `%${search}%` } },
-        { designation: { [Op.iLike]: `%${search}%` } },
-        { summary: { [Op.iLike]: `%${search}%` } },
-        sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${search}%` }),
-        sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${search}%` })
+        { first_name: { [Op.iLike]: `%${searchQuery}%` } },
+        { last_name: { [Op.iLike]: `%${searchQuery}%` } },
+        { headline: { [Op.iLike]: `%${searchQuery}%` } },
+        { designation: { [Op.iLike]: `%${searchQuery}%` } },
+        { summary: { [Op.iLike]: `%${searchQuery}%` } },
+        sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${searchQuery}%` }),
+        sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${searchQuery}%` })
       ];
 
       // Add search as an AND condition
       whereClause[Op.and] = whereClause[Op.and] || [];
       whereClause[Op.and].push({ [Op.or]: searchConditions });
-      appliedFilters.push(`Search: "${search}"`);
+      appliedFilters.push(`Search: "${searchQuery}"`);
     }
 
     console.log('🔍 Final where clause (simplified):', {

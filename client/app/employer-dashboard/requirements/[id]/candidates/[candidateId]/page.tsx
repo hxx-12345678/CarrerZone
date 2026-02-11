@@ -503,10 +503,10 @@ export default function CandidateProfilePage() {
               </div>
               <h2 className="text-xl font-semibold text-slate-900 mb-2">Profile Not Found</h2>
               <p className="text-slate-600 mb-4">{error || 'The candidate profile could not be found.'}</p>
-              <Link href="/employer-dashboard/requirements">
+              <Link href={`/employer-dashboard/requirements/${requirementId}/candidates`}>
                 <Button>
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Requirements
+                  Back to Candidates
                 </Button>
               </Link>
             </div>
@@ -537,10 +537,10 @@ export default function CandidateProfilePage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-6">
-            <Link href="/employer-dashboard/requirements">
+            <Link href={`/employer-dashboard/requirements/${requirementId}/candidates`}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Requirements
+                Back to Candidates
               </Button>
             </Link>
             {requirement && (

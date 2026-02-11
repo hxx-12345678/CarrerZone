@@ -147,7 +147,21 @@ export default function CandidatesPage() {
           page: pagination.page,
           limit: parseInt(showCount),
           search: searchQuery || undefined,
-          sortBy: sortBy
+          sortBy: sortBy,
+          // Add filter parameters
+          experience: filters.experience,
+          salary: filters.salary,
+          locationInclude: filters.locationInclude || undefined,
+          locationExclude: filters.locationExclude || undefined,
+          skillsInclude: filters.skillsInclude || undefined,
+          skillsExclude: filters.skillsExclude || undefined,
+          keyword: filters.keyword || undefined,
+          education: filters.education,
+          availability: filters.availability,
+          verification: filters.verification,
+          lastActive: filters.lastActive,
+          saved: filters.saved,
+          accessed: filters.accessed
         })
 
         console.log('🔍 Candidates API response:', response)
@@ -1337,46 +1351,6 @@ export default function CandidatesPage() {
                                   </Badge>
                                 )}
                             </div>
-                            {/* ATS Score Badge */}
-                            {(() => {
-                              const atsScore = Number(candidate.atsScore);
-                              const hasValidScore = !isNaN(atsScore) && atsScore > 0;
-
-                              console.log(`🔍 Candidate ${candidate.name} ATS data:`, {
-                                originalAtsScore: candidate.atsScore,
-                                convertedAtsScore: atsScore,
-                                hasValidScore: hasValidScore,
-                                atsCalculatedAt: candidate.atsCalculatedAt
-                              });
-
-                              return hasValidScore ? (
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-xs font-semibold px-3 py-1 ${atsScore >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-200 shadow-sm' :
-                                    atsScore >= 60 ? 'bg-blue-100 text-blue-800 border-blue-200 shadow-sm' :
-                                      atsScore >= 40 ? 'bg-yellow-100 text-yellow-800 border-yellow-200 shadow-sm' :
-                                        'bg-red-100 text-red-800 border-red-200 shadow-sm'
-                                    }`}
-                                  title={`ATS Score: ${atsScore}/100 - ${atsScore >= 80 ? 'Excellent Match' :
-                                    atsScore >= 60 ? 'Good Match' :
-                                      atsScore >= 40 ? 'Average Match' :
-                                        'Poor Match'
-                                    }`}
-                                >
-                                  <Brain className="w-3 h-3 mr-1" />
-                                  ATS: {atsScore}
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs text-gray-500 border-gray-300 px-3 py-1"
-                                  title="Click 'Calculate ATS Scores' to generate ATS score for this candidate"
-                                >
-                                  <Brain className="w-3 h-3 mr-1" />
-                                  No ATS Score
-                                </Badge>
-                              );
-                            })()}
                             <button
                               aria-label={candidate.likedByCurrent ? 'Remove upvote' : 'Upvote candidate'}
                               onClick={async (e) => {
