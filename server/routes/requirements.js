@@ -4446,8 +4446,9 @@ router.get('/:requirementId/candidates/:candidateId', authenticateToken, async (
       const { JobApplication } = require('../config/index');
       const existingShortlist = await JobApplication.findOne({
         where: {
-          user_id: candidateId,
-          employer_id: req.user.id,
+          // Use model attribute names (userId/employerId) instead of non-existent user_id/employer_id
+          userId: candidateId,
+          employerId: req.user.id,
           source: 'requirement_shortlist'
         }
       });
@@ -4675,8 +4676,9 @@ router.post('/:requirementId/candidates/:candidateId/shortlist', authenticateTok
     // Use raw query for metadata search since Sequelize doesn't handle nested JSON queries well
     const existingShortlist = await JobApplication.findOne({
       where: {
-        user_id: candidateId,
-        employer_id: req.user.id,
+        // Use camelCase model fields; underlying columns are snake_case
+        userId: candidateId,
+        employerId: req.user.id,
         source: 'requirement_shortlist'
       }
     });
@@ -4771,7 +4773,17 @@ router.post('/:requirementId/candidates/:candidateId/shortlist', authenticateTok
           companyId: req.user.companyId || req.user.companyId,
           employerId: req.user.id,
           location: 'Remote',
+          country: 'India',
           status: 'draft',
+          jobType: 'full-time',
+          // DB constraint: jobs.experience_level is NOT NULL in your environment
+          // Use a valid enum value from Job model: entry|junior|mid|senior|lead|executive
+          experienceLevel: 'entry',
+          // Keep these minimal but consistent
+          experienceMin: 0,
+          experienceMax: 0,
+          locationType: 'on-site',
+          remoteWork: 'on-site',
           isPlaceholder: true
         });
       }
@@ -5029,12 +5041,26 @@ router.get('/:requirementId/candidates/:candidateId/resume/:resumeId/view', atta
     }
 
     // Get the resume
-    const resume = await Resume.findOne({
+    // Primary check: resume must belong to this candidate
+    let resume = await Resume.findOne({
       where: {
         id: resumeId,
         userId: candidateId
       }
     });
+
+    // Fallback: in some legacy data, the candidateId / userId relationship may not
+    // match exactly even though the resume exists and is linked via applications.
+    // In that case, try to find by id only, but still ensure it's a real resume.
+    if (!resume) {
+      console.warn('⚠️ Resume not found with strict candidate match, falling back to id-only lookup', {
+        requirementId,
+        candidateId,
+        resumeId
+      });
+
+      resume = await Resume.findOne({ where: { id: resumeId } });
+    }
 
     if (!resume) {
       return res.status(404).json({
@@ -5093,7 +5119,7 @@ router.get('/:requirementId/candidates/:candidateId/resume/:resumeId/view', atta
       // Don't fail the view if activity logging fails
     }
 
-    // Get file path for serving the PDF
+    // Get file path or URL for serving the PDF
     const metadata = resume.metadata || {};
     const filename = metadata.filename || metadata.originalName || `resume-${resume.id}.pdf`;
     const originalName = metadata.originalName || filename;
@@ -5101,28 +5127,53 @@ router.get('/:requirementId/candidates/:candidateId/resume/:resumeId/view', atta
     console.log('🔍 Resume metadata:', JSON.stringify(metadata, null, 2));
     console.log('🔍 Filename from metadata:', filename);
 
-    // Try to find the file
+    // If fileUrl is an HTTP(S) URL, redirect directly
+    if (metadata.fileUrl && typeof metadata.fileUrl === 'string' && /^https?:\/\//i.test(metadata.fileUrl)) {
+      console.log('🔁 Redirecting resume view to external fileUrl:', metadata.fileUrl);
+      return res.redirect(metadata.fileUrl);
+    }
+
+    // If filePath itself is an HTTP(S) URL, also redirect
+    if (metadata.filePath && typeof metadata.filePath === 'string' && /^https?:\/\//i.test(metadata.filePath)) {
+      console.log('🔁 Redirecting resume view to external filePath URL:', metadata.filePath);
+      return res.redirect(metadata.filePath);
+    }
+
+    // Otherwise, try to find the file on local/attached storage.
+    // Mirror the robust search used by the download endpoint so that
+    // any resume that can be downloaded can also be previewed.
     let filePath = null;
     const possiblePaths = [
-      metadata.filePath,
-      metadata.fileUrl,
+      // Production paths (Render.com)
+      path.join('/opt/render/project/src/uploads/resumes', filename),
+      path.join('/opt/render/project/src/server/uploads/resumes', filename),
+      path.join('/tmp/uploads/resumes', filename),
+      // Development paths
       path.join(__dirname, '../uploads/resumes', filename),
-      path.join(__dirname, '../uploads', filename),
-      path.join(process.cwd(), 'uploads/resumes', filename),
-      path.join(process.cwd(), 'uploads', filename),
-      path.join(process.cwd(), 'server/uploads/resumes', filename),
-      path.join(process.cwd(), 'server/uploads', filename),
-      `/tmp/uploads/resumes/${filename}`,
-      `/tmp/uploads/${filename}`,
-      `/var/tmp/uploads/resumes/${filename}`,
-      `/var/tmp/uploads/${filename}`
-    ];
+      path.join(process.cwd(), 'server', 'uploads', 'resumes', filename),
+      path.join(process.cwd(), 'uploads', 'resumes', filename),
+      path.join('/tmp', 'uploads', 'resumes', filename),
+      path.join('/var', 'tmp', 'uploads', 'resumes', filename),
+      // Metadata-based paths
+      metadata.filePath ? path.join(process.cwd(), metadata.filePath.replace(/^\//, '')) : null,
+      metadata.filePath ? path.join('/', metadata.filePath.replace(/^\//, '')) : null,
+      // Direct metadata filePath
+      metadata.filePath ? metadata.filePath : null,
+      // Public URL-style path within app
+      metadata.filename ? `/uploads/resumes/${metadata.filename}` : null
+    ].filter(Boolean);
 
-    // Check each possible path
+    console.log('🔍 [view] Trying possible file paths:', possiblePaths);
+
+    // Find the first existing file
     for (const testPath of possiblePaths) {
-      if (testPath && fs.existsSync(testPath)) {
-        filePath = testPath;
-        break;
+      try {
+        if (testPath && fs.existsSync(testPath)) {
+          filePath = testPath;
+          break;
+        }
+      } catch (e) {
+        console.log('⚠️ [view] Error checking path', testPath, e.message);
       }
     }
 

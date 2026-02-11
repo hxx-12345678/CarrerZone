@@ -62,7 +62,10 @@ export function PDFViewer({ pdfUrl, className = '' }: PDFViewerProps) {
         
         if (!response.ok) {
           if (response.status === 404) {
-            throw new Error('NO_RESUME_FOUND');
+            // Mark explicitly so UI can show proper copy
+            setError('NO_RESUME_FOUND');
+            setLoading(false);
+            return;
           }
           throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
         }
@@ -95,9 +98,13 @@ export function PDFViewer({ pdfUrl, className = '' }: PDFViewerProps) {
         setError(null);
         
         console.log('📄 PDF loaded successfully via blob URL');
-      } catch (err) {
+      } catch (err: any) {
         console.error('📄 PDF fetch error:', err);
-        setError('Unable to load PDF preview. Please use the View CV button below.');
+        // Preserve NO_RESUME_FOUND if it was already set above
+        if (!error) {
+          const message = err?.message === 'NO_RESUME_FOUND' ? 'NO_RESUME_FOUND' : 'Unable to load PDF preview. Please use the View CV button below.';
+          setError(message);
+        }
         setLoading(false);
       }
     }

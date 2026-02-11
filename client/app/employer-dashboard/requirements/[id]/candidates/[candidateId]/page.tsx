@@ -37,7 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { EmployerDashboardNavbar } from "@/components/employer-dashboard-navbar"
 import { EmployerDashboardFooter } from "@/components/employer-dashboard-footer"
 import { PDFViewer } from "@/components/pdf-viewer"
-import { apiService, constructAvatarUrl } from "@/lib/api"
+import { apiService, constructAvatarUrl, API_BASE_URL, BASE_URL } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { EmployerAuthGuard } from "@/components/employer-auth-guard"
 
@@ -238,7 +238,8 @@ export default function CandidateProfilePage() {
       const token = localStorage.getItem('token')
       
       // Create view URL with token
-      const viewUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/requirements/${requirementId}/candidates/${candidateIdStr}/resume/${resume.id}/view${token ? `?token=${encodeURIComponent(token)}` : ''}`
+      // IMPORTANT: always hit the API router under /api; NEXT_PUBLIC_API_URL can be http://localhost:8000
+      const viewUrl = `${API_BASE_URL.replace(/\/$/, '')}/requirements/${requirementId}/candidates/${candidateIdStr}/resume/${resume.id}/view${token ? `?token=${encodeURIComponent(token)}` : ''}`
       
       // Open in new tab
       window.open(viewUrl, '_blank', 'noopener,noreferrer')
@@ -1309,9 +1310,27 @@ export default function CandidateProfilePage() {
                                       {/* CV Preview using PDFViewer - white background to eliminate black space */}
                                       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mb-4 shadow-sm" style={{ background: 'white', padding: '0' }}>
                         {(() => {
-                          // Use the view URL with token for preview
-                          const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-                                          const pdfUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/requirements/${requirementId}/candidates/${candidateIdStr}/resume/${primaryResume.id}/view`;
+                          // Prefer backend-provided viewUrl; fall back to constructing it
+                          const baseApi = API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+                          const baseHost = BASE_URL || (baseApi.endsWith('/api') ? baseApi.slice(0, -4) : baseApi);
+                          let pdfUrl: string;
+
+                          if (primaryResume.viewUrl && typeof primaryResume.viewUrl === 'string') {
+                            // If viewUrl is absolute (starts with http), use as is.
+                            // If it starts with '/api/', it already includes the api prefix, so join with BASE_URL (host only).
+                            // Otherwise (e.g. '/requirements/...'), join with API_BASE_URL.
+                            if (primaryResume.viewUrl.startsWith('http')) {
+                              pdfUrl = primaryResume.viewUrl;
+                            } else if (primaryResume.viewUrl.startsWith('/api/')) {
+                              pdfUrl = `${baseHost.replace(/\/$/, '')}${primaryResume.viewUrl}`;
+                            } else {
+                              const path = primaryResume.viewUrl.startsWith('/') ? primaryResume.viewUrl : `/${primaryResume.viewUrl}`;
+                              pdfUrl = `${baseApi.replace(/\/$/, '')}${path}`;
+                            }
+                          } else {
+                            pdfUrl = `${baseApi.replace(/\/$/, '')}/requirements/${requirementId}/candidates/${candidateIdStr}/resume/${primaryResume.id}/view`;
+                          }
+
                           console.log('📄 PDF URL for preview:', pdfUrl);
                           
                                           if (!pdfUrl || !primaryResume?.id) {

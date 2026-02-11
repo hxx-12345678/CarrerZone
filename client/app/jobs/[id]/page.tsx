@@ -1603,9 +1603,14 @@ export default function JobDetailPage() {
                     <CardContent>
                       <div className="flex flex-wrap gap-3">
                         {job.benefits.map((benefit: string, index: number) => (
-                          <div key={index} className="flex items-center px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200/50 dark:border-blue-700/50 hover:shadow-md transition-shadow">
-                            <Award className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2 flex-shrink-0" />
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">{benefit}</span>
+                          <div
+                            key={index}
+                            className="flex items-start px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200/50 dark:border-blue-700/50 hover:shadow-md transition-shadow max-w-full"
+                          >
+                            <Award className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 break-words whitespace-normal">
+                              {benefit}
+                            </span>
                           </div>
                         ))}
                       </div>
