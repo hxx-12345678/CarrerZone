@@ -380,7 +380,15 @@ export function Navbar() {
                       if (e.key === 'Enter') {
                         const searchTerm = (e.target as HTMLInputElement).value.trim()
                         if (searchTerm) {
-                          router.push(`/jobs?search=${encodeURIComponent(searchTerm)}`)
+                          // Standardize search navigation
+                          const params = new URLSearchParams()
+                          params.set('search', searchTerm)
+                          
+                          if (pathname === '/jobs') {
+                            window.location.href = `/jobs?${params.toString()}`
+                          } else {
+                            router.push(`/jobs?${params.toString()}`)
+                          }
                         }
                       }
                     }}

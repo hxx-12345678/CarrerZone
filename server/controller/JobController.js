@@ -1136,7 +1136,8 @@ exports.getAllJobs = async (req, res, next) => {
                 industryTerms.push(ind);
               }
             });
-            where[Or] = industryTerms.map(t => ({ industry: { [OpLike]: `%${t}%` } }));
+            // industries is a JSONB array column, while industrytype is a string column on Job
+            where[Or] = industryTerms.map(t => ({ industries: { [Op.contains]: [t] } }));
           }
           if (companyType) where.companyType = String(companyType).toLowerCase();
           if (companyName) where.name = { [OpLike]: `%${String(companyName).toLowerCase()}%` };

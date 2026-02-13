@@ -64,25 +64,23 @@ export default function HomePage() {
     if (searchQuery.trim() || location.trim()) {
       const params = new URLSearchParams()
       
+      // Prioritize actual search query
       if (searchQuery.trim()) {
-        const processedQuery = processSearchQuery(searchQuery.trim())
+        params.set('search', searchQuery.trim())
         
-        // Handle structured query from exact match patterns
+        // Only add smart mapping as secondary hint or if it's a very clear category
+        const processedQuery = processSearchQuery(searchQuery.trim())
         if (typeof processedQuery === 'object' && processedQuery.isExactMatch) {
-          params.append("search", processedQuery.originalQuery)
-          params.append("exactMatch", "true")
+          // If it's a structured query (Job at Company in Location)
           if (processedQuery.jobTitle) params.append("jobTitle", processedQuery.jobTitle)
           if (processedQuery.company) params.append("company", processedQuery.company)
           if (processedQuery.location) params.append("location", processedQuery.location)
-        } else {
-          // For regular processed queries
-          params.append("search", typeof processedQuery === 'string' ? processedQuery : processedQuery.toString())
+          params.append("exactMatch", "true")
         }
       }
       
-      // Process location
       if (location.trim()) {
-        params.append("location", location.trim())
+        params.set('location', location.trim())
       }
       
       window.location.href = `/jobs?${params.toString()}`
