@@ -477,35 +477,48 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
     const userCompanyId = req.user.company_id || req.user.companyId;
 
     // Create bulk import record
+    // Some production databases might not have file_url column yet.
+    // Attempt normal create first; if it fails due to missing file_url, retry using filePath.
 
-    const bulkImport = await BulkJobImport.create({
+    let bulkImport;
+    try {
+      bulkImport = await BulkJobImport.create({
+        importName,
+        importType: importType || path.extname(req.file.originalname).substring(1),
+        fileUrl: `/uploads/bulk-imports/${req.file.filename}`,
+        fileSize: req.file.size,
+        mappingConfig: parsedMappingConfig,
+        validationRules: parsedValidationRules,
+        defaultValues: parsedDefaultValues,
+        templateId: templateId || null,
+        isScheduled: isScheduled === 'true',
+        scheduledAt: isScheduled === 'true' ? new Date(scheduledAt) : null,
+        notificationEmail,
+        createdBy: req.user.id,
+        companyId: userCompanyId || null
+      });
+    } catch (createErr) {
+      const msg = createErr?.parent?.message || createErr?.message || '';
+      const missingFileUrlColumn = /column\s+"?file_url"?\s+does not exist/i.test(msg);
+      if (!missingFileUrlColumn) throw createErr;
 
-      importName,
-
-      importType: importType || path.extname(req.file.originalname).substring(1),
-
-      fileUrl: `/uploads/bulk-imports/${req.file.filename}`,
-
-      fileSize: req.file.size,
-
-      mappingConfig: parsedMappingConfig,
-
-      validationRules: parsedValidationRules,
-
-      defaultValues: parsedDefaultValues,
-
-      templateId: templateId || null,
-
-      isScheduled: isScheduled === 'true',
-
-      scheduledAt: isScheduled === 'true' ? new Date(scheduledAt) : null,
-
-      notificationEmail,
-
-      createdBy: req.user.id,
-
-      companyId: userCompanyId || null
-    });
+      console.warn('⚠️ bulk_job_imports.file_url missing; retrying create using filePath');
+      bulkImport = await BulkJobImport.create({
+        importName,
+        importType: importType || path.extname(req.file.originalname).substring(1),
+        filePath: `/uploads/bulk-imports/${req.file.filename}`,
+        fileSize: req.file.size,
+        mappingConfig: parsedMappingConfig,
+        validationRules: parsedValidationRules,
+        defaultValues: parsedDefaultValues,
+        templateId: templateId || null,
+        isScheduled: isScheduled === 'true',
+        scheduledAt: isScheduled === 'true' ? new Date(scheduledAt) : null,
+        notificationEmail,
+        createdBy: req.user.id,
+        companyId: userCompanyId || null
+      });
+    }
 
 
 

@@ -247,6 +247,51 @@ exports.inviteTeamMember = async (req, res) => {
       });
     }
 
+    // If admin explicitly provided a password, create the user immediately.
+    // This avoids the requirement to accept an invitation link before login.
+    if (defaultPassword) {
+      const createdUser = await User.create({
+        email: email.toLowerCase(),
+        password: defaultPassword,
+        first_name: firstName || '',
+        last_name: lastName || '',
+        phone: phone || null,
+        companyId: companyId,
+        user_type: 'employer',
+        designation: designation || 'Recruiter',
+        is_email_verified: true,
+        account_status: 'active',
+        preferences: {
+          permissions: permissions || {
+            jobPosting: true,
+            resumeDatabase: true,
+            analytics: true,
+            featuredJobs: false,
+            hotVacancies: false,
+            applications: true,
+            requirements: true,
+            settings: false
+          },
+          employerRole: 'recruiter'
+        }
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Team member created successfully',
+        data: {
+          user: {
+            id: createdUser.id,
+            email: createdUser.email,
+            firstName: createdUser.first_name,
+            lastName: createdUser.last_name,
+            designation: createdUser.designation,
+            userType: createdUser.user_type
+          }
+        }
+      });
+    }
+
     // Generate invitation token
     const token = TeamInvitation.generateToken();
     const expiresAt = new Date();
