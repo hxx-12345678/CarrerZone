@@ -26,7 +26,7 @@ function generateDefaultPassword(customPassword = null) {
 exports.getTeamMembers = async (req, res) => {
   try {
     const companyId = req.user.company_id;
-    
+
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -48,7 +48,7 @@ exports.getTeamMembers = async (req, res) => {
         companyId: companyId
       },
       attributes: [
-        'id', 'email', 'first_name', 'last_name', 'phone', 
+        'id', 'email', 'first_name', 'last_name', 'phone',
         'user_type', 'designation', 'is_active', 'is_email_verified',
         'is_phone_verified', 'preferences', 'created_at', 'last_login_at'
       ],
@@ -75,10 +75,10 @@ exports.getTeamMembers = async (req, res) => {
       data: {
         teamMembers: teamMembers.map(member => {
           // Admin users (super-users) should always show as email verified
-          const isEmailVerified = member.user_type === 'admin' || member.user_type === 'superadmin' 
-            ? true 
+          const isEmailVerified = member.user_type === 'admin' || member.user_type === 'superadmin'
+            ? true
             : member.is_email_verified;
-          
+
           return {
             id: member.id,
             email: member.email,
@@ -131,7 +131,7 @@ exports.getTeamMembers = async (req, res) => {
 exports.inviteTeamMember = async (req, res) => {
   try {
     const companyId = req.user.company_id;
-    
+
     if (!companyId) {
       return res.status(400).json({
         success: false,
@@ -177,7 +177,7 @@ exports.inviteTeamMember = async (req, res) => {
 
     // Check subscription limits (optional - only enforce if subscription exists)
     let maxUsers = 10; // Default limit for testing
-    
+
     try {
       const activeSubscription = await Subscription.findOne({
         where: {
@@ -194,7 +194,7 @@ exports.inviteTeamMember = async (req, res) => {
         // Check plan features for maxUsers or maxTeamMembers
         const planFeatures = activeSubscription.plan.features || {};
         maxUsers = planFeatures.maxUsers || planFeatures.maxTeamMembers || planFeatures.teamMembers || 10;
-        
+
         // If maxUsers is 0 or null, treat as unlimited
         if (maxUsers === 0 || maxUsers === null || maxUsers === undefined) {
           maxUsers = 999999; // Unlimited
@@ -220,7 +220,7 @@ exports.inviteTeamMember = async (req, res) => {
     });
 
     const totalUsers = currentMemberCount + pendingInvitationsCount;
-    
+
     // Only enforce limit if it's not unlimited
     if (maxUsers < 999999 && totalUsers >= maxUsers) {
       return res.status(403).json({
@@ -273,7 +273,8 @@ exports.inviteTeamMember = async (req, res) => {
             settings: false
           },
           employerRole: 'recruiter'
-        }
+        },
+        profile_completion: 100 // Set profile as complete to skip onboarding workflow
       });
 
       return res.status(201).json({
@@ -299,7 +300,7 @@ exports.inviteTeamMember = async (req, res) => {
 
     // Generate default password for the user (use provided or generate)
     const userDefaultPassword = defaultPassword || generateDefaultPassword();
-    
+
     // Store password hash in invitation metadata (we'll use it when accepting)
     const invitationData = {
       companyId: companyId,
@@ -362,7 +363,7 @@ exports.inviteTeamMember = async (req, res) => {
     console.log(`   Subject: ${emailContent.subject}`);
     console.log(`   Password: ${userDefaultPassword}`);
     console.log(`   Link: ${invitationLink}`);
-    
+
     // Return default password in response so admin can share it
     const responseData = {
       invitation: {
@@ -673,7 +674,7 @@ exports.acceptInvitation = async (req, res) => {
       userPassword = invitation.permissions._defaultPassword;
       console.log(`🔑 Using default password from invitation for ${invitation.email}`);
     }
-    
+
     if (!userPassword) {
       return res.status(400).json({
         success: false,
@@ -694,6 +695,7 @@ exports.acceptInvitation = async (req, res) => {
         user_type: 'employer',
         designation: invitation.designation,
         is_email_verified: true,
+        profile_completion: 100, // Set profile as complete
         preferences: {
           ...user.preferences,
           permissions: invitation.permissions,
@@ -713,6 +715,7 @@ exports.acceptInvitation = async (req, res) => {
         user_type: 'employer',
         designation: invitation.designation,
         is_email_verified: true,
+        profile_completion: 100, // Set profile as complete
         preferences: {
           permissions: invitation.permissions,
           employerRole: 'recruiter'
@@ -791,7 +794,7 @@ exports.updateTeamMemberPermissions = async (req, res) => {
     }
 
     const updateData = {};
-    
+
     if (permissions) {
       updateData.preferences = {
         ...teamMember.preferences,
