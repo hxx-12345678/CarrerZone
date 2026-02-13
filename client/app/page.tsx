@@ -64,13 +64,11 @@ export default function HomePage() {
     if (searchQuery.trim() || location.trim()) {
       const params = new URLSearchParams()
       
-      // Process search query with smart matching
       if (searchQuery.trim()) {
         const processedQuery = processSearchQuery(searchQuery.trim())
         
-        // Handle exact matches differently
+        // Handle structured query from exact match patterns
         if (typeof processedQuery === 'object' && processedQuery.isExactMatch) {
-          // For exact matches, pass structured data
           params.append("search", processedQuery.originalQuery)
           params.append("exactMatch", "true")
           if (processedQuery.jobTitle) params.append("jobTitle", processedQuery.jobTitle)
@@ -88,6 +86,8 @@ export default function HomePage() {
       }
       
       window.location.href = `/jobs?${params.toString()}`
+    } else {
+      window.location.href = '/jobs'
     }
   }
 

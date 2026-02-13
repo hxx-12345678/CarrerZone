@@ -1123,74 +1123,39 @@ export default function JobsPage() {
 
       // Map UI filters to backend query params
 
-      const params: Record<string, string | number | boolean | undefined> = {
-
+    const params: Record<string, string | number | boolean | undefined> = {
         status: 'active',
-
         limit: 100,
-
         search: filters.search || undefined,
-
         location: filters.location || undefined,
-
         jobType: filters.jobTypes.length > 0 ? filters.jobTypes.map(t => t.toLowerCase().replace(/\s+/g, '-')).join(',') : undefined,
-
         experienceRange: filters.experienceLevels.length > 0 ? filters.experienceLevels.map(r => r.includes('+') ? r.replace('+','-100') : r).join(',') : undefined,
-
         ...(filters.salaryRange ? (() => {
-
           const sr = filters.salaryRange;
-
           if (sr.includes('+')) {
-
             const min = parseInt(sr);
-
             return { salaryMin: min * 100000 };
-
           }
-
           const [minStr, maxStr] = sr.split('-');
-
           const min = parseInt(minStr);
-
           const max = parseInt(maxStr);
-
           return {
-
             salaryMin: isNaN(min) ? undefined : min * 100000,
-
             salaryMax: isNaN(max) ? undefined : max * 100000,
-
           };
-
         })() : {}),
-
         industry: filters.industry || undefined,
-
+        industries: filters.industryCategories?.length ? filters.industryCategories.join(',') : undefined,
         department: filters.department || undefined,
-
+        departments: filters.departmentCategories?.length ? filters.departmentCategories.join(',') : undefined,
         role: filters.role || undefined,
-
-        skills: filters.skills || undefined,
-
-        companyType: filters.companyType || undefined,
-
-        workMode: filters.workMode ? (filters.workMode.toLowerCase().includes('home') ? 'remote' : filters.workMode) : undefined,
-
-        education: filters.education || undefined,
-
-        companyName: filters.companyName || undefined,
-
-        recruiterType: filters.recruiterType || undefined,
-
-        // Add new filter categories
-
         roleCategories: filters.roleCategories?.length ? filters.roleCategories.join(',') : undefined,
-
-        industryCategories: filters.industryCategories?.length ? filters.industryCategories.join(',') : undefined,
-
-        departmentCategories: filters.departmentCategories?.length ? filters.departmentCategories.join(',') : undefined,
-
+        skills: filters.skills || undefined,
+        companyType: filters.companyType || undefined,
+        workMode: filters.workMode ? (filters.workMode.toLowerCase().includes('home') ? 'remote' : filters.workMode) : undefined,
+        education: filters.education || undefined,
+        companyName: filters.companyName || undefined,
+        recruiterType: filters.recruiterType || undefined,
       }
 
 

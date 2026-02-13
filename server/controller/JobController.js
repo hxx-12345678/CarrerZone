@@ -914,7 +914,7 @@ exports.createJob = async (req, res, next) => {
 exports.getAllJobs = async (req, res, next) => {
   try {
     const AGENCY_ENABLED = String(process.env.AGENCY_FEATURES || '').toLowerCase() === 'true';
-    const {
+    let {
       page = 1,
       limit = 10,
       status,
@@ -929,8 +929,11 @@ exports.getAllJobs = async (req, res, next) => {
       experienceRange,
       salaryMin,
       industry,
+      industries, // Support plural from navbar
       department,
+      departments, // Support plural from navbar
       role,
+      roleCategories, // Support from navbar
       skills,
       companyType,
       workMode,
@@ -1033,13 +1036,28 @@ exports.getAllJobs = async (req, res, next) => {
     if (req.query.salaryMax) whereClause.salaryMax = { [OpLte]: parseFloat(req.query.salaryMax) };
 
     // Department / Functional Area
-    if (department) {
-      whereClause.department = { [OpLike]: `%${department}%` };
+    const deptFilter = department || departments;
+    if (deptFilter) {
+      const depts = String(deptFilter).split(',').map(s => s.trim()).filter(Boolean);
+      if (depts.length > 0) {
+        andGroups.push({
+          [Or]: depts.map(d => ({ department: { [OpLike]: `%${d}%` } }))
+        });
+      }
     }
 
-    // Role / Designation
-    if (role) {
-      whereClause.title = { [OpLike]: `%${role}%` };
+    // Role / Designation / Role Categories
+    const roleFilter = role || roleCategories;
+    if (roleFilter) {
+      const roles = String(roleFilter).split(',').map(s => s.trim()).filter(Boolean);
+      if (roles.length > 0) {
+        andGroups.push({
+          [Or]: [
+            ...roles.map(r => ({ title: { [OpLike]: `%${r}%` } })),
+            ...roles.map(r => ({ rolecategory: { [OpLike]: `%${r}%` } }))
+          ]
+        });
+      }
     }
 
     // Skills / Keywords
@@ -1107,12 +1125,18 @@ exports.getAllJobs = async (req, res, next) => {
           const where = {};
           const OpLike = Op.iLike;
           const Or = Op.or;
-          if (industry) {
-            const ind = String(industry).toLowerCase();
-            const terms = ind.includes('information technology') || ind === 'it'
-              ? ['information technology', 'technology', 'tech', 'software', 'it']
-              : [ind];
-            where[Or] = terms.map(t => ({ industry: { [OpLike]: `%${t}%` } }));
+          const industryFilter = industry || industries;
+          if (industryFilter) {
+            const indArray = String(industryFilter).split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            const industryTerms = [];
+            indArray.forEach(ind => {
+              if (ind.includes('information technology') || ind === 'it') {
+                industryTerms.push('information technology', 'technology', 'tech', 'software', 'it', 'internet');
+              } else {
+                industryTerms.push(ind);
+              }
+            });
+            where[Or] = industryTerms.map(t => ({ industry: { [OpLike]: `%${t}%` } }));
           }
           if (companyType) where.companyType = String(companyType).toLowerCase();
           if (companyName) where.name = { [OpLike]: `%${String(companyName).toLowerCase()}%` };

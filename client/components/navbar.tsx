@@ -30,7 +30,13 @@ export function Navbar() {
 
   // Handle navbar filter clicks with programmatic navigation
   const handleFilterClick = (filterUrl: string) => {
-    router.push(filterUrl)
+    // If we are already on the jobs page, we need to handle the update carefully
+    // to ensure the component re-fetches with new params
+    if (pathname === '/jobs') {
+      window.location.href = filterUrl; // Force refresh if already on jobs page for reliable filtering
+    } else {
+      router.push(filterUrl);
+    }
   }
 
   const getEmployerServices = (userRegion: string) => [
