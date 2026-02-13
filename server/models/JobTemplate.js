@@ -76,6 +76,7 @@ module.exports = (sequelize) => {
   }, {
     tableName: 'job_templates',
     timestamps: true,
+    underscored: true,
     indexes: [
       {
         fields: ['created_by']

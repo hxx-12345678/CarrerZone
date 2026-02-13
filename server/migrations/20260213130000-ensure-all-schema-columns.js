@@ -101,6 +101,18 @@ module.exports = {
                 type: Sequelize.INTEGER,
                 defaultValue: 1
             });
+
+            await addColumnIfMissing('job_templates', 'created_at', {
+                type: Sequelize.DATE,
+                allowNull: false,
+                defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+            });
+
+            await addColumnIfMissing('job_templates', 'updated_at', {
+                type: Sequelize.DATE,
+                allowNull: false,
+                defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+            });
         }
 
         // ========================================
