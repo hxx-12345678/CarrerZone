@@ -182,13 +182,21 @@ router.get('/', authenticateToken, async (req, res) => {
 
 
 
+    const normalizedRows = (imports.rows || []).map((r) => {
+      const obj = typeof r.toJSON === 'function' ? r.toJSON() : r;
+      return {
+        ...obj,
+        fileUrl: obj.fileUrl || obj.filePath || null
+      };
+    });
+
     res.json({
 
       success: true,
 
       data: {
 
-        imports: imports.rows,
+        imports: normalizedRows,
 
         pagination: {
 
@@ -266,11 +274,16 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 
 
+    const recordObj = typeof importRecord.toJSON === 'function' ? importRecord.toJSON() : importRecord;
+
     res.json({
 
       success: true,
 
-      data: importRecord
+      data: {
+        ...recordObj,
+        fileUrl: recordObj.fileUrl || recordObj.filePath || null
+      }
 
     });
 

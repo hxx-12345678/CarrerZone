@@ -3323,6 +3323,7 @@ class ApiService {
     firstName?: string;
     lastName?: string;
     phone?: string;
+    defaultPassword?: string;
     designation?: string;
     permissions?: any;
   }): Promise<ApiResponse<any>> {

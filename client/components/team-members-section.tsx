@@ -370,6 +370,7 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [phone, setPhone] = useState("")
+  const [defaultPassword, setDefaultPassword] = useState("")
   const [designation, setDesignation] = useState("Recruiter")
   const [permissions, setPermissions] = useState({
     jobPosting: true,
@@ -398,6 +399,7 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         phone: phone || undefined,
+        defaultPassword: defaultPassword || undefined,
         designation,
         permissions
       })
@@ -406,6 +408,7 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
       setFirstName("")
       setLastName("")
       setPhone("")
+      setDefaultPassword("")
       setDesignation("Recruiter")
     } catch (error) {
       console.error('Error inviting team member:', error)
@@ -474,6 +477,17 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
           placeholder="+91 9876543210"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="defaultPassword">Default Password</Label>
+        <Input
+          id="defaultPassword"
+          type="password"
+          placeholder="Set a password for this team member"
+          value={defaultPassword}
+          onChange={(e) => setDefaultPassword(e.target.value)}
         />
       </div>
 
