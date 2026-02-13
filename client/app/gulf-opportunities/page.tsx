@@ -362,9 +362,15 @@ export default function GulfOpportunitiesPage() {
         // Close register dialog
         setShowRegisterDialog(false)
 
+        // Ensure UI reflects authenticated state immediately
+        try {
+          setShowLoginDialog(false)
+          setShowExistingUserDialog(false)
+        } catch {}
+
         // Redirect to Gulf dashboard where profile completion dialog will show
         setTimeout(() => {
-          router.push('/jobseeker-gulf-dashboard')
+          router.replace('/jobseeker-gulf-dashboard')
         }, 1500)
       } else {
         toast.success("Account created successfully! Please sign in to continue.")
@@ -461,8 +467,10 @@ export default function GulfOpportunitiesPage() {
         // Close dialog
         setShowExistingUserDialog(false)
 
-        // Refresh user data
-        window.location.reload()
+        // Navigate without forcing refresh; auth token has already been stored
+        setTimeout(() => {
+          router.replace('/jobseeker-gulf-dashboard')
+        }, 500)
       } else {
         toast.error(response.message || 'OTP verification failed')
       }

@@ -53,6 +53,27 @@ export default function AccountPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('profile')
   const [resumeStats, setResumeStats] = useState<any>(null)
+
+  const getUserRegions = (u: any): string[] => {
+    const regions = (u?.regions || u?.preferences?.regions || [u?.region]).filter(Boolean)
+    return Array.from(new Set(regions.map((r: string) => String(r).toLowerCase())))
+  }
+
+  const getAccountBackHref = (u: any) => {
+    const regions = getUserRegions(u)
+    const hasIndia = regions.includes('india')
+    const hasGulf = regions.includes('gulf')
+
+    if (hasIndia && hasGulf) {
+      try {
+        const last = sessionStorage.getItem('lastDashboardPath')
+        if (last && last.startsWith('/')) return last
+      } catch {}
+      return '/dashboard'
+    }
+    if (hasGulf && !hasIndia) return '/jobseeker-gulf-dashboard'
+    return '/dashboard'
+  }
   
   // Edit states
   const [editingPersonal, setEditingPersonal] = useState(false)
@@ -1076,7 +1097,7 @@ export default function AccountPage() {
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center space-x-4 mb-4">
-              <Link href={user?.region === 'gulf' ? '/gulf-dashboard' : '/dashboard'}>
+              <Link href={getAccountBackHref(user)}>
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard

@@ -18,6 +18,13 @@ export function JobseekerAuthGuard({ children }: JobseekerAuthGuardProps) {
   const [isChecking, setIsChecking] = useState(true)
   const [timeoutReached, setTimeoutReached] = useState(false)
 
+  const getUserRegions = (u: any): string[] => {
+    const regions = (u?.regions || u?.preferences?.regions || [u?.region]).filter(Boolean)
+    return Array.from(new Set(regions.map((r: string) => String(r).toLowerCase())))
+  }
+
+  const hasIndiaAccess = (u: any) => getUserRegions(u).includes('india')
+
   useEffect(() => {
     // Set a timeout to prevent infinite loading
     const timeout = setTimeout(() => {
@@ -88,6 +95,14 @@ export function JobseekerAuthGuard({ children }: JobseekerAuthGuardProps) {
       } else {
         router.replace('/login')
       }
+      return
+    }
+
+    // Region access: /dashboard is India portal. If user doesn't have India access, redirect.
+    if (!hasIndiaAccess(user)) {
+      console.log('🚫 JobseekerAuthGuard - No India access for /dashboard, redirecting to Gulf dashboard')
+      clearTimeout(timeout)
+      router.replace('/jobseeker-gulf-dashboard')
       return
     }
       

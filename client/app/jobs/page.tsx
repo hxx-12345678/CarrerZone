@@ -1653,6 +1653,16 @@ export default function JobsPage() {
 
     }
 
+    // Region eligibility: /jobs is India portal. Gulf-only users must upgrade to India to apply.
+    const regions = ((user as any)?.regions || (user as any)?.preferences?.regions || [user?.region]).filter(Boolean)
+      .map((r: any) => String(r).toLowerCase())
+    const hasIndia = regions.includes('india')
+    if (!hasIndia) {
+      toast.error('You are not eligible to apply for India portal jobs with a Gulf-only account. Please enable India portal access to continue.')
+      window.location.href = `/login?requestingRegion=india&next=${encodeURIComponent(`/jobs/${jobId}`)}`
+      return
+    }
+
 
 
     // Find the job data

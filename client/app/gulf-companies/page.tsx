@@ -861,7 +861,7 @@ export default function GulfCompaniesPage() {
                                   <Link href={`/gulf-companies/${company.id}`}>
                                     <Button className={`w-full sm:w-auto bg-gradient-to-r ${industryColors.bg} ${industryColors.hover} hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-xs h-8 px-3`}>
                                       <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                                      View ({company.activeJobsCount || company.activeJobs || 0})
+                                      View
                                     </Button>
                         </Link>
                                 </div>

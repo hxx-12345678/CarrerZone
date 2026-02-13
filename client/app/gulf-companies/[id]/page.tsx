@@ -484,6 +484,21 @@ function GulfCompanyDetailPage() {
     setLoadingJobs(true)
     setJobsError("")
     try {
+      const isJobOpen = (j: any) => {
+        try {
+          const status = String(j?.status || '').toLowerCase()
+          if (status && status !== 'active') return false
+          const now = new Date()
+          const vt = j?.validTill || j?.valid_till
+          const dl = j?.applicationDeadline || j?.application_deadline
+          if (dl && now > new Date(dl)) return false
+          if (vt && now > new Date(vt)) return false
+          return true
+        } catch {
+          return false
+        }
+      }
+
       if (!isValidUuid) {
         setCompanyJobs([])
         setJobsError('Invalid company id')
@@ -525,10 +540,11 @@ function GulfCompanyDetailPage() {
               ? response.data.jobs
               : (Array.isArray(response.data) ? response.data : [])
 
-            setCompanyJobs(jobs)
-            setFilteredJobs(jobs)
+            const openOnly = jobs.filter(isJobOpen)
+            setCompanyJobs(openOnly)
+            setFilteredJobs(openOnly)
 
-            if (jobs.length === 0) {
+            if (openOnly.length === 0) {
               setJobsError('No jobs found for this company')
             }
           } else {
@@ -557,8 +573,9 @@ function GulfCompanyDetailPage() {
                 const jobs = Array.isArray(altData.data) ? altData.data : []
                 // Filter to only Gulf jobs
                 const gulfJobs = jobs.filter((job: any) => job.region === 'gulf')
-                setCompanyJobs(gulfJobs)
-                setFilteredJobs(gulfJobs)
+                const openOnly = gulfJobs.filter(isJobOpen)
+                setCompanyJobs(openOnly)
+                setFilteredJobs(openOnly)
                 return
               }
             }
@@ -744,6 +761,23 @@ function GulfCompanyDetailPage() {
     // Find the job details
     const job = companyJobs.find(j => j.id === jobId)
     if (job) {
+      try {
+        const now = new Date()
+        const dl = job.applicationDeadline || job.application_deadline
+        const vt = job.validTill || job.valid_till
+        if (dl && now > new Date(dl)) {
+          toast.error('Applications are closed for this job (deadline passed)')
+          return
+        }
+        if (vt && now > new Date(vt)) {
+          toast.error('This job is expired and no longer accepting applications')
+          return
+        }
+        if (job.status && String(job.status).toLowerCase() !== 'active') {
+          toast.error('This job is not currently active')
+          return
+        }
+      } catch {}
       setSelectedJob(job)
       setShowApplicationDialog(true)
     }

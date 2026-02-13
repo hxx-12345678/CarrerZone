@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useRouter, useSearchParams } from 'next/navigation'
 import { apiService } from "@/lib/api"
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -28,6 +29,40 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
   const [checking, setChecking] = useState(true)
+
+  const requestingRegion = (searchParams.get('requestingRegion') || '').toLowerCase()
+  const nextPath = searchParams.get('next') || '/dashboard'
+
+  const [showRegionUpgradeDialog, setShowRegionUpgradeDialog] = useState(false)
+  const [upgradeOtp, setUpgradeOtp] = useState('')
+  const [upgradeUser, setUpgradeUser] = useState<{ userId: string; email: string; firstName?: string } | null>(null)
+  const [upgradeLoading, setUpgradeLoading] = useState(false)
+
+  const handleVerifyUpgradeOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!upgradeUser?.userId) {
+      toast.error('Unable to verify OTP. Please try again.')
+      return
+    }
+
+    setUpgradeLoading(true)
+    try {
+      const res = await apiService.verifyOTPAndRegister(upgradeUser.userId, upgradeOtp, 'india')
+      if (res.success) {
+        toast.success('India portal access enabled. Redirecting...')
+        setShowRegionUpgradeDialog(false)
+        setTimeout(() => {
+          window.location.href = nextPath || '/dashboard'
+        }, 500)
+      } else {
+        toast.error(res.message || 'OTP verification failed')
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'OTP verification failed')
+    } finally {
+      setUpgradeLoading(false)
+    }
+  }
 
   // If already authenticated (e.g., just completed OAuth), send to dashboard instead of showing login
   useEffect(() => {
@@ -42,11 +77,27 @@ export default function LoginPage() {
     const checkAlreadyLoggedIn = async () => {
       try {
         if (apiService.isAuthenticated()) {
-          const me = await apiService.getCurrentUser()
-          if (me.success && me.data?.user && me.data.user.userType !== 'employer') {
-            router.replace('/dashboard')
+          // If the user is here to enable a new region (e.g., Gulf-only -> India),
+          // do NOT auto-redirect away from /login.
+          if (requestingRegion === 'india') {
+            setChecking(false)
             return
           }
+
+          // Do not force navigation away from /login for authenticated jobseekers.
+          // This page is used for cross-portal upgrades as well.
+          try {
+            const me = await apiService.getCurrentUser()
+            if (me.success && me.data?.user && me.data.user.userType === 'employer') {
+              router.replace('/employer-dashboard')
+              return
+            }
+          } catch {
+            // ignore
+          }
+
+          setChecking(false)
+          return
         }
       } catch {
         // ignore and show login form
@@ -68,7 +119,7 @@ export default function LoginPage() {
       setChecking(false)
     }
     checkAlreadyLoggedIn()
-  }, [router, searchParams])
+  }, [router, searchParams, requestingRegion])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,6 +133,28 @@ export default function LoginPage() {
     }
     
     try {
+      // If user came here because they tried to access India portal actions with a Gulf-only account,
+      // offer a guided upgrade to enable India access.
+      if (requestingRegion === 'india') {
+        try {
+          const check = await apiService.checkExistingUser(email, password, 'india')
+          if (check?.success && check?.userExists) {
+            const userData = check.data?.data || check.data
+            setUpgradeUser({
+              userId: userData.userId || userData.id || '',
+              email: userData.email || email,
+              firstName: userData.firstName,
+            })
+            setShowRegionUpgradeDialog(true)
+            toast.info('OTP sent to your email to enable India portal access.')
+            return
+          }
+        } catch (checkError: any) {
+          // If they already have access or the endpoint fails, fall back to normal login.
+          console.log('Region upgrade precheck skipped:', checkError?.message || checkError)
+        }
+      }
+
       console.log('🔄 Attempting login...')
       const result = await login({ email, password, rememberMe, loginType: 'jobseeker' })
       console.log('✅ Login successful:', result)
@@ -118,7 +191,12 @@ export default function LoginPage() {
         
         toast.success('Successfully signed in! Redirecting...')
         setTimeout(() => {
-          window.location.href = redirectTo
+          // If the user was coming from an India eligibility flow, prefer the requested next path.
+          if (requestingRegion === 'india' && nextPath) {
+            window.location.href = nextPath
+          } else {
+            window.location.href = redirectTo
+          }
         }, 1000)
       }
     } catch (error: any) {
@@ -549,6 +627,98 @@ export default function LoginPage() {
           </div>
         </div>
       </footer>
+
+      {/* Cross-portal upgrade dialog (Gulf-only -> India enable) */}
+      <Dialog open={showRegionUpgradeDialog} onOpenChange={setShowRegionUpgradeDialog}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-bold text-blue-600">
+              Enable India Portal Access
+            </DialogTitle>
+            <DialogDescription className="text-center text-slate-600 dark:text-slate-300 mt-2">
+              This account is currently enabled for Gulf portal. Verify OTP to enable India portal access as well.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleVerifyUpgradeOtp} className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-slate-700 dark:text-slate-300">
+                <strong>Email:</strong> {upgradeUser?.email || email}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                We've sent a 6-digit OTP to your email address. OTP is valid for 10 minutes.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="upgradeOtp">Enter OTP</Label>
+              <Input
+                id="upgradeOtp"
+                type="text"
+                placeholder="Enter 6-digit OTP"
+                value={upgradeOtp}
+                onChange={(e) => setUpgradeOtp(e.target.value)}
+                maxLength={6}
+                pattern="[0-9]{6}"
+                required
+                className="text-center text-2xl tracking-widest"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowRegionUpgradeDialog(false)
+                  setUpgradeOtp('')
+                  setUpgradeUser(null)
+
+                  // If the user cancels the upgrade, do NOT log them out.
+                  // Route them somewhere safe to continue using the site.
+                  try {
+                    const target = nextPath || ''
+                    if (target && target !== '/dashboard') {
+                      router.replace(target)
+                      return
+                    }
+                  } catch {
+                    // ignore
+                  }
+
+                  try {
+                    if (apiService.isAuthenticated()) {
+                      const stored = localStorage.getItem('user')
+                      const u = stored ? JSON.parse(stored) : null
+                      const regions = ((u as any)?.regions || (u as any)?.preferences?.regions || [u?.region])
+                        .filter(Boolean)
+                        .map((r: any) => String(r).toLowerCase())
+                      const hasIndia = regions.includes('india')
+                      router.replace(hasIndia ? '/dashboard' : '/jobseeker-gulf-dashboard')
+                      return
+                    }
+                  } catch {
+                    // ignore
+                  }
+
+                  router.replace('/gulf-opportunities')
+                }}
+                disabled={upgradeLoading}
+              >
+                Not Now
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                disabled={upgradeLoading || upgradeOtp.length !== 6}
+              >
+                {upgradeLoading ? 'Verifying...' : 'Verify & Continue'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

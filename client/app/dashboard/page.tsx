@@ -73,6 +73,12 @@ export default function DashboardPage() {
   const [profileCheckDone, setProfileCheckDone] = useState(false)
 
   useEffect(() => {
+    try {
+      sessionStorage.setItem('lastDashboardPath', '/dashboard')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
     if (loading) return;
     if (user) {
       if (user.userType === 'employer' || user.userType === 'admin') {

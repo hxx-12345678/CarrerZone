@@ -269,8 +269,10 @@ export default function GulfNavbar() {
         // Close dialog
         setShowExistingUserDialog(false)
 
-        // Refresh user data
-        window.location.reload()
+        // Navigate without forcing refresh; auth token has already been stored
+        setTimeout(() => {
+          router.replace('/jobseeker-gulf-dashboard')
+        }, 500)
       } else {
         toast.error(response.message || 'OTP verification failed')
       }

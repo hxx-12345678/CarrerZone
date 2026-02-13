@@ -84,6 +84,9 @@ interface GulfJob {
   companyRating: number
   category: string
   photos?: any[]
+  status?: string
+  validTill?: string | null
+  applicationDeadline?: string | null
   // Internship-specific fields
   duration?: string
   startDate?: string
@@ -257,8 +260,20 @@ export default function GulfJobsPage() {
       const response = await apiService.getGulfJobs(params)
       
       if (response.success && response.data) {
+        const isJobOpen = (j: any) => {
+          const status = String(j?.status || '').toLowerCase()
+          if (status && status !== 'active') return false
+          const now = new Date()
+          const vt = j?.validTill || j?.valid_till
+          const dl = j?.applicationDeadline || j?.application_deadline
+          if (dl && now > new Date(dl)) return false
+          if (vt && now > new Date(vt)) return false
+          return true
+        }
+
         // Transform backend jobs to match frontend format
-        const transformedJobs = (response.data.jobs || response.data).map((job: any) => ({
+        const openOnly = (response.data.jobs || response.data).filter(isJobOpen)
+        const transformedJobs = openOnly.map((job: any) => ({
           id: job.id,
           title: job.title,
           company: {
@@ -284,6 +299,9 @@ export default function GulfJobsPage() {
           companyRating: 4.5, // Default rating
           category: job.category || 'General',
           photos: job.photos || [],
+          status: job.status,
+          validTill: job.validTill || job.valid_till || null,
+          applicationDeadline: job.applicationDeadline || job.application_deadline || null,
           // Internship-specific fields
           duration: job.duration,
           startDate: job.startDate,
@@ -448,6 +466,23 @@ export default function GulfJobsPage() {
       toast.error('Job not found')
       return
     }
+
+    // Prevent applying to expired/closed jobs (extra guard)
+    try {
+      const now = new Date()
+      if (job.applicationDeadline && now > new Date(job.applicationDeadline)) {
+        toast.error('Applications are closed for this job (deadline passed)')
+        return
+      }
+      if (job.validTill && now > new Date(job.validTill)) {
+        toast.error('This job is expired and no longer accepting applications')
+        return
+      }
+      if (job.status && String(job.status).toLowerCase() !== 'active') {
+        toast.error('This job is not currently active')
+        return
+      }
+    } catch {}
 
     // Show application dialog
     setSelectedJob(job)
@@ -865,7 +900,7 @@ export default function GulfJobsPage() {
       {/* Search and Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         {/* Search Bar */}
-        <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 mb-8 transition-all duration-300 ${isStickyVisible ? 'sticky top-4 z-50' : ''}`}>
+        <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 mb-8 transition-all duration-300 ${isStickyVisible ? 'sticky top-20 z-40' : ''}`}>
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">

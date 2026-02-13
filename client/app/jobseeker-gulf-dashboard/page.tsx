@@ -67,6 +67,41 @@ export default function JobseekerGulfDashboardPage() {
   const [showProfileCompletion, setShowProfileCompletion] = useState(false)
   const [profileCheckDone, setProfileCheckDone] = useState(false)
 
+  const getUserRegions = (u: any): string[] => {
+    const regions = (u?.regions || u?.preferences?.regions || [u?.region]).filter(Boolean)
+    return Array.from(new Set(regions.map((r: string) => String(r).toLowerCase())))
+  }
+
+  const hasIndiaAccess = (u: any) => getUserRegions(u).includes('india')
+
+  const getSnoozeStorageKey = (u: any) => `profileCompletionSnoozeUntil:${u?.id || 'unknown'}:jobseeker`
+
+  const snoozeProfileDialog = async (hours: number) => {
+    if (!user) return
+    try {
+      const snoozeUntil = new Date()
+      snoozeUntil.setHours(snoozeUntil.getHours() + hours)
+
+      try {
+        localStorage.setItem(getSnoozeStorageKey(user), snoozeUntil.toISOString())
+      } catch {}
+
+      const updateData = {
+        preferences: {
+          ...(user.preferences || {}),
+          profileCompletionSkippedUntil: snoozeUntil.toISOString(),
+        }
+      }
+
+      const response = await apiService.updateProfile(updateData)
+      if (response.success) {
+        await refreshUser()
+      }
+    } catch (e) {
+      console.warn('Failed to snooze profile completion dialog:', (e as any)?.message || e)
+    }
+  }
+
   // Dynamic Gulf jobs data
   const [gulfJobs, setGulfJobs] = useState<any[]>([])
   const [gulfJobsLoading, setGulfJobsLoading] = useState(true)
@@ -105,6 +140,12 @@ export default function JobseekerGulfDashboardPage() {
     router.replace('/gulf-opportunities')
   }, [user, loading, router])
 
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('lastDashboardPath', '/jobseeker-gulf-dashboard')
+    } catch {}
+  }, [])
+
   // Check profile completion separately (runs on every user update)
   useEffect(() => {
     if (user && !loading && !profileCheckDone) {
@@ -115,27 +156,32 @@ export default function JobseekerGulfDashboardPage() {
           return false
         }
         
-        // Check if user has skipped and the skip period hasn't expired
+        // Honor snooze/skip regardless of login session
+        const now = new Date()
         if (user.preferences?.profileCompletionSkippedUntil) {
           const skipUntil = new Date(user.preferences.profileCompletionSkippedUntil)
-          const skipSession = user.preferences?.profileCompletionSkipSession
-          const currentSession = user.lastLoginAt
-          const now = new Date()
-          
-          // Only honor skip if it's the SAME login session
-          if (skipSession === currentSession && skipUntil > now) {
-            console.log('⏰ Profile completion skipped until:', skipUntil, '(same session)')
-            return false // Don't show dialog yet
-          } else if (skipSession !== currentSession) {
-            console.log('🔄 New login session detected - showing popup again')
+          if (skipUntil > now) {
+            console.log('⏰ Profile completion skipped until:', skipUntil)
+            return false
           }
         }
+
+        // Extra guard: localStorage snooze (handles close button too)
+        try {
+          const stored = localStorage.getItem(getSnoozeStorageKey(user))
+          if (stored) {
+            const until = new Date(stored)
+            if (until > now) {
+              console.log('⏰ Profile completion snoozed (localStorage) until:', until)
+              return false
+            }
+          }
+        } catch {}
         
         // Required fields for jobseeker
         return !user.phone || 
                !user.currentLocation || 
                !user.headline || 
-               (user.experienceYears === undefined || user.experienceYears === null) ||
                !(user as any).gender ||
                !(user as any).dateOfBirth
       }
@@ -644,12 +690,24 @@ export default function JobseekerGulfDashboardPage() {
                 </p>
               </div>
               <div className="flex items-center space-x-3">
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm" className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
+                {hasIndiaAccess(user) ? (
+                  <Link href="/dashboard">
+                    <Button variant="outline" size="sm" className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Regular Dashboard
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-green-600 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                    onClick={() => toast.error('Regular dashboard is not enabled for your account')}
+                  >
                     <Globe className="w-4 h-4 mr-2" />
                     Regular Dashboard
                   </Button>
-                </Link>
+                )}
                 <Button
                   onClick={() => window.location.reload()}
                   variant="outline"
@@ -1653,7 +1711,11 @@ export default function JobseekerGulfDashboardPage() {
       {user && (
         <JobseekerProfileCompletionDialog
           isOpen={showProfileCompletion}
-          onClose={() => setShowProfileCompletion(false)}
+          onClose={async () => {
+            setShowProfileCompletion(false)
+            setProfileCheckDone(true)
+            await snoozeProfileDialog(12)
+          }}
           user={user}
           onProfileUpdated={handleProfileUpdated}
         />

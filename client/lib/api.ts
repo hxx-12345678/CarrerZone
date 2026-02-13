@@ -952,7 +952,7 @@ class ApiService {
     const result = await this.handleResponse<AuthResponse>(response);
 
     if (result.success && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
+      this.setToken(result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
     }
 
@@ -1088,6 +1088,24 @@ class ApiService {
       body: JSON.stringify({ email, password, requestingRegion }),
     });
 
+    // Treat 409 as an expected business response (already enabled for that portal)
+    // and avoid noisy global error logging.
+    if (response.status === 409) {
+      let data: any = null
+      try {
+        data = await response.json()
+      } catch {
+        // ignore parse failure
+      }
+      return {
+        success: true,
+        userExists: false,
+        alreadyHasAccess: true,
+        message: data?.message || 'You already have access to this portal.',
+        data,
+      }
+    }
+
     return this.handleResponse<any>(response);
   }
 
@@ -1103,7 +1121,7 @@ class ApiService {
     const result = await this.handleResponse<AuthResponse>(response);
 
     if (result.success && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
+      this.setToken(result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
     }
 
