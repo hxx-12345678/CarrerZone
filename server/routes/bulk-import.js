@@ -489,48 +489,46 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
     // This ensures bulk imports use the user's actual company association
     const userCompanyId = req.user.company_id || req.user.companyId;
 
-    // Create bulk import record
-    // Some production databases might not have file_url column yet.
-    // Attempt normal create first; if it fails due to missing file_url, retry using filePath.
-
     let bulkImport;
+    const baseCreatePayload = {
+      importName,
+      importType: importType || path.extname(req.file.originalname).substring(1),
+      fileUrl: `/uploads/bulk-imports/${req.file.filename}`,
+      fileSize: req.file.size,
+      mappingConfig: parsedMappingConfig,
+      validationRules: parsedValidationRules,
+      defaultValues: parsedDefaultValues,
+      templateId: templateId || null,
+      isScheduled: isScheduled === 'true',
+      scheduledAt: isScheduled === 'true' ? new Date(scheduledAt) : null,
+      notificationEmail,
+      createdBy: req.user.id,
+      companyId: userCompanyId || null
+    };
+
     try {
-      bulkImport = await BulkJobImport.create({
-        importName,
-        importType: importType || path.extname(req.file.originalname).substring(1),
-        fileUrl: `/uploads/bulk-imports/${req.file.filename}`,
-        fileSize: req.file.size,
-        mappingConfig: parsedMappingConfig,
-        validationRules: parsedValidationRules,
-        defaultValues: parsedDefaultValues,
-        templateId: templateId || null,
-        isScheduled: isScheduled === 'true',
-        scheduledAt: isScheduled === 'true' ? new Date(scheduledAt) : null,
-        notificationEmail,
-        createdBy: req.user.id,
-        companyId: userCompanyId || null
-      });
+      bulkImport = await BulkJobImport.create(baseCreatePayload);
     } catch (createErr) {
       const msg = createErr?.parent?.message || createErr?.message || '';
-      const missingFileUrlColumn = /column\s+"?file_url"?\s+does not exist/i.test(msg);
-      if (!missingFileUrlColumn) throw createErr;
+      const missingFileUrlColumn = /column\s+"?file_url"?\s+of\s+relation\s+"?bulk_job_imports"?\s+does not exist/i.test(msg) || /column\s+"?file_url"?\s+does not exist/i.test(msg);
+      const missingFileSizeColumn = /column\s+"?file_size"?\s+of\s+relation\s+"?bulk_job_imports"?\s+does not exist/i.test(msg) || /column\s+"?file_size"?\s+does not exist/i.test(msg);
 
-      console.warn('⚠️ bulk_job_imports.file_url missing; retrying create using filePath');
-      bulkImport = await BulkJobImport.create({
-        importName,
-        importType: importType || path.extname(req.file.originalname).substring(1),
-        filePath: `/uploads/bulk-imports/${req.file.filename}`,
-        fileSize: req.file.size,
-        mappingConfig: parsedMappingConfig,
-        validationRules: parsedValidationRules,
-        defaultValues: parsedDefaultValues,
-        templateId: templateId || null,
-        isScheduled: isScheduled === 'true',
-        scheduledAt: isScheduled === 'true' ? new Date(scheduledAt) : null,
-        notificationEmail,
-        createdBy: req.user.id,
-        companyId: userCompanyId || null
-      });
+      if (!missingFileUrlColumn && !missingFileSizeColumn) throw createErr;
+
+      const retryPayload = { ...baseCreatePayload };
+
+      if (missingFileUrlColumn) {
+        console.warn('⚠️ bulk_job_imports.file_url missing; retrying create using filePath');
+        delete retryPayload.fileUrl;
+        retryPayload.filePath = `/uploads/bulk-imports/${req.file.filename}`;
+      }
+
+      if (missingFileSizeColumn) {
+        console.warn('⚠️ bulk_job_imports.file_size missing; retrying create without fileSize');
+        delete retryPayload.fileSize;
+      }
+
+      bulkImport = await BulkJobImport.create(retryPayload);
     }
 
 
