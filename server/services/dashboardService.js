@@ -92,39 +92,80 @@ class DashboardService {
    * Record a new search
    */
   static async recordSearch(searchData) {
+    // Best-effort: search history should never break the UX.
     try {
       const { userId, searchQuery, filters, resultsCount, searchType = 'job_search' } = searchData;
-      
-      // Create search history record
-      const searchHistory = await SearchHistory.create({
-        userId,
-        searchQuery,
-        filters,
-        resultsCount,
-        searchType,
-        location: filters.location,
-        experienceLevel: filters.experienceLevel,
-        salaryMin: filters.salaryMin,
-        salaryMax: filters.salaryMax,
-        remoteWork: filters.remoteWork,
-        jobCategory: filters.jobCategory,
-        metadata: {
-          userAgent: searchData.userAgent,
-          ipAddress: searchData.ipAddress,
-          timestamp: new Date()
-        }
-      });
 
-      // Update dashboard search stats
-      await this.updateDashboardStats(userId, {
-        totalSearches: sequelize.literal('totalSearches + 1'),
-        lastSearchDate: new Date()
-      });
+      // If search_history table doesn't exist (e.g., migrations not run), skip recording.
+      try {
+        const tables = await sequelize.getQueryInterface().showAllTables();
+        const normalized = (Array.isArray(tables) ? tables : [])
+          .map(t => {
+            if (!t) return '';
+            if (typeof t === 'string') return t;
+            if (typeof t === 'object') {
+              // Sequelize dialects may return { tableName, schema } or similar.
+              return String(t.tableName || t.name || t.tablename || t.TABLE_NAME || '');
+            }
+            return String(t);
+          })
+          .map(t => t.toLowerCase())
+          .filter(Boolean);
+
+        const hasSearchHistory = normalized.some(t => {
+          // Support schema-qualified names too (e.g., public.search_history)
+          return t === 'search_history' || t.endsWith('.search_history');
+        });
+
+        if (!hasSearchHistory) {
+          return null;
+        }
+      } catch {
+        // If we cannot check table existence, continue and let the create attempt decide.
+      }
+
+      const safeFilters = (filters && typeof filters === 'object') ? filters : {};
+
+      let searchHistory = null;
+      try {
+        // Create search history record
+        searchHistory = await SearchHistory.create({
+          userId,
+          searchQuery,
+          filters: safeFilters,
+          resultsCount,
+          searchType,
+          location: safeFilters.location,
+          experienceLevel: safeFilters.experienceLevel,
+          salaryMin: safeFilters.salaryMin,
+          salaryMax: safeFilters.salaryMax,
+          remoteWork: safeFilters.remoteWork,
+          jobCategory: safeFilters.jobCategory,
+          metadata: {
+            userAgent: searchData.userAgent,
+            ipAddress: searchData.ipAddress,
+            timestamp: new Date()
+          }
+        });
+      } catch (createErr) {
+        console.error('Error recording search (create failed):', createErr);
+        return null;
+      }
+
+      // Update dashboard search stats (best-effort)
+      try {
+        await this.updateDashboardStats(userId, {
+          totalSearches: sequelize.literal('totalSearches + 1'),
+          lastSearchDate: new Date()
+        });
+      } catch (statsErr) {
+        console.error('Error updating dashboard stats for search:', statsErr);
+      }
 
       return searchHistory;
     } catch (error) {
       console.error('Error recording search:', error);
-      throw error;
+      return null;
     }
   }
 

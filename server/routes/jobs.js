@@ -274,6 +274,25 @@ router.post('/:id/tap', authenticateToken, async (req, res) => {
       });
     }
 
+    // Region enforcement: only allow applying to jobs from regions the user has access to.
+    // User regions are stored either as preferences.regions (array) or region (string).
+    try {
+      const applicant = await User.findByPk(userId);
+      const userRegionsRaw = applicant?.preferences?.regions || [applicant?.region].filter(Boolean);
+      const userRegions = Array.from(new Set((userRegionsRaw || []).map(r => String(r).toLowerCase())));
+      const jobRegion = (job.region || 'india').toLowerCase();
+
+      if (!userRegions.includes(jobRegion)) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied: Your account is not enabled for ${jobRegion} portal jobs.`,
+          error: 'REGION_MISMATCH'
+        });
+      }
+    } catch (e) {
+      console.warn('⚠️ Region enforcement check failed, allowing apply as fallback:', e?.message || e);
+    }
+
     if (!job.isSecure) {
       return res.status(400).json({
         success: false,
