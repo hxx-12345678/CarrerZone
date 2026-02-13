@@ -1477,7 +1477,11 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       <EmployerFooter />
 
       {/* Profile Completion Dialog */}
-      {user && !user.preferences?.profileCompleted && user.email !== 'hxx@gmail.com' && (
+      {user &&
+        showProfileCompletion &&
+        !user.preferences?.profileCompleted &&
+        !((user as any).profile_completion >= 100) &&
+        user.email !== 'hxx@gmail.com' && (
         <EmployerProfileCompletionDialog
           isOpen={showProfileCompletion}
           onClose={() => {

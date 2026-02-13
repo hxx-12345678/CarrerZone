@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1006,6 +1007,7 @@ export function EmployerProfileCompletionDialog({
   user,
   onProfileUpdated 
 }: ProfileCompletionDialogProps) {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     // Personal Info
     phone: '',
@@ -1471,20 +1473,16 @@ export function EmployerProfileCompletionDialog({
       }
       onClose()
       // Redirect directly to employer dashboard - no intermediate redirects
-      if (typeof window !== 'undefined') {
-        const userRegion = user.region || 'india'
-        const dashboardPath = userRegion === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'
-        window.location.href = dashboardPath
-      }
+      const userRegion = user.region || 'india'
+      const dashboardPath = userRegion === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'
+      router.replace(dashboardPath)
     } catch (error) {
       console.error('Error updating skip preference:', error)
       onClose()
       // Still redirect even if update fails
-      if (typeof window !== 'undefined') {
-        const userRegion = user.region || 'india'
-        const dashboardPath = userRegion === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'
-        window.location.href = dashboardPath
-      }
+      const userRegion = user.region || 'india'
+      const dashboardPath = userRegion === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'
+      router.replace(dashboardPath)
     }
   }
 
@@ -1503,7 +1501,11 @@ export function EmployerProfileCompletionDialog({
   }
 
   // CRITICAL: Ultimate check - if profile is completed, NEVER render dialog
-  if (user.preferences?.profileCompleted === true) {
+  if (!isOpen) {
+    return null
+  }
+
+  if (user.preferences?.profileCompleted === true || (user as any).profile_completion >= 100) {
     console.log('🚫 ULTIMATE DIALOG CHECK: Profile is completed - dialog will NEVER render');
     return null
   }
