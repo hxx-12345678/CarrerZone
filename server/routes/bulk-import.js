@@ -556,7 +556,9 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
     };
 
     try {
-      bulkImport = await BulkJobImport.create(baseCreatePayload);
+      bulkImport = await BulkJobImport.create(baseCreatePayload, {
+        fields: Object.keys(baseCreatePayload)
+      });
     } catch (createErr) {
       const msg = createErr?.parent?.message || createErr?.message || '';
       const missingFileUrlColumn = /column\s+"?file_url"?\s+of\s+relation\s+"?bulk_job_imports"?\s+does not exist/i.test(msg) || /column\s+"?file_url"?\s+does not exist/i.test(msg);
@@ -577,7 +579,9 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
         delete retryPayload.fileSize;
       }
 
-      bulkImport = await BulkJobImport.create(retryPayload);
+      bulkImport = await BulkJobImport.create(retryPayload, {
+        fields: Object.keys(retryPayload)
+      });
     }
 
 
