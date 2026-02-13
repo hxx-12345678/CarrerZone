@@ -1983,30 +1983,17 @@ export default function JobsPage() {
 
   const handleSearchChange = (value: string) => {
 
+    // Always prioritize what the user typed.
+    // Smart processing should not rewrite the actual query into generic terms.
+    handleFilterChange('search', value)
+
     const processedQuery = processSearchQuery(value)
 
-    
-    
-    // Handle exact matches differently
-
+    // Only apply structured exact-match parsing as additional hints
     if (typeof processedQuery === 'object' && processedQuery.isExactMatch) {
-
-      // For exact matches, set multiple filters
-
-      handleFilterChange('search', processedQuery.originalQuery)
-
       if (processedQuery.jobTitle) handleFilterChange('jobTitle', processedQuery.jobTitle)
-
       if (processedQuery.company) handleFilterChange('companyName', processedQuery.company)
-
       if (processedQuery.location) handleFilterChange('location', processedQuery.location)
-
-    } else {
-
-      // For regular processed queries
-
-      handleFilterChange('search', processedQuery)
-
     }
 
   }
@@ -3199,9 +3186,9 @@ export default function JobsPage() {
         
         // Regular search processing
 
-        const searchLower = typeof processedSearch === 'string' ? processedSearch.toLowerCase().trim() : filters.search.toLowerCase().trim()
-
+        // Never rewrite the regular search string; always use what the user typed.
         const originalSearchLower = filters.search.toLowerCase().trim()
+        const searchLower = originalSearchLower
 
         
         

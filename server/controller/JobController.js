@@ -1104,14 +1104,43 @@ exports.getAllJobs = async (req, res, next) => {
     // Education / Qualification
     if (education) whereClause.education = { [OpLike]: `%${education}%` };
     if (search) {
-      andGroups.push({
+      const rawSearch = String(search).trim();
+
+      // Tokenize to improve matching for multi-word searches.
+      // Example: "Fire & Safety Supervisor" should match jobs containing any of these words.
+      const stopWords = new Set(['and', 'or', 'the', 'a', 'an', 'in', 'at', 'for', 'of', 'to', 'with']);
+      const tokens = rawSearch
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]+/g, ' ')
+        .split(/\s+/)
+        .map(t => t.trim())
+        .filter(t => t.length >= 2 && !stopWords.has(t));
+
+      // Always keep a fallback full-phrase match too.
+      const phraseOr = {
         [Or]: [
-          { title: { [OpLike]: `%${search}%` } },
-          { description: { [OpLike]: `%${search}%` } },
-          { requirements: { [OpLike]: `%${search}%` } },
-          { location: { [OpLike]: `%${search}%` } }
+          { title: { [OpLike]: `%${rawSearch}%` } },
+          { description: { [OpLike]: `%${rawSearch}%` } },
+          { requirements: { [OpLike]: `%${rawSearch}%` } },
+          { location: { [OpLike]: `%${rawSearch}%` } }
         ]
-      });
+      };
+
+      if (tokens.length === 0) {
+        andGroups.push(phraseOr);
+      } else {
+        // Require that at least one token matches (broad), but weight towards relevance.
+        // This avoids over-strict AND matching that could return 0 results.
+        andGroups.push({
+          [Or]: [
+            ...tokens.map(tok => ({ title: { [OpLike]: `%${tok}%` } })),
+            ...tokens.map(tok => ({ description: { [OpLike]: `%${tok}%` } })),
+            ...tokens.map(tok => ({ requirements: { [OpLike]: `%${tok}%` } })),
+            ...tokens.map(tok => ({ location: { [OpLike]: `%${tok}%` } })),
+            phraseOr
+          ]
+        });
+      }
     }
 
     // Build include and company-based filters
@@ -1125,6 +1154,7 @@ exports.getAllJobs = async (req, res, next) => {
           const where = {};
           const OpLike = Op.iLike;
           const Or = Op.or;
+          const sequelize = Job.sequelize;
           const industryFilter = industry || industries;
           if (industryFilter) {
             const indArray = String(industryFilter).split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -1136,8 +1166,14 @@ exports.getAllJobs = async (req, res, next) => {
                 industryTerms.push(ind);
               }
             });
-            // industries is a JSONB array column, while industrytype is a string column on Job
-            where[Or] = industryTerms.map(t => ({ industries: { [Op.contains]: [t] } }));
+            // industries is stored as JSON/JSONB (varies by environment). Using @> can fail on JSON.
+            // Use a safe text match against the serialized JSON content.
+            where[Or] = industryTerms.map(t =>
+              sequelize.where(
+                sequelize.fn('LOWER', sequelize.cast(sequelize.col('company.industries'), 'text')),
+                { [Op.like]: `%${String(t).toLowerCase()}%` }
+              )
+            );
           }
           if (companyType) where.companyType = String(companyType).toLowerCase();
           if (companyName) where.name = { [OpLike]: `%${String(companyName).toLowerCase()}%` };
