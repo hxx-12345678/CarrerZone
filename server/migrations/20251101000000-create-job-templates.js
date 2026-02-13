@@ -88,6 +88,11 @@ module.exports = {
         onDelete: 'CASCADE',
         comment: 'User who created this template'
       },
+      company_id: {
+        type: Sequelize.UUID,
+        allowNull: true,
+        comment: 'Company this template belongs to'
+      },
       created_at: {
         type: Sequelize.DATE,
         allowNull: false,
