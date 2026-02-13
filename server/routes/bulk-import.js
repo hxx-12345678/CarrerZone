@@ -564,7 +564,27 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       const missingFileUrlColumn = /column\s+"?file_url"?\s+of\s+relation\s+"?bulk_job_imports"?\s+does not exist/i.test(msg) || /column\s+"?file_url"?\s+does not exist/i.test(msg);
       const missingFileSizeColumn = /column\s+"?file_size"?\s+of\s+relation\s+"?bulk_job_imports"?\s+does not exist/i.test(msg) || /column\s+"?file_size"?\s+does not exist/i.test(msg);
 
-      if (!missingFileUrlColumn && !missingFileSizeColumn) throw createErr;
+      const missingColumnMatch = msg.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+of\s+relation\s+"?bulk_job_imports"?\s+does not exist/i) ||
+        msg.match(/column\s+"?([a-zA-Z0-9_]+)"?\s+does not exist/i);
+      const missingColumn = missingColumnMatch?.[1] || null;
+
+      const missingKnown = missingFileUrlColumn || missingFileSizeColumn || !!missingColumn;
+      if (!missingKnown) throw createErr;
+
+      const columnToPayloadKey = {
+        file_url: 'fileUrl',
+        file_size: 'fileSize',
+        mapping_config: 'mappingConfig',
+        validation_rules: 'validationRules',
+        default_values: 'defaultValues',
+        progress: 'progress',
+        started_at: 'startedAt',
+        completed_at: 'completedAt',
+        cancelled_at: 'cancelledAt',
+        successful_imports: 'successfulImports',
+        failed_imports: 'failedImports',
+        skipped_records: 'skippedRecords'
+      };
 
       const retryPayload = { ...baseCreatePayload };
 
@@ -577,6 +597,14 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
       if (missingFileSizeColumn) {
         console.warn('⚠️ bulk_job_imports.file_size missing; retrying create without fileSize');
         delete retryPayload.fileSize;
+      }
+
+      if (missingColumn) {
+        const key = columnToPayloadKey[missingColumn];
+        if (key && key in retryPayload) {
+          console.warn(`⚠️ bulk_job_imports.${missingColumn} missing; retrying create without ${key}`);
+          delete retryPayload[key];
+        }
       }
 
       bulkImport = await BulkJobImport.create(retryPayload, {

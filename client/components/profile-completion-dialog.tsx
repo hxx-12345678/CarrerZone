@@ -1076,9 +1076,11 @@ export function EmployerProfileCompletionDialog({
 
     // Required fields for employer
     const isAdmin = user.userType === 'admin'
+    // Check both companyId and company_id (handle property name variations)
+    const companyId = user.companyId || (user as any).company_id
     const hasRequiredFields = user.phone && 
                               (user as any).designation && 
-                              (user.companyId || isAdmin)
+                              (companyId || isAdmin)
 
     console.log('🔍 Profile completion check:', {
       profileCompleted: user.preferences?.profileCompleted,
@@ -1226,6 +1228,11 @@ export function EmployerProfileCompletionDialog({
         setSkipCompanySteps(false);
         setCurrentStep(1);
         console.log('👑 Initial: Admin user with company - showing all 4 steps (assuming company creator)');
+      } else if (!isAdmin && companyId) {
+        // Team member / fellow employer: company already exists, so show ONLY personal info
+        setSkipCompanySteps(true);
+        setCurrentStep(4);
+        console.log('🏢 Initial: Non-admin user with company - skipping to Step 4 (personal info only)');
       }
     }
   }, [user, isOpen])
