@@ -69,6 +69,24 @@ module.exports = {
                 });
             }
 
+            // Add success_log
+            if (!tableDescription.success_log) {
+                await queryInterface.addColumn(table, 'success_log', {
+                    type: Sequelize.JSONB,
+                    defaultValue: [],
+                    allowNull: true
+                });
+            }
+
+            // Add error_log
+            if (!tableDescription.error_log) {
+                await queryInterface.addColumn(table, 'error_log', {
+                    type: Sequelize.JSONB,
+                    defaultValue: [],
+                    allowNull: true
+                });
+            }
+
             console.log('✅ Bulk Import columns added successfully');
         } catch (error) {
             console.error('⚠️ Error adding columns to bulk_job_imports:', error);
