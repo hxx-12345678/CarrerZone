@@ -34,6 +34,23 @@ const { authenticateToken } = require('../middlewares/auth');
 
 const router = express.Router();
 
+const SAFE_BULK_IMPORT_ATTRIBUTES = [
+  'id',
+  'importName',
+  'importType',
+  'fileUrl',
+  'filePath',
+  'totalRecords',
+  'processedRecords',
+  'failedRecords',
+  'status',
+  'errorLog',
+  'createdBy',
+  'companyId',
+  'created_at',
+  'updated_at'
+];
+
 
 
 // Health check endpoint for bulk import
@@ -166,7 +183,9 @@ router.get('/', authenticateToken, async (req, res) => {
 
 
 
-    const imports = await BulkJobImport.findAndCountAll({
+    let imports;
+    try {
+      imports = await BulkJobImport.findAndCountAll({
 
       where: whereClause,
 
@@ -178,7 +197,21 @@ router.get('/', authenticateToken, async (req, res) => {
 
       // Removed include to avoid association error
 
-    });
+      });
+    } catch (err) {
+      const msg = err?.parent?.message || err?.message || '';
+      const missingColumn = /column\s+"?[a-zA-Z0-9_]+"?\s+does not exist/i.test(msg);
+      if (!missingColumn) throw err;
+
+      console.warn('⚠️ bulk_job_imports schema mismatch; retrying list with SAFE_BULK_IMPORT_ATTRIBUTES');
+      imports = await BulkJobImport.findAndCountAll({
+        where: whereClause,
+        attributes: SAFE_BULK_IMPORT_ATTRIBUTES,
+        order: [['created_at', 'DESC']],
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      });
+    }
 
 
 
@@ -244,7 +277,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 
 
-    const importRecord = await BulkJobImport.findOne({
+    let importRecord;
+    try {
+      importRecord = await BulkJobImport.findOne({
 
       where: {
 
@@ -256,7 +291,21 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
       // Removed include to avoid association error
 
-    });
+      });
+    } catch (err) {
+      const msg = err?.parent?.message || err?.message || '';
+      const missingColumn = /column\s+"?[a-zA-Z0-9_]+"?\s+does not exist/i.test(msg);
+      if (!missingColumn) throw err;
+
+      console.warn('⚠️ bulk_job_imports schema mismatch; retrying detail with SAFE_BULK_IMPORT_ATTRIBUTES');
+      importRecord = await BulkJobImport.findOne({
+        where: {
+          id: id,
+          companyId: req.user.companyId || req.user.company_id
+        },
+        attributes: SAFE_BULK_IMPORT_ATTRIBUTES
+      });
+    }
 
 
 
