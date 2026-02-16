@@ -408,18 +408,21 @@ export function CompanyManagementDialog({
                                         const loadingToast = toast.loading('Loading document...');
                                         
                                         try {
-                                          const response = await fetch(
-                                            `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`,
-                                            {
-                                              method: 'GET',
-                                              headers: {
-                                                'Authorization': `Bearer ${token}`,
-                                                'Content-Type': 'application/json',
-                                              },
-                                              mode: 'cors',
-                                              cache: 'no-cache'
-                                            }
-                                          );
+                                          // For production (Render/Vercel), use the same domain
+                                          const apiUrl = window.location.origin.includes('vercel.app') || window.location.origin.includes('onrender.com') 
+                                            ? `${window.location.protocol}//${window.location.host}/api/admin/verification-documents/${encodeURIComponent(filename)}`
+                                            : `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`;
+                                            
+                                          const response = await fetch(apiUrl, {
+                                            method: 'GET',
+                                            headers: {
+                                              'Authorization': `Bearer ${token}`,
+                                              'Content-Type': 'application/json',
+                                            },
+                                            mode: 'cors',
+                                            cache: 'no-cache',
+                                            credentials: 'include'
+                                          });
                                           
                                           // Dismiss loading toast
                                           toast.dismiss(loadingToast);
@@ -512,18 +515,21 @@ export function CompanyManagementDialog({
                                         const loadingToast = toast.loading('Downloading document...');
                                         
                                         try {
-                                          const response = await fetch(
-                                            `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`,
-                                            {
-                                              method: 'GET',
-                                              headers: {
-                                                'Authorization': `Bearer ${token}`,
-                                                'Content-Type': 'application/json',
-                                              },
-                                              mode: 'cors',
-                                              cache: 'no-cache'
-                                            }
-                                          );
+                                          // For production (Render/Vercel), use the same domain
+                                          const apiUrl = window.location.origin.includes('vercel.app') || window.location.origin.includes('onrender.com') 
+                                            ? `${window.location.protocol}//${window.location.host}/api/admin/verification-documents/${encodeURIComponent(filename)}`
+                                            : `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`;
+                                            
+                                          const response = await fetch(apiUrl, {
+                                            method: 'GET',
+                                            headers: {
+                                              'Authorization': `Bearer ${token}`,
+                                              'Content-Type': 'application/json',
+                                            },
+                                            mode: 'cors',
+                                            cache: 'no-cache',
+                                            credentials: 'include'
+                                          });
                                           
                                           // Dismiss loading toast
                                           toast.dismiss(loadingToast);
