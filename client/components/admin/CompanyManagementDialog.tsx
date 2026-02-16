@@ -414,7 +414,10 @@ export function CompanyManagementDialog({
                                               method: 'GET',
                                               headers: {
                                                 'Authorization': `Bearer ${token}`,
+                                                'Content-Type': 'application/json',
                                               },
+                                              mode: 'cors',
+                                              cache: 'no-cache'
                                             }
                                           );
                                           
@@ -426,6 +429,8 @@ export function CompanyManagementDialog({
                                               throw new Error('Document file not found on server. The file may have been moved or deleted.');
                                             } else if (response.status === 403) {
                                               throw new Error('Access denied. Admin privileges required.');
+                                            } else if (response.status === 0 || response.type === 'opaque') {
+                                              throw new Error('Network error: Unable to connect to server. Please check your network connection and try again.');
                                             } else {
                                               throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
                                             }
@@ -441,7 +446,7 @@ export function CompanyManagementDialog({
                                           
                                           // Create a blob URL and open it
                                           const blobUrl = URL.createObjectURL(blob);
-                                          const newWindow = window.open(blobUrl, '_blank');
+                                          const newWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
                                           
                                           if (!newWindow) {
                                             URL.revokeObjectURL(blobUrl);
@@ -513,7 +518,10 @@ export function CompanyManagementDialog({
                                               method: 'GET',
                                               headers: {
                                                 'Authorization': `Bearer ${token}`,
+                                                'Content-Type': 'application/json',
                                               },
+                                              mode: 'cors',
+                                              cache: 'no-cache'
                                             }
                                           );
                                           
@@ -525,6 +533,8 @@ export function CompanyManagementDialog({
                                               throw new Error('Document file not found on server. The file may have been moved or deleted.');
                                             } else if (response.status === 403) {
                                               throw new Error('Access denied. Admin privileges required.');
+                                            } else if (response.status === 0 || response.type === 'opaque') {
+                                              throw new Error('Network error: Unable to connect to server. Please check your network connection and try again.');
                                             } else {
                                               throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
                                             }
@@ -543,6 +553,7 @@ export function CompanyManagementDialog({
                                           const link = document.createElement('a');
                                           link.href = blobUrl;
                                           link.download = filename || `document-${index + 1}.pdf`;
+                                          link.style.display = 'none';
                                           document.body.appendChild(link);
                                           link.click();
                                           document.body.removeChild(link);
