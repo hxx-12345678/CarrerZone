@@ -533,13 +533,38 @@ router.get('/verification-documents/:filename', authenticateToken, async (req, r
     if (fs.existsSync(uploadDir)) {
       try {
         const files = fs.readdirSync(uploadDir);
-        const matchingFile = files.find(file =>
-          file === filename ||
-          file.includes(filename) ||
-          filename.includes(file.split('-').pop()?.split('.')[0]) // Match by the random number part
-        );
+        console.log(`📂 Available files in directory:`, files.slice(0, 10)); // Log first 10 files for debugging
+        
+        // Try multiple matching strategies
+        const matchingFile = files.find(file => {
+          // Exact match
+          if (file === filename) return true;
+          
+          // Filename contains the requested filename
+          if (file.includes(filename)) return true;
+          
+          // Requested filename contains the file's random number part (UUID-timestamp-randomNumber pattern)
+          const fileRandomPart = file.split('-').slice(0, 4).join('-'); // Extract UUID-timestamp part
+          if (filename.includes(fileRandomPart)) return true;
+          
+          // Extract the last numeric part before extension from both filenames
+          const fileNumPart = file.match(/-(\d+)-[^-]*\.pdf$/)?.[1];
+          const reqNumPart = filename.match(/-(\d+)-[^-]*\.pdf$/)?.[1];
+          if (fileNumPart && reqNumPart && fileNumPart === reqNumPart) return true;
+          
+          // Match by UUID part if filename contains UUID-like pattern
+          const fileUuid = file.match(/^([a-f0-9-]{36})/)?.[1];
+          const reqUuid = filename.match(/([a-f0-9-]{36})/)?.[1];
+          if (fileUuid && reqUuid && fileUuid === reqUuid) return true;
+          
+          return false;
+        });
+        
         if (matchingFile) {
+          console.log(`✅ Found matching file: ${matchingFile}`);
           possiblePaths.push(path.join(uploadDir, matchingFile));
+        } else {
+          console.log(`⚠️ No matching file found for: ${filename}`);
         }
       } catch (error) {
         console.log('⚠️ Could not read upload directory:', error.message);

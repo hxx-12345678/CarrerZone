@@ -21,7 +21,7 @@ exports.createJob = async (req, res, next) => {
     console.log('📥 Received request body department:', req.body.department);
     console.log('📥 Received request body customBranding:', req.body.customBranding ? 'Present' : 'Missing');
 
-    const {
+    let {
       title,
       description,
       location,

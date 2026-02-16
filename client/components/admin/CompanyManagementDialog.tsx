@@ -404,45 +404,68 @@ export function CompanyManagementDialog({
                                           return;
                                         }
                                         
-                                        const response = await fetch(
-                                          `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`,
-                                          {
-                                            method: 'GET',
-                                            headers: {
-                                              'Authorization': `Bearer ${token}`,
-                                            },
+                                        // Show loading toast
+                                        const loadingToast = toast.loading('Loading document...');
+                                        
+                                        try {
+                                          const response = await fetch(
+                                            `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`,
+                                            {
+                                              method: 'GET',
+                                              headers: {
+                                                'Authorization': `Bearer ${token}`,
+                                              },
+                                            }
+                                          );
+                                          
+                                          // Dismiss loading toast
+                                          toast.dismiss(loadingToast);
+                                          
+                                          if (!response.ok) {
+                                            if (response.status === 404) {
+                                              throw new Error('Document file not found on server. The file may have been moved or deleted.');
+                                            } else if (response.status === 403) {
+                                              throw new Error('Access denied. Admin privileges required.');
+                                            } else {
+                                              throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+                                            }
                                           }
-                                        );
-                                        
-                                        if (!response.ok) {
-                                          throw new Error(`Failed to fetch document: ${response.status}`);
-                                        }
-                                        
-                                        // Get the blob from response
-                                        const blob = await response.blob();
-                                        
-                                        // Create a blob URL and open it
-                                        const blobUrl = URL.createObjectURL(blob);
-                                        const newWindow = window.open(blobUrl, '_blank');
-                                        
-                                        if (!newWindow) {
-                                          URL.revokeObjectURL(blobUrl);
-                                          toast.error('Please allow popups to view documents');
-                                          return;
-                                        }
-                                        
-                                        // Clean up the blob URL when the window is closed or after 10 minutes
-                                        // (long enough for viewing, but prevents memory leaks)
-                                        setTimeout(() => {
-                                          try {
+                                          
+                                          // Get the blob from response
+                                          const blob = await response.blob();
+                                          
+                                          // Validate blob
+                                          if (blob.size === 0) {
+                                            throw new Error('Document file is empty or corrupted');
+                                          }
+                                          
+                                          // Create a blob URL and open it
+                                          const blobUrl = URL.createObjectURL(blob);
+                                          const newWindow = window.open(blobUrl, '_blank');
+                                          
+                                          if (!newWindow) {
                                             URL.revokeObjectURL(blobUrl);
-                                          } catch (e) {
-                                            // Ignore errors if URL already revoked
+                                            toast.error('Please allow popups to view documents');
+                                            return;
                                           }
-                                        }, 600000); // 10 minutes
+                                          
+                                          // Clean up the blob URL when the window is closed or after 10 minutes
+                                          setTimeout(() => {
+                                            try {
+                                              URL.revokeObjectURL(blobUrl);
+                                            } catch (e) {
+                                              // Ignore errors if URL already revoked
+                                            }
+                                          }, 600000); // 10 minutes
+                                          
+                                          toast.success('Document opened successfully');
+                                        } catch (error: any) {
+                                          console.error('Error viewing document:', error);
+                                          toast.error(error.message || 'Failed to open document');
+                                        }
                                       } catch (error: any) {
-                                        console.error('Error viewing document:', error);
-                                        toast.error(error.message || 'Failed to open document');
+                                        console.error('Error in view document handler:', error);
+                                        toast.error('Failed to process document request');
                                       }
                                     }}
                                     className="text-blue-600 border-blue-500 hover:bg-blue-50"
@@ -480,39 +503,61 @@ export function CompanyManagementDialog({
                                           return;
                                         }
                                         
-                                        const response = await fetch(
-                                          `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`,
-                                          {
-                                            method: 'GET',
-                                            headers: {
-                                              'Authorization': `Bearer ${token}`,
-                                            },
+                                        // Show loading toast
+                                        const loadingToast = toast.loading('Downloading document...');
+                                        
+                                        try {
+                                          const response = await fetch(
+                                            `${baseUrl}/api/admin/verification-documents/${encodeURIComponent(filename)}`,
+                                            {
+                                              method: 'GET',
+                                              headers: {
+                                                'Authorization': `Bearer ${token}`,
+                                              },
+                                            }
+                                          );
+                                          
+                                          // Dismiss loading toast
+                                          toast.dismiss(loadingToast);
+                                          
+                                          if (!response.ok) {
+                                            if (response.status === 404) {
+                                              throw new Error('Document file not found on server. The file may have been moved or deleted.');
+                                            } else if (response.status === 403) {
+                                              throw new Error('Access denied. Admin privileges required.');
+                                            } else {
+                                              throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+                                            }
                                           }
-                                        );
-                                        
-                                        if (!response.ok) {
-                                          throw new Error(`Failed to fetch document: ${response.status}`);
+                                          
+                                          // Get the blob from response
+                                          const blob = await response.blob();
+                                          
+                                          // Validate blob
+                                          if (blob.size === 0) {
+                                            throw new Error('Document file is empty or corrupted');
+                                          }
+                                          
+                                          // Create a download link
+                                          const blobUrl = URL.createObjectURL(blob);
+                                          const link = document.createElement('a');
+                                          link.href = blobUrl;
+                                          link.download = filename || `document-${index + 1}.pdf`;
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          document.body.removeChild(link);
+                                          
+                                          // Clean up the blob URL
+                                          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                          
+                                          toast.success('Document downloaded successfully');
+                                        } catch (error: any) {
+                                          console.error('Error downloading document:', error);
+                                          toast.error(error.message || 'Failed to download document');
                                         }
-                                        
-                                        // Get the blob from response
-                                        const blob = await response.blob();
-                                        
-                                        // Create a download link
-                                        const blobUrl = URL.createObjectURL(blob);
-                                      const link = document.createElement('a');
-                                        link.href = blobUrl;
-                                        link.download = filename || `document-${index + 1}.pdf`;
-                                        document.body.appendChild(link);
-                                      link.click();
-                                        document.body.removeChild(link);
-                                        
-                                        // Clean up the blob URL
-                                        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-                                        
-                                        toast.success('Document downloaded');
                                       } catch (error: any) {
-                                        console.error('Error downloading document:', error);
-                                        toast.error(error.message || 'Failed to download document');
+                                        console.error('Error in download document handler:', error);
+                                        toast.error('Failed to process document request');
                                       }
                                     }}
                                     className="text-green-600 border-green-500 hover:bg-green-50"
