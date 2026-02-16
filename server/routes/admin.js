@@ -521,6 +521,29 @@ router.get('/verification-documents/:filename', authenticateToken, async (req, r
       });
     }
 
+    // Set CORS headers for production (Render/Vercel)
+    const origin = req.headers.origin;
+    if (origin && (origin.includes('vercel.app') || origin.includes('onrender.com') || origin.includes('localhost'))) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    // Additional headers for production deployment
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    res.setHeader('Timing-Allow-Origin', '*');
+    
+    // Security headers for production
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    }
+
     // Try multiple possible file paths and patterns
     const possiblePaths = [
       path.join(__dirname, '../uploads/verification-documents', filename),
@@ -588,6 +611,9 @@ router.get('/verification-documents/:filename', authenticateToken, async (req, r
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
     console.log(`✅ Serving file: ${filePath}`);
     res.sendFile(filePath);

@@ -294,13 +294,16 @@ if (process.env.NODE_ENV === 'development') {
 
 // Bulk import routes already registered above
 
-// Serve static files from uploads directory with comprehensive CORS headers
+// Serve static files from uploads directory with enhanced CORS
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
     // Allow cross-origin usage of uploaded files (for frontend domains)
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
     // Fix Cross-Origin-Resource-Policy issue
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -318,6 +321,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
       res.setHeader('Content-Type', 'image/webp');
     } else if (lower.endsWith('.pdf')) {
       res.setHeader('Content-Type', 'application/pdf');
+    }
+    // Additional security headers for production
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     }
   }
 }));
