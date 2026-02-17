@@ -1596,12 +1596,18 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 
         // Build final relaxed where
         const relaxedWhere = { ...baseWhere };
-        if (relaxedAnds.length > 0) relaxedWhere[Op.and] = relaxedAnds;
+        if (relaxedAnds.length > 0) {
+          relaxedWhere[Op.and] = relaxedAnds;
 
-        const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
-        if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
-          relaxedCandidateIds = relaxedMatches.map(m => m.id);
-          fallbackApplied = true;
+          // Only execute fallback query if we actually have some relaxed criteria 
+          // (otherwise we'd match ALL candidates, which is not useful)
+          const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
+          if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
+            relaxedCandidateIds = relaxedMatches.map(m => m.id);
+            fallbackApplied = true;
+          }
+        } else {
+          console.log(`⚠️ Fallback skipped for Req ${id}: No relaxed criteria available (would match all candidates)`);
         }
       } catch (fallbackErr) {
         // Silently handle fallback errors
@@ -1613,6 +1619,8 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 
     // Final total after post-query validations (including relaxed fallback)
     const totalCandidates = finalCandidateIdsForCount.length;
+
+    console.log(`📊 Stats calculation for Req ${id}: Strict=${finalCandidateIds.length}, Relaxed=${relaxedCandidateIds.length}, Fallback=${fallbackApplied}, Final=${totalCandidates}`);
 
     // Get accessed candidates count - only count UNIQUE candidates that match this requirement
     const { ViewTracking } = require('../config/index');
@@ -2702,16 +2710,22 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
 
         // Build final relaxed where
         const relaxedWhere = { ...baseWhere };
-        if (relaxedAnds.length > 0) relaxedWhere[Op.and] = relaxedAnds;
+        if (relaxedAnds.length > 0) {
+          relaxedWhere[Op.and] = relaxedAnds;
 
-        const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
-        if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
-          finalCandidates = await User.findAll({ where: { id: { [Op.in]: relaxedMatches.map(m => m.id) } }, limit: 100, order: [['profile_completion', 'DESC']] });
-          finalCount = relaxedMatches.length;
-          fallbackApplied = true;
-          console.log(`✅ Relaxed fallback succeeded: ${finalCount} candidates found after removing experience/salary filters.`);
+          const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
+          if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
+            finalCandidates = await User.findAll({ where: { id: { [Op.in]: relaxedMatches.map(m => m.id) } }, limit: 100, order: [['profile_completion', 'DESC']] });
+            finalCount = relaxedMatches.length;
+            fallbackApplied = true;
+            console.log(`✅ Relaxed fallback succeeded: ${finalCount} candidates found after removing experience/salary filters.`);
+          } else {
+            console.log(`⚠️ Relaxed fallback returned no candidates. Keeping strict-empty result.`);
+            finalCandidates = [];
+            finalCount = 0;
+          }
         } else {
-          console.log(`⚠️ Relaxed fallback returned no candidates. Keeping strict-empty result.`);
+          console.log(`⚠️ Fallback skipped for Req ${id}: No relaxed criteria available (would match all candidates)`);
           finalCandidates = [];
           finalCount = 0;
         }

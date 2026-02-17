@@ -2764,7 +2764,7 @@ class ApiService {
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.search) queryParams.append('search', params.search);
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-    
+
     // Filter parameters
     if (params?.experience && params.experience.length === 2) {
       queryParams.append('experienceMin', params.experience[0].toString());
