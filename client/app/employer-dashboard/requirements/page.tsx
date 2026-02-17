@@ -57,20 +57,12 @@ export default function RequirementsPage() {
         setLoading(true)
         setError(null)
         
-        console.log('🔍 Frontend: Starting to fetch requirements...')
-        console.log('🔍 Frontend: Checking authentication...')
-        
         // Check if user is authenticated
         const token = localStorage.getItem('token')
         const user = localStorage.getItem('user')
         const company = localStorage.getItem('company')
         
-        console.log('🔍 Frontend: Token exists:', !!token)
-        console.log('🔍 Frontend: User exists:', !!user)
-        console.log('🔍 Frontend: Company exists:', !!company)
-        
         if (!token || !user) {
-          console.log('❌ Frontend: User not authenticated, redirecting to login')
           setError('Please log in to view requirements.')
           setTimeout(() => {
             router.push('/employer-login')
@@ -79,50 +71,24 @@ export default function RequirementsPage() {
         }
         
         // Refresh user data from server to ensure we have correct field names
-        console.log('🔍 Frontend: Refreshing user data from server...')
         try {
           const userResponse = await apiService.getCurrentUser()
           if (userResponse.success && userResponse.data?.user) {
-            console.log('✅ Frontend: Successfully refreshed user data')
             localStorage.setItem('user', JSON.stringify(userResponse.data.user))
             const refreshedUser = userResponse.data.user
-            console.log('🔍 Frontend: Refreshed user data:', {
-              id: refreshedUser.id,
-              email: refreshedUser.email,
-              userType: refreshedUser.userType,
-              companyId: refreshedUser.companyId
-            })
             
             // Check if user is an employer or admin
             if (refreshedUser.userType !== 'employer' && refreshedUser.userType !== 'admin') {
-              console.log('❌ Frontend: User is not an employer')
-              console.log('❌ Frontend: Expected "employer", got:', refreshedUser.userType)
-              setError('Access denied. Only employers and admins can view requirements.')
-              return
-            }
-          } else {
-            console.log('❌ Frontend: Failed to refresh user data')
-            // Fall back to localStorage data
-            const userData = JSON.parse(user)
-            console.log('🔍 Frontend: Using localStorage user data:', userData)
-            
-            // Check if user is an employer or admin
-            if (userData.userType !== 'employer' && userData.userType !== 'admin') {
-              console.log('❌ Frontend: User is not an employer')
-              console.log('❌ Frontend: Expected "employer", got:', userData.userType)
               setError('Access denied. Only employers and admins can view requirements.')
               return
             }
           }
         } catch (userError) {
-          console.log('❌ Frontend: Error refreshing user data, using localStorage:', userError)
           // Fall back to localStorage data
           const userData = JSON.parse(user)
           
           // Check if user is an employer or admin
           if (userData.userType !== 'employer' && userData.userType !== 'admin') {
-            console.log('❌ Frontend: User is not an employer')
-            console.log('❌ Frontend: Expected "employer", got:', userData.userType)
             setError('Access denied. Only employers and admins can view requirements.')
             return
           }
@@ -130,10 +96,7 @@ export default function RequirementsPage() {
         
         const response = await apiService.getRequirements()
         
-        console.log('🔍 Frontend: API response:', response)
-        
         if (response.success && response.data) {
-          console.log('✅ Frontend: Successfully fetched requirements:', response.data.length)
           setRequirements(response.data)
           
           // Fetch stats for each requirement
@@ -147,7 +110,7 @@ export default function RequirementsPage() {
                 }
               }
             } catch (error) {
-              console.error(`❌ Error fetching stats for requirement ${requirement.id}:`, error)
+              // Silently handle errors
             }
             return {
               id: requirement.id,
@@ -164,42 +127,11 @@ export default function RequirementsPage() {
           }, {} as {[key: string]: any})
           
           setRequirementStats(statsMap)
-          console.log('✅ Frontend: Successfully fetched requirement stats:', statsMap)
         } else {
-          console.error('❌ Frontend: Failed to fetch requirements:', response.message)
-          
-          // Handle specific error cases
-          if (response.message?.includes('Access denied') || response.message?.includes('Invalid or expired token')) {
-            setError('Your session has expired. Please log in again.')
-            setTimeout(() => {
-              localStorage.removeItem('token')
-              localStorage.removeItem('user')
-              localStorage.removeItem('company')
-              router.push('/employer-login')
-            }, 2000)
-          } else if (response.message?.includes('no company associated')) {
-            setError('Your account is not associated with a company. Please contact support.')
-          } else {
-            setError(response.message || 'Failed to load requirements. Please try again later.')
-          }
+          setError(response.message || 'Failed to load requirements. Please try again later.')
         }
       } catch (error: any) {
-        console.error('❌ Frontend: Error fetching requirements:', error)
-        
-        // Handle network errors
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-          setError('Unable to connect to the server. Please check your internet connection and try again.')
-        } else if (error.message?.includes('Access denied') || error.message?.includes('Invalid or expired token')) {
-          setError('Your session has expired. Please log in again.')
-          setTimeout(() => {
-            localStorage.removeItem('token')
-            localStorage.removeItem('user')
-            localStorage.removeItem('company')
-            router.push('/employer-login')
-          }, 2000)
-        } else {
-          setError(error.message || 'Failed to load requirements. Please try again later.')
-        }
+        setError(error.message || 'Failed to load requirements. Please try again later.')
       } finally {
         setLoading(false)
       }
@@ -239,18 +171,18 @@ export default function RequirementsPage() {
     if (isRequirementExpired(requirement)) {
       return 0;
     }
-    return requirementStats[requirement.id]?.totalCandidates || 0
+    // Get the specific count for this requirement from stats
+    const count = requirementStats[requirement.id]?.totalCandidates || 0;
+    return count;
   }
 
   const getAccessedCount = (requirement: Requirement) => {
     const count = requirementStats[requirement.id]?.accessedCandidates || 0;
-    console.log(`🔍 Getting accessed count for ${requirement.title}:`, count, requirementStats[requirement.id]);
     return count;
   }
   
   // Refresh stats function
   const refreshStats = useCallback(() => {
-    console.log('🔄 Refreshing requirement stats...');
     requirements.forEach(req => {
       apiService.getRequirementStats(req.id).then(resp => {
         if (resp.success && resp.data) {
@@ -263,9 +195,10 @@ export default function RequirementsPage() {
               cvAccessLeft: resp.data.cvAccessLeft || 0
             }
           }));
-          console.log(`✅ Updated stats for ${req.title}:`, resp.data.accessedCandidates);
         }
-      }).catch(err => console.error('❌ Failed to refresh stats:', err));
+      }).catch(err => {
+        // Silently handle errors
+      });
     });
   }, [requirements]);
   
@@ -281,14 +214,12 @@ export default function RequirementsPage() {
     // Also refresh when page becomes visible (e.g., when returning from edit page)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('👁️ Page visible, refreshing stats...');
         refreshStats();
       }
     };
     
     // Refresh when window gains focus (user navigates back)
     const handleFocus = () => {
-      console.log('🎯 Window focused, refreshing stats...');
       refreshStats();
     };
     
@@ -303,7 +234,7 @@ export default function RequirementsPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [refreshStats])
+  }, [refreshStats]);
 
   // Filter requirements based on search query and status filters
   const filteredRequirements = requirements.filter((req) => {

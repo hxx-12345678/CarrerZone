@@ -89,6 +89,27 @@ export function JobseekerProfileCompletionDialog({
     return !hasRequiredFields
   }
 
+  // Check if user should see profile completion dialog at all
+  const shouldShowProfileDialog = () => {
+    // Don't show if profile is already completed
+    if (user.preferences?.profileCompleted === true) {
+      return false
+    }
+    
+    // Don't show if all required fields are already filled
+    const hasRequiredFields = user.phone && 
+                            user.currentLocation && 
+                            user.headline && 
+                            user.gender &&
+                            (user as any).dateOfBirth
+
+    if (hasRequiredFields) {
+      return false
+    }
+
+    return true
+  }
+
   // Load existing data
   useEffect(() => {
     if (user) {
@@ -1589,11 +1610,10 @@ export function EmployerProfileCompletionDialog({
       return;
     }
     
-    // If dialog is being closed, trigger skip logic (12 hour snooze) and redirect
+    // If dialog is being closed, just close it - no redirect
     if (!open && isOpen) {
-      console.log('📌 User closed dialog - triggering snooze and redirect');
-      await handleSkip()
-      return; // handleSkip handles redirect, don't call onClose() again
+      console.log('📌 User closed dialog - just closing, no redirect');
+      return;
     }
     
     console.log('✅ Dialog close allowed');
