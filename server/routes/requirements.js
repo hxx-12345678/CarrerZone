@@ -1066,22 +1066,28 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       const maxSalary = currentSalaryMax !== null && currentSalaryMax !== undefined
         ? Number(currentSalaryMax) : 200; // Max 200 LPA
 
-      // Allow candidates with salary in range OR NULL salary (they may not have specified it)
-      allAndConditions.push({
-        [Op.or]: [
-          {
-            current_salary: {
-              [Op.and]: [
-                { [Op.gte]: minSalary },
-                { [Op.lte]: maxSalary }
-              ]
-            }
-          },
-          { current_salary: null }, // Allow NULL salaries
-          { current_salary: { [Op.is]: null } } // PostgreSQL NULL check
-        ]
-      });
-      console.log(`✅ Added salary filter in stats: ${minSalary}-${maxSalary} LPA (or NULL)`);
+      // Build salary match based on range
+      const salaryRangeMatch = {
+        current_salary: {
+          [Op.and]: [
+            { [Op.gte]: minSalary },
+            { [Op.lte]: maxSalary }
+          ]
+        }
+      };
+
+      if (includeNotMentioned) {
+        allAndConditions.push({
+          [Op.or]: [
+            salaryRangeMatch,
+            { current_salary: null },
+            { current_salary: { [Op.is]: null } }
+          ]
+        });
+      } else {
+        allAndConditions.push(salaryRangeMatch);
+      }
+      console.log(`✅ Added salary filter in stats: ${minSalary}-${maxSalary} LPA (includeNotMentioned: ${includeNotMentioned})`);
     } else if (includeNotMentioned) {
       // If includeNotMentioned is true, also include candidates with no salary specified
       // This is handled by not adding salary filter, so all candidates pass
@@ -1142,39 +1148,33 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     }
 
     // 4. SKILLS & KEY SKILLS MATCHING (comprehensive)
-    // CRITICAL: Include includeSkills from metadata (same as candidates endpoint)
-    // IMPORTANT: keySkills (Additional Skills) are automatically merged into includeSkills during create/update
     const statsIncludeSkills = metadata.includeSkills || requirement.includeSkills || [];
-    // Get keySkills separately for backward compatibility, but prioritize includeSkills
-    const statsKeySkills = requirement.keySkills || [];
     // Merge includeSkills with keySkills (in case keySkills weren't merged yet in old requirements)
     const allStatsIncludeSkills = [...new Set([
       ...(Array.isArray(statsIncludeSkills) ? statsIncludeSkills : []),
-      ...(Array.isArray(statsKeySkills) ? statsKeySkills : [])
+      ...(requirement.keySkills || [])
     ])].filter(Boolean);
 
     const statsRequiredSkills = [
       ...(requirement.skills || []),
       ...allStatsIncludeSkills
-      // Note: keySkills are merged into includeSkills, but we also check requirement.keySkills for backward compatibility
     ].filter(Boolean);
 
     // CRITICAL: Exclude skills (same as candidates endpoint)
     const statsExcludeSkills = metadata.excludeSkills || requirement.excludeSkills || [];
 
     // Check if requirement title strongly matches candidate title/headline
-    // If title matches strongly, skills become optional (title is more important)
-    const hasStrongTitleMatch = requirement.title && requirement.title.trim().length > 3;
+    const reqTitle = (requirement.title || '').trim();
+    const hasStrongTitleMatch = reqTitle.length > 2;
     let titleMatchConditions = [];
 
     if (hasStrongTitleMatch) {
-      const titleWords = requirement.title
+      const titleWords = reqTitle
         .split(/\s+/)
         .filter(word => word.length > 2)
         .map(word => word.toLowerCase());
 
       if (titleWords.length > 0) {
-        // Create title matching conditions (used as alternative to skills)
         titleMatchConditions = titleWords.flatMap(word => [
           { headline: { [Op.iLike]: `%${word}%` } },
           { designation: { [Op.iLike]: `%${word}%` } },
@@ -1183,36 +1183,38 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       }
     }
 
+    // TRACK IF ANY CRITERIA ARE APPLIED
+    let hasAnyFilterAppliedForStats = false;
+
     if (statsRequiredSkills.length > 0) {
+      hasAnyFilterAppliedForStats = true;
       const skillConditions = statsRequiredSkills.flatMap(skill => ([
-        // Match in skills array (exact and case-insensitive)
         { skills: { [Op.contains]: [skill] } },
         sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${skill}%` }),
-        // Match in key_skills array
         { key_skills: { [Op.contains]: [skill] } },
         sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${skill}%` }),
-        // Match in headline (job title often mentions key skills)
         { headline: { [Op.iLike]: `%${skill}%` } },
-        // Match in summary
         { summary: { [Op.iLike]: `%${skill}%` } }
       ]));
 
-      // If we have title matching conditions, make skills OR title match (title can override skills)
       if (titleMatchConditions.length > 0) {
         matchingConditions.push({
           [Op.or]: [
-            { [Op.or]: skillConditions }, // Skills match
-            { [Op.or]: titleMatchConditions } // OR strong title match
+            { [Op.or]: skillConditions },
+            { [Op.or]: titleMatchConditions }
           ]
         });
-        console.log(`✅ Added skills filter with title override: ${statsRequiredSkills.length} skills OR title match`);
       } else {
         matchingConditions.push({ [Op.or]: skillConditions });
       }
     } else if (titleMatchConditions.length > 0) {
-      // No skills but have title - use title matching
+      hasAnyFilterAppliedForStats = true;
       matchingConditions.push({ [Op.or]: titleMatchConditions });
-      console.log(`✅ Added title-based matching (no skills specified)`);
+    }
+
+    // Add other criteria to hasAnyFilterApplied check
+    if (workExperienceMin !== null || currentSalaryMin !== null || candidateLocations.length > 0 || (Array.isArray(statsExcludeSkills) && statsExcludeSkills.length > 0) || currentDesignationForStats || (candidateDesignations && candidateDesignations.length > 0) || education || institute || currentCompany || noticePeriod || resumeFreshness || diversityPreference || lastActive) {
+      hasAnyFilterAppliedForStats = true;
     }
 
     // CRITICAL: Exclude skills - candidates MUST NOT have these skills (add to allAndConditions)
@@ -1376,9 +1378,26 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     // Apply all AND conditions to whereClause
     if (allAndConditions.length > 0) {
       whereClause[Op.and] = allAndConditions;
+    } else if (!hasAnyFilterAppliedForStats) {
+      // CRITICAL: If no filters are applied, return 0 instead of matching everyone
+      console.log(`⚠️ No requirement filters applied for Req ${requirement.id}. Returning 0 matches to avoid global count.`);
+      return res.status(200).json({
+        success: true,
+        data: {
+          totalCandidates: 0,
+          accessedCandidates: 0,
+          cvAccessLeft: 100,
+          fallbackApplied: false,
+          requirement: {
+            id: requirement.id,
+            title: requirement.title,
+            status: requirement.status
+          }
+        }
+      });
     }
 
-    // Get the actual candidate IDs that match this requirement
+    console.log(`🔍 Req ${requirement.id} Stats Where:`, JSON.stringify(whereClause));
     const matchingCandidates = await User.findAll({
       where: whereClause,
       attributes: ['id'],
@@ -1875,21 +1894,21 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
       }
     }
 
-    // Extract candidate locations and designations from metadata if not set
-    // CRITICAL: These are VIRTUAL fields, prioritize metadata
+    // ========== INITIALIZE SEARCH ARRAYS ==========
+    const allRequiredSkills = [
+      ...(requirement.skills || []),
+      ...(requirement.keySkills || [])
+    ].filter(Boolean);
+    const excludeSkills = metadata.excludeSkills || requirement.excludeSkills || [];
     const candidateLocations = (metadata.candidateLocations && metadata.candidateLocations.length > 0)
-      ? metadata.candidateLocations
-      : ((requirement.candidateLocations && requirement.candidateLocations.length > 0) ? requirement.candidateLocations : []);
-
-    // Extract exclude locations from metadata
-    const excludeLocations = Array.isArray(metadata.excludeLocations) ? metadata.excludeLocations : (metadata.excludeLocations ? [metadata.excludeLocations] : (metadata.exclude_locations ? (Array.isArray(metadata.exclude_locations) ? metadata.exclude_locations : [metadata.exclude_locations]) : []));
+      ? [...metadata.candidateLocations]
+      : ((requirement.candidateLocations && requirement.candidateLocations.length > 0) ? [...requirement.candidateLocations] : []);
+    const excludeLocations = Array.isArray(metadata.excludeLocations) ? [...metadata.excludeLocations] : (metadata.excludeLocations ? [metadata.excludeLocations] : (metadata.exclude_locations ? (Array.isArray(metadata.exclude_locations) ? [...metadata.exclude_locations] : [metadata.exclude_locations]) : []));
 
     const candidateDesignations = (metadata.candidateDesignations && metadata.candidateDesignations.length > 0)
-      ? metadata.candidateDesignations
-      : ((requirement.candidateDesignations && requirement.candidateDesignations.length > 0) ? requirement.candidateDesignations : []);
+      ? [...metadata.candidateDesignations]
+      : ((requirement.candidateDesignations && requirement.candidateDesignations.length > 0) ? [...requirement.candidateDesignations] : []);
 
-    // Extract education and notice period from metadata if not set
-    // CRITICAL: These are VIRTUAL fields, prioritize metadata
     const education = metadata.education || requirement.education || null;
     const noticePeriod = metadata.noticePeriod || requirement.noticePeriod || null;
     const remoteWork = metadata.remoteWork || requirement.remoteWork || null;
@@ -1944,11 +1963,11 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
     }
 
     if (filterLocationExclude) {
-      const excludeLocations = filterLocationExclude.split(',').map(loc => loc.trim()).filter(Boolean);
-      if (excludeLocations.length > 0) {
+      const eLocations = filterLocationExclude.split(',').map(loc => loc.trim()).filter(Boolean);
+      if (eLocations.length > 0) {
         excludeLocations.length = 0; // Clear requirement exclude locations
-        excludeLocations.push(...excludeLocations);
-        console.log(`🔍 Applying location exclude filter: ${excludeLocations.join(', ')}`);
+        excludeLocations.push(...eLocations);
+        console.log(`🔍 Applying location exclude filter: ${eLocations.join(', ')}`);
       }
     }
 
@@ -1963,11 +1982,11 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
     }
 
     if (filterSkillsExclude) {
-      const excludeSkillsList = filterSkillsExclude.split(',').map(skill => skill.trim()).filter(Boolean);
-      if (excludeSkillsList.length > 0) {
+      const eSkillsList = filterSkillsExclude.split(',').map(skill => skill.trim()).filter(Boolean);
+      if (eSkillsList.length > 0) {
         excludeSkills.length = 0; // Clear requirement exclude skills
-        excludeSkills.push(...excludeSkillsList);
-        console.log(`🔍 Applying skills exclude filter: ${excludeSkillsList.join(', ')}`);
+        excludeSkills.push(...eSkillsList);
+        console.log(`🔍 Applying skills exclude filter: ${eSkillsList.join(', ')}`);
       }
     }
 
@@ -2040,22 +2059,28 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
       const maxSalary = currentSalaryMax !== null && currentSalaryMax !== undefined
         ? Number(currentSalaryMax) : 200; // Max 200 LPA
 
-      // Allow candidates with salary in range OR NULL salary
-      matchingConditions.push({
-        [Op.or]: [
-          {
-            current_salary: {
-              [Op.and]: [
-                { [Op.gte]: minSalary },
-                { [Op.lte]: maxSalary }
-              ]
-            }
-          },
-          { current_salary: null },
-          { current_salary: { [Op.is]: null } }
-        ]
-      });
-      appliedFilters.push(`Salary: ${minSalary}-${maxSalary} LPA (or NULL)`);
+      // Build salary match based on range
+      const salaryRangeMatch = {
+        current_salary: {
+          [Op.and]: [
+            { [Op.gte]: minSalary },
+            { [Op.lte]: maxSalary }
+          ]
+        }
+      };
+
+      if (includeNotMentioned) {
+        matchingConditions.push({
+          [Op.or]: [
+            salaryRangeMatch,
+            { current_salary: null },
+            { current_salary: { [Op.is]: null } }
+          ]
+        });
+      } else {
+        matchingConditions.push(salaryRangeMatch);
+      }
+      appliedFilters.push(`Salary: ${minSalary}-${maxSalary} LPA (includeNotMentioned: ${includeNotMentioned})`);
     } else if (includeNotMentioned) {
       // If includeNotMentioned is true, also include candidates with no salary specified
       // This is handled by not adding salary filter, so all candidates pass
@@ -2125,19 +2150,28 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
       ...(Array.isArray(keySkillsFromRequirement) ? keySkillsFromRequirement : [])
     ])].filter(Boolean);
 
-    const allRequiredSkills = [
-      ...(requirement.skills || []),
-      ...allIncludeSkills
-      // Note: keySkills are merged into includeSkills, but we also check requirement.keySkills for backward compatibility
-    ].filter(Boolean);
-
-    // CRITICAL: Exclude skills that should NOT be present
-    const excludeSkills = metadata.excludeSkills || requirement.excludeSkills || [];
-
     // Check if requirement title strongly matches candidate title/headline
     // If title matches strongly, skills become optional (title is more important)
-    const hasStrongTitleMatch = requirement.title && requirement.title.trim().length > 3;
+    // Consolidate skills from requirement and includeSkills
+    const mergedSkills = [...new Set([
+      ...allRequiredSkills,
+      ...allIncludeSkills
+    ])];
+    allRequiredSkills.length = 0;
+    allRequiredSkills.push(...mergedSkills);
+
+    // Update excludeSkills with metadata if not already merged
+    const mergedExclude = [...new Set([
+      ...excludeSkills,
+      ...(metadata.excludeSkills || requirement.excludeSkills || [])
+    ])].filter(Boolean);
+    excludeSkills.length = 0;
+    excludeSkills.push(...mergedExclude);
+
+    const reqTitleCand = (requirement.title || '').trim();
+    const hasStrongTitleMatch = reqTitleCand.length > 2;
     let titleMatchConditions = [];
+
 
     if (hasStrongTitleMatch) {
       const titleWords = requirement.title
