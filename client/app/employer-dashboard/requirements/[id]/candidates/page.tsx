@@ -1182,6 +1182,18 @@ export default function CandidatesPage() {
                               {(candidate as any)?.verification_level === 'premium' || (candidate as any)?.verificationLevel === 'premium' || (candidate as any)?.preferences?.premium ? (
                                 <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Premium</Badge>
                               ) : null}
+
+                              {/* ATS Score Badge - Added */}
+                              {(candidate.atsScore !== undefined && candidate.atsScore !== null) && (
+                                <Badge className={`ml-2 border ${candidate.atsScore >= 80 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                    candidate.atsScore >= 60 ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                      candidate.atsScore >= 40 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                        'bg-slate-100 text-slate-800 border-slate-200'
+                                  }`}>
+                                  ATS: {candidate.atsScore}%
+                                </Badge>
+                              )}
+
                               {candidate.isViewed && (
                                 <CheckCircle2 className="w-5 h-5 text-green-600" />
                               )}

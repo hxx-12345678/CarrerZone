@@ -1551,10 +1551,8 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     // Apply relaxed fallback if no strict matches (same logic as candidates endpoint)
     let relaxedCandidateIds = [];
     let fallbackApplied = false;
-    
+
     if (finalCandidateIds.length === 0 && hasStrictCriteriaForStats) {
-      console.log(`⚠️ No candidates matched strict criteria in stats. Attempting relaxed fallback (remove experience/salary constraints).`);
-      
       try {
         // Build relaxed matching: keep skills, locations, designations but remove experience and salary constraints
         const baseWhere = {
@@ -1569,11 +1567,13 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
         const relaxedSkillConds = [];
         (statsRequiredSkills || []).forEach(s => {
           if (!s) return;
-          relaxedSkillConds.push({ [Op.or]: [
-            sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
-            sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
-            { summary: { [Op.iLike]: `%${s}%` } }
-          ]});
+          relaxedSkillConds.push({
+            [Op.or]: [
+              sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+              sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+              { summary: { [Op.iLike]: `%${s}%` } }
+            ]
+          });
         });
         if (relaxedSkillConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedSkillConds });
 
@@ -1602,22 +1602,17 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
         if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
           relaxedCandidateIds = relaxedMatches.map(m => m.id);
           fallbackApplied = true;
-          console.log(`✅ Relaxed fallback succeeded in stats: ${relaxedCandidateIds.length} candidates found after removing experience/salary filters.`);
-        } else {
-          console.log(`⚠️ Relaxed fallback returned no candidates in stats. Keeping strict-empty result.`);
         }
       } catch (fallbackErr) {
-        console.error('❌ Error while performing relaxed fallback in stats:', fallbackErr);
+        // Silently handle fallback errors
       }
     }
 
     // Use relaxed candidates if fallback was applied, otherwise use strict matches
     const finalCandidateIdsForCount = fallbackApplied ? relaxedCandidateIds : finalCandidateIds;
-    
+
     // Final total after post-query validations (including relaxed fallback)
     const totalCandidates = finalCandidateIdsForCount.length;
-
-    console.log(`✅ Total candidates matching requirement (after final validation${fallbackApplied ? ' with relaxed fallback' : ''}): ${totalCandidates}`);
 
     // Get accessed candidates count - only count UNIQUE candidates that match this requirement
     const { ViewTracking } = require('../config/index');
@@ -1628,7 +1623,6 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     // CRITICAL: Only count if there are matching candidates (use finalCandidateIdsForCount which includes relaxed fallback)
     if (finalCandidateIdsForCount.length === 0) {
       accessedCandidates = 0;
-      console.log(`✅ No matching candidates for requirement ${requirement.id}, accessed count = 0`);
     } else {
       try {
         // Count DISTINCT profile views where:
@@ -1642,99 +1636,55 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 
         if (matchingIdsStr.length === 0) {
           accessedCandidates = 0;
-          console.log(`✅ No valid candidate IDs to check, accessed count = 0`);
         } else {
           // PRIMARY METHOD: Count distinct accessed candidates
           // CRITICAL: Only count views that happened AFTER requirement was created
           // This prevents counting views from before the requirement existed
-          console.log(`🔍 Stats Debug for requirement "${requirement.title}" (${requirement.id}):`);
-          console.log(`   - Requirement created: ${requirement.created_at}`);
-          console.log(`   - Matching candidate IDs: ${matchingIdsStr.length}`);
-          console.log(`   - Checking for profile views by employer ${req.user.id}...`);
+          const requirementCreatedDate = new Date(requirement.created_at);
+          const minViewDate = new Date(requirementCreatedDate.getTime() + 1000); // Add 1 second buffer to exclude redirect views
 
-          try {
-            // Get requirement creation date
-            // Use >= (not >) to count views from requirement creation onwards
-            // But add 1 second buffer to exclude views that might have been created during redirect
-            const requirementCreatedDate = new Date(requirement.created_at);
-            const minViewDate = new Date(requirementCreatedDate.getTime() + 1000); // Add 1 second buffer to exclude redirect views
+          const verifyViews = await ViewTracking.findAll({
+            where: {
+              viewerId: req.user.id,
+              viewedUserId: { [Op.in]: finalCandidateIdsForCount },
+              viewType: 'profile_view',
+              [Op.or]: [
+                sequelize.where(
+                  sequelize.cast(sequelize.col('metadata'), 'text'),
+                  { [Op.iLike]: `%"requirementId":"${requirement.id}"%` }
+                ),
+                sequelize.where(
+                  sequelize.cast(sequelize.col('metadata'), 'text'),
+                  { [Op.iLike]: `%"requirementId": "${requirement.id}"%` }
+                )
+              ]
+            },
+            attributes: [
+              [sequelize.literal('"ViewTracking"."viewed_user_id"'), 'viewed_user_id'],
+              [sequelize.literal('"ViewTracking"."created_at"'), 'created_at']
+            ],
+            raw: true,
+            order: [[sequelize.literal('"ViewTracking"."created_at"'), 'DESC']]
+          });
 
-            console.log(`   - Requirement created at: ${requirementCreatedDate.toISOString()}`);
-            console.log(`   - Counting views AFTER: ${minViewDate.toISOString()} (1 second buffer to exclude redirect views)`);
+          // Count unique candidates viewed
+          const viewedCandidateIds = new Set();
+          const finalCandidateIdsStr = finalCandidateIdsForCount.map(id => String(id).trim());
 
-            // CRITICAL: Count views for this requirement
-            // Only count views where:
-            // 1. The viewed candidate is in finalCandidateIds (matches this requirement)
-            // 2. The viewer is this employer
-            // 3. The jobId matches requirementId OR metadata.requirementId matches (backward compatibility)
-            // 4. View type is profile_view
-            // We check both job_id and metadata.requirementId to handle all cases
-            // NOTE: Use camelCase in where clause (Sequelize maps to snake_case columns)
-            // For attributes/order with raw: true, use sequelize.col() to reference database columns
-            const verifyViews = await ViewTracking.findAll({
-              where: {
-                viewerId: req.user.id, // Use camelCase - Sequelize maps to viewer_id
-                viewedUserId: { [Op.in]: finalCandidateIds }, // Use camelCase - Sequelize maps to viewed_user_id
-                viewType: 'profile_view', // Use camelCase - Sequelize maps to view_type
-                [Op.or]: [
-                  // NOTE: Don't check jobId for requirements - it references jobs table, not requirements
-                  // Check metadata.requirementId instead (below)
-                  sequelize.where(
-                    sequelize.cast(sequelize.col('metadata'), 'text'),
-                    { [Op.iLike]: `%"requirementId":"${requirement.id}"%` }
-                  ), // Fallback: requirementId in metadata (backward compatibility)
-                  sequelize.where(
-                    sequelize.cast(sequelize.col('metadata'), 'text'),
-                    { [Op.iLike]: `%"requirementId": "${requirement.id}"%` }
-                  ) // Fallback: requirementId with space in metadata
-                ]
-              },
-              // With raw: true, use literal SQL to bypass Sequelize's attribute mapping
-              // This ensures the SQL uses the actual database column names (snake_case)
-              attributes: [
-                [sequelize.literal('"ViewTracking"."viewed_user_id"'), 'viewed_user_id'],
-                [sequelize.literal('"ViewTracking"."created_at"'), 'created_at'],
-                [sequelize.literal('"ViewTracking"."job_id"'), 'job_id'],
-                [sequelize.literal('"ViewTracking"."metadata"'), 'metadata']
-              ],
-              raw: true, // Returns snake_case column names
-              order: [[sequelize.literal('"ViewTracking"."created_at"'), 'DESC']]
+          if (Array.isArray(verifyViews) && verifyViews.length > 0) {
+            verifyViews.forEach((view) => {
+              const viewedId = String(view.viewed_user_id || '').trim();
+              if (viewedId && finalCandidateIdsStr.includes(viewedId)) {
+                viewedCandidateIds.add(viewedId);
+              }
             });
-
-            console.log(`   - Found ${verifyViews.length} views for this requirement (including legacy views without jobId)`);
-
-            // Count unique candidates viewed
-            // CRITICAL: Only count candidates that are in finalCandidateIdsForCount (they match the requirement, including relaxed fallback)
-            const viewedCandidateIds = new Set();
-            const finalCandidateIdsStr = finalCandidateIdsForCount.map(id => String(id).trim());
-
-            if (Array.isArray(verifyViews) && verifyViews.length > 0) {
-              verifyViews.forEach((view) => {
-                // Handle both snake_case (raw: true) and camelCase results
-                const viewedId = String(view.viewed_user_id || view.viewedUserId || '').trim();
-                if (viewedId && finalCandidateIdsStr.includes(viewedId)) {
-                  // Only count if this candidate matches the requirement
-                  viewedCandidateIds.add(viewedId);
-                }
-              });
-            }
-
-            accessedCandidates = viewedCandidateIds.size;
-            console.log(`   - Found ${verifyViews.length} total views for this requirement`);
-            console.log(`   - Unique candidates accessed: ${accessedCandidates} (only counting candidates that match requirement)`);
-
-          } catch (countError) {
-            console.error('❌ Error in COUNT query:', countError);
-            accessedCandidates = 0;
           }
 
-          console.log(`   - ✅ FINAL accessed count: ${accessedCandidates}`);
+          accessedCandidates = viewedCandidateIds.size;
         }
+
       } catch (queryError) {
-        console.error('❌ Error querying accessed candidates:', queryError);
-        // On any error, default to 0 (safer than trying fallback)
         accessedCandidates = 0;
-        console.log(`✅ Error occurred, setting accessed count to 0 for safety`);
       }
     }
 
@@ -1753,42 +1703,28 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     if (Number.isInteger(numValue) &&
       numValue >= 0 &&
       isFinite(numValue) &&
-      finalCandidateIds.length > 0) {
+      finalCandidateIdsForCount.length > 0) {
       finalAccessedCount = numValue;
     } else {
       finalAccessedCount = 0;
-      if (numValue !== 0) {
-        console.log(`⚠️ Invalid accessed count value: ${accessedCandidates}, forcing to 0`);
-      }
     }
 
     // CRITICAL SAFETY: If no matching candidates, accessed MUST be 0
     if (finalCandidateIdsForCount.length === 0) {
       finalAccessedCount = 0;
-      console.log(`⚠️ Safety check: No matching candidates, forcing accessed count to 0`);
     }
 
     // DOUBLE SAFETY: If count > 0 but no matching candidates, force to 0
     if (finalAccessedCount > 0 && finalCandidateIdsForCount.length === 0) {
-      console.log(`⚠️ CRITICAL: Found ${finalAccessedCount} accesses but no matching candidates - FORCING TO 0`);
       finalAccessedCount = 0;
     }
 
     // TRIPLE SAFETY: Ensure it's never anything other than 0 for new requirements
-    // If accessedCandidates is not explicitly a verified positive integer, it's 0
     if (!Number.isInteger(finalAccessedCount) || finalAccessedCount < 0) {
       finalAccessedCount = 0;
-      console.log(`⚠️ Final safety: Invalid count ${finalAccessedCount}, forcing to 0`);
     }
 
     accessedCandidates = finalAccessedCount;
-
-    // Log final result with full context
-    console.log(`✅✅✅ FINAL accessed count for requirement "${requirement.title}" (${requirement.id}): ${accessedCandidates}`);
-    console.log(`   - Matching candidates: ${finalCandidateIdsForCount.length}${fallbackApplied ? ' (relaxed fallback applied)' : ''}`);
-    console.log(`   - Valid views found: ${accessedCandidates}`);
-    console.log(`   - Employer ID: ${req.user.id}`);
-    console.log(`   - Status: ${accessedCandidates === 0 ? 'NO ACCESSES (Correct for new requirements)' : accessedCandidates + ' candidates accessed'}`);
 
     // Get CV access left (this would come from subscription/usage data)
     // For now, we'll use a placeholder - in real implementation this would be from subscription service
@@ -1823,10 +1759,10 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 router.get('/:id/candidates', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      page = 1, 
-      limit = 50, 
-      search, 
+    const {
+      page = 1,
+      limit = 50,
+      search,
       sortBy = 'relevance',
       // Additional filter parameters
       experienceMin: filterExperienceMin,
@@ -1974,21 +1910,21 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
 
     // ========== APPLY ADDITIONAL FILTERS FROM QUERY PARAMETERS ==========
     // These filters override or supplement the requirement-based filters
-    
+
     // Override experience range if provided in query
     if (filterExperienceMin !== undefined && filterExperienceMax !== undefined) {
       workExperienceMin = Number(filterExperienceMin);
       workExperienceMax = Number(filterExperienceMax);
       console.log(`🔍 Applying experience filter: ${workExperienceMin}-${workExperienceMax} years`);
     }
-    
+
     // Override salary range if provided in query
     if (filterSalaryMin !== undefined && filterSalaryMax !== undefined) {
       currentSalaryMin = Number(filterSalaryMin);
       currentSalaryMax = Number(filterSalaryMax);
       console.log(`🔍 Applying salary filter: ${currentSalaryMin}-${currentSalaryMax} LPA`);
     }
-    
+
     // Override location filters if provided in query
     if (filterLocationInclude) {
       const includeLocations = filterLocationInclude.split(',').map(loc => loc.trim()).filter(Boolean);
@@ -1998,7 +1934,7 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
         console.log(`🔍 Applying location include filter: ${includeLocations.join(', ')}`);
       }
     }
-    
+
     if (filterLocationExclude) {
       const excludeLocations = filterLocationExclude.split(',').map(loc => loc.trim()).filter(Boolean);
       if (excludeLocations.length > 0) {
@@ -2007,7 +1943,7 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
         console.log(`🔍 Applying location exclude filter: ${excludeLocations.join(', ')}`);
       }
     }
-    
+
     // Override skills filters if provided in query
     if (filterSkillsInclude) {
       const includeSkills = filterSkillsInclude.split(',').map(skill => skill.trim()).filter(Boolean);
@@ -2017,7 +1953,7 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
         console.log(`🔍 Applying skills include filter: ${includeSkills.join(', ')}`);
       }
     }
-    
+
     if (filterSkillsExclude) {
       const excludeSkillsList = filterSkillsExclude.split(',').map(skill => skill.trim()).filter(Boolean);
       if (excludeSkillsList.length > 0) {
@@ -2026,31 +1962,31 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
         console.log(`🔍 Applying skills exclude filter: ${excludeSkillsList.join(', ')}`);
       }
     }
-    
+
     // Apply keyword filter
     if (filterKeyword) {
       console.log(`🔍 Applying keyword filter: ${filterKeyword}`);
       // This will be added to search conditions
     }
-    
+
     // Apply education filter
     if (filterEducation && Array.isArray(filterEducation)) {
       console.log(`🔍 Applying education filter: ${filterEducation.join(', ')}`);
       // This will be added to education conditions
     }
-    
+
     // Apply availability filter (notice period)
     if (filterAvailability && Array.isArray(filterAvailability)) {
       console.log(`🔍 Applying availability filter: ${filterAvailability.join(', ')}`);
       // This will override notice period
     }
-    
+
     // Apply verification filter
     if (filterVerification && Array.isArray(filterVerification)) {
       console.log(`🔍 Applying verification filter: ${filterVerification.join(', ')}`);
       // This will be added to where clause
     }
-    
+
     // Apply last active filter
     if (filterLastActive && Array.isArray(filterLastActive)) {
       console.log(`🔍 Applying last active filter: ${filterLastActive.join(', ')}`);
@@ -2737,11 +2673,13 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
         const reqSkills = (metadata && metadata.includeSkills && metadata.includeSkills.length > 0) ? metadata.includeSkills : (requirement.skills || []);
         (reqSkills || []).forEach(s => {
           if (!s) return;
-          relaxedSkillConds.push({ [Op.or]: [
-            sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
-            sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
-            { summary: { [Op.iLike]: `%${s}%` } }
-          ]});
+          relaxedSkillConds.push({
+            [Op.or]: [
+              sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+              sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+              { summary: { [Op.iLike]: `%${s}%` } }
+            ]
+          });
         });
         if (relaxedSkillConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedSkillConds });
 
@@ -3591,6 +3529,33 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
     });
     console.log('==================================================\n');
 
+    // Calculate accessed candidates count for the current filtered list
+    let accessedCount = 0;
+    try {
+      const { ViewTracking } = require('../config/index');
+
+      if (filteredFinalCandidates.length > 0) {
+        const candidateIds = filteredFinalCandidates.map(c => c.id);
+
+        // Count distinct profile views for these candidates by this employer
+        const result = await ViewTracking.count({
+          where: {
+            viewerId: req.user.id,
+            viewedUserId: { [Op.in]: candidateIds },
+            viewType: 'profile_view'
+          },
+          distinct: true,
+          col: 'viewedUserId'
+        });
+
+        accessedCount = result || 0;
+        console.log(`📌 Accessed Candidates (Filtered): ${accessedCount}`);
+      }
+    } catch (metricError) {
+      console.warn('⚠️ Failed to count accessed candidates:', metricError.message);
+      // Default to 0 on error
+    }
+
     const finalCountForResponse = filteredFinalCandidates.length;
     return res.status(200).json({
       success: true,
@@ -3601,7 +3566,8 @@ router.get('/:id/candidates', authenticateToken, async (req, res) => {
           title: requirement.title,
           totalCandidates: finalCountForResponse, // Total count of all matching candidates
           appliedFilters: appliedFilters,
-          fallbackApplied: fallbackApplied
+          fallbackApplied: fallbackApplied,
+          accessedCandidates: accessedCount
         },
         pagination: {
           page: parseInt(page),
