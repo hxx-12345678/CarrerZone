@@ -2732,11 +2732,14 @@ class ApiService {
   }
 
   async getRequirementStats(requirementId: string): Promise<ApiResponse<any>> {
-    const response = await fetch(`${API_BASE_URL}/requirements/${requirementId}/stats`, {
-      headers: this.getAuthHeaders(),
-    });
+    const endpoint = `/requirements/${requirementId}/stats`;
+    return this.makeRequest(endpoint, async () => {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers: this.getAuthHeaders(),
+      });
 
-    return this.handleResponse<any>(response);
+      return this.handleResponse<any>(response);
+    });
   }
 
   async getRequirementCandidates(requirementId: string, params?: {
