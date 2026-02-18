@@ -7,54 +7,22 @@ const User = require('../models/User');
 const Job = require('../models/Job');
 const JobApplication = require('../models/JobApplication');
 const Company = require('../models/Company');
+const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 const router = express.Router();
 
-// Middleware to verify JWT token
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Access token required' 
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const user = await User.findByPk(decoded.id, {
-      attributes: { exclude: ['password'] }
-    });
-
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(403).json({ 
-      success: false, 
-      message: 'Invalid or expired token' 
-    });
-  }
-};
+// Middleware to verify JWT token removed and replaced with standard middleware from ../middlewares/auth
 
 // Helper function to generate human-readable activity descriptions
 function getActivityDescription(activityType, details, logData) {
   const user = logData.user;
   const job = logData.job;
   const applicant = logData.applicant;
-  
+
   const userName = user ? user.name : 'Unknown User';
   const jobTitle = job ? job.title : (details.jobTitle || 'Unknown Job');
-  
+
   // Get company name from job, details, or user's company
   let companyName = 'Unknown Company';
   if (job && job.companyName) {
@@ -65,9 +33,9 @@ function getActivityDescription(activityType, details, logData) {
     // This will be resolved in the data mapping section
     companyName = 'Company'; // Placeholder, will be replaced
   }
-  
+
   const applicantName = applicant ? applicant.name : (details.candidateName || 'Unknown Applicant');
-  
+
   switch (activityType) {
     case 'job_created':
       return `${userName} created a new job: "${jobTitle}" at ${companyName}`;
@@ -128,7 +96,7 @@ function getActivityDescription(activityType, details, logData) {
 }
 
 // GET /api/usage/summary
-router.get('/summary', authenticateToken, async (req, res) => {
+router.get('/summary', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     console.log('🔍 Usage summary endpoint called by:', {
       userId: req.user.id,
@@ -136,7 +104,7 @@ router.get('/summary', authenticateToken, async (req, res) => {
       userType: req.user.user_type,
       companyId: req.user.company_id
     });
-    
+
     // ✅ Use the authenticated user's company instead of query parameter
     const userCompanyId = req.user.company_id;
     if (!userCompanyId) return res.status(400).json({ success: false, message: 'User is not associated with any company' });
@@ -200,7 +168,7 @@ router.get('/summary', authenticateToken, async (req, res) => {
 });
 
 // GET /api/usage/activities
-router.get('/activities', authenticateToken, async (req, res) => {
+router.get('/activities', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const { userId, activityType, from, to, limit = 50, offset = 0 } = req.query;
     const where = {};
@@ -222,14 +190,14 @@ router.get('/activities', authenticateToken, async (req, res) => {
       companyIdRaw: req.user.companyId,
       company_idRaw: req.user.company_id
     });
-    
+
     if (userCompanyId) {
-      const recruiters = await User.findAll({ 
-        where: { 
-          user_type: { [Op.in]: ['employer', 'admin'] }, 
-          company_id: userCompanyId 
-        }, 
-        attributes: ['id'] 
+      const recruiters = await User.findAll({
+        where: {
+          user_type: { [Op.in]: ['employer', 'admin'] },
+          company_id: userCompanyId
+        },
+        attributes: ['id']
       });
       const recruiterIds = recruiters.map(r => r.id);
       if (!recruiterIds || recruiterIds.length === 0) {
@@ -252,24 +220,24 @@ router.get('/activities', authenticateToken, async (req, res) => {
     }
 
     console.log('🔍 Activities query where clause:', JSON.stringify(where, null, 2));
-    
+
     const logs = await UserActivityLog.findAll({
       where,
       order: [['timestamp', 'DESC']],
       limit: Math.min(Number(limit) || 50, 200),
       offset: Number(offset) || 0
     });
-    
+
     console.log(`📊 Found ${logs.length} activity logs`);
-    
+
     // Debug: Check total activity logs in database
     const totalLogs = await UserActivityLog.count();
     console.log(`🔍 Debug - Total activity logs in database: ${totalLogs}`);
-    
+
     if (logs.length === 0 && totalLogs > 0) {
       console.log('🔍 Debug - No logs found for this company, but there are logs in database. Checking sample...');
-      const sampleLogs = await UserActivityLog.findAll({ 
-        limit: 3, 
+      const sampleLogs = await UserActivityLog.findAll({
+        limit: 3,
         order: [['timestamp', 'DESC']],
         attributes: ['id', 'userId', 'activityType', 'timestamp']
       });
@@ -286,9 +254,9 @@ router.get('/activities', authenticateToken, async (req, res) => {
     // Hydrate users for userId on the log
     const actorUserIds = Array.from(new Set(logs.map(l => l.userId).filter(Boolean)));
     if (actorUserIds.length > 0) {
-      const users = await User.findAll({ 
-        where: { id: { [Op.in]: actorUserIds } }, 
-        attributes: ['id', 'first_name', 'last_name', 'email', 'user_type', 'company_id'] 
+      const users = await User.findAll({
+        where: { id: { [Op.in]: actorUserIds } },
+        attributes: ['id', 'first_name', 'last_name', 'email', 'user_type', 'company_id']
       });
       users.forEach(u => userIdToUser.set(u.id, u));
     }
@@ -296,9 +264,9 @@ router.get('/activities', authenticateToken, async (req, res) => {
     // Hydrate jobs referenced by jobId on the log
     const jobIds = Array.from(new Set(logs.map(l => l.jobId).filter(Boolean)));
     if (jobIds.length > 0) {
-      const jobs = await Job.findAll({ 
-        where: { id: { [Op.in]: jobIds } }, 
-        attributes: ['id', 'title', 'companyId', 'location', 'status'] 
+      const jobs = await Job.findAll({
+        where: { id: { [Op.in]: jobIds } },
+        attributes: ['id', 'title', 'companyId', 'location', 'status']
       });
       jobs.forEach(j => jobIdToJob.set(j.id, j));
     }
@@ -307,11 +275,11 @@ router.get('/activities', authenticateToken, async (req, res) => {
     const jobCompanyIds = Array.from(new Set(Array.from(jobIdToJob.values()).map(j => j.companyId).filter(Boolean)));
     const userCompanyIds = Array.from(new Set(Array.from(userIdToUser.values()).map(u => u.company_id).filter(Boolean)));
     const allCompanyIds = Array.from(new Set([...jobCompanyIds, ...userCompanyIds]));
-    
+
     if (allCompanyIds.length > 0) {
-      const companies = await Company.findAll({ 
-        where: { id: { [Op.in]: allCompanyIds } }, 
-        attributes: ['id', 'name', 'industries', 'companySize'] 
+      const companies = await Company.findAll({
+        where: { id: { [Op.in]: allCompanyIds } },
+        attributes: ['id', 'name', 'industries', 'companySize']
       });
       companies.forEach(c => companyIdToCompany.set(c.id, c));
     }
@@ -331,9 +299,9 @@ router.get('/activities', authenticateToken, async (req, res) => {
       applicationIdToUserId = new Map(applications.map(a => [a.id, a.userId]));
       const applicantUserIds = Array.from(new Set(applications.map(a => a.userId)));
       if (applicantUserIds.length > 0) {
-        const users = await User.findAll({ 
-          where: { id: { [Op.in]: applicantUserIds } }, 
-          attributes: ['id', 'first_name', 'last_name', 'email'] 
+        const users = await User.findAll({
+          where: { id: { [Op.in]: applicantUserIds } },
+          attributes: ['id', 'first_name', 'last_name', 'email']
         });
         users.forEach(u => userIdToUser.set(u.id, u));
       }
@@ -341,16 +309,16 @@ router.get('/activities', authenticateToken, async (req, res) => {
 
     // Hydrate candidates directly from candidateId in details
     if (candidateIds.length > 0) {
-      const candidateUsers = await User.findAll({ 
-        where: { id: { [Op.in]: candidateIds } }, 
-        attributes: ['id', 'first_name', 'last_name', 'email'] 
+      const candidateUsers = await User.findAll({
+        where: { id: { [Op.in]: candidateIds } },
+        attributes: ['id', 'first_name', 'last_name', 'email']
       });
       candidateUsers.forEach(u => userIdToUser.set(u.id, u));
     }
 
     const data = logs.map(l => {
       const json = l.toJSON();
-      
+
       // Attach actor user with meaningful name
       const actor = userIdToUser.get(json.userId);
       if (actor) {
@@ -358,25 +326,25 @@ router.get('/activities', authenticateToken, async (req, res) => {
         const lastName = actor.last_name || '';
         const fullName = `${firstName} ${lastName}`.trim();
         const userCompany = actor.company_id ? companyIdToCompany.get(actor.company_id) : null;
-        
-        json.user = { 
-          id: actor.id, 
-          email: actor.email, 
-          name: fullName || actor.email, 
+
+        json.user = {
+          id: actor.id,
+          email: actor.email,
+          name: fullName || actor.email,
           userType: actor.user_type,
           companyId: actor.company_id,
           companyName: userCompany ? userCompany.name : null
         };
       }
-      
+
       // Attach job with company information
       if (json.jobId) {
         const job = jobIdToJob.get(json.jobId);
         if (job) {
           const company = companyIdToCompany.get(job.companyId);
-          json.job = { 
-            id: job.id, 
-            title: job.title, 
+          json.job = {
+            id: job.id,
+            title: job.title,
             location: job.location,
             status: job.status,
             companyId: job.companyId,
@@ -386,48 +354,48 @@ router.get('/activities', authenticateToken, async (req, res) => {
           };
         }
       }
-      
+
       // Attach applicant with meaningful name
       let applicant = undefined;
-      
+
       // First try to get applicant from applicationId
       if (json.applicationId) {
         const applicantUserId = applicationIdToUserId.get(json.applicationId);
         applicant = applicantUserId ? userIdToUser.get(applicantUserId) : undefined;
       }
-      
+
       // If no applicant found via applicationId, try to get from candidateId in details
       if (!applicant && json.details?.candidateId) {
         applicant = userIdToUser.get(json.details.candidateId);
       }
-      
+
       if (applicant) {
         const firstName = applicant.first_name || '';
         const lastName = applicant.last_name || '';
         const fullName = `${firstName} ${lastName}`.trim();
-        json.applicant = { 
-          id: applicant.id, 
-          name: fullName || applicant.email, 
-          email: applicant.email 
+        json.applicant = {
+          id: applicant.id,
+          name: fullName || applicant.email,
+          email: applicant.email
         };
       }
-      
+
       // Add human-readable activity description
       json.activityDescription = getActivityDescription(json.activityType, json.details, json);
-      
+
       // Update company name in description if we have user company info
       if (json.user?.companyName && json.activityDescription.includes('Company')) {
         json.activityDescription = json.activityDescription.replace('Company', json.user.companyName);
       }
-      
+
       return json;
     });
 
     return res.json({ success: true, data });
   } catch (error) {
     console.error('Usage activities error:', error && (error.stack || error.message || error));
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: error && (error.message || 'Internal server error'),
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -435,13 +403,13 @@ router.get('/activities', authenticateToken, async (req, res) => {
 });
 
 // GET /api/usage/search-insights
-router.get('/search-insights', authenticateToken, async (req, res) => {
+router.get('/search-insights', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const { from, to, limit = 20 } = req.query;
     // ✅ Use the authenticated user's company
     const userCompanyId = req.user.company_id;
     if (!userCompanyId) return res.status(400).json({ success: false, message: 'User is not associated with any company' });
-    
+
     const userWhere = { user_type: { [Op.in]: ['employer', 'admin'] }, company_id: userCompanyId };
     const recruiters = await User.findAll({ where: userWhere, attributes: ['id'] });
     const recruiterIds = recruiters.map(r => r.id);
@@ -477,13 +445,13 @@ router.get('/search-insights', authenticateToken, async (req, res) => {
 });
 
 // GET /api/usage/posting-insights
-router.get('/posting-insights', authenticateToken, async (req, res) => {
+router.get('/posting-insights', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const { from, to } = req.query;
     // ✅ Use the authenticated user's company
     const userCompanyId = req.user.company_id;
     if (!userCompanyId) return res.status(400).json({ success: false, message: 'User is not associated with any company' });
-    
+
     const jobWhere = { companyId: userCompanyId };
     if (from) jobWhere.created_at = { ...(jobWhere.created_at || {}), [Op.gte]: new Date(from) };
     if (to) jobWhere.created_at = { ...(jobWhere.created_at || {}), [Op.lte]: new Date(to) };
@@ -505,9 +473,9 @@ router.get('/posting-insights', authenticateToken, async (req, res) => {
 
     // Get recruiter details
     const recruiterIds = [...new Set(jobs.map(j => j.employerId))];
-    const recruiters = await User.findAll({ 
-      where: { id: { [Op.in]: recruiterIds } }, 
-      attributes: ['id', 'email', 'first_name', 'last_name'] 
+    const recruiters = await User.findAll({
+      where: { id: { [Op.in]: recruiterIds } },
+      attributes: ['id', 'email', 'first_name', 'last_name']
     });
     const recruiterMap = new Map(recruiters.map(r => [r.id, r]));
 
@@ -515,11 +483,11 @@ router.get('/posting-insights', authenticateToken, async (req, res) => {
     jobs.forEach(j => {
       const apps = jobIdToAppCount.get(j.id) || 0;
       const recruiter = recruiterMap.get(j.employerId);
-      const entry = perRecruiter.get(j.employerId) || { 
-        recruiterId: j.employerId, 
+      const entry = perRecruiter.get(j.employerId) || {
+        recruiterId: j.employerId,
         recruiterEmail: recruiter?.email || j.employerId,
-        totalJobs: 0, 
-        totalApplications: 0 
+        totalJobs: 0,
+        totalApplications: 0
       };
       entry.totalJobs += 1;
       entry.totalApplications += apps;
@@ -534,13 +502,13 @@ router.get('/posting-insights', authenticateToken, async (req, res) => {
 });
 
 // GET /api/usage/recruiter-performance
-router.get('/recruiter-performance', authenticateToken, async (req, res) => {
+router.get('/recruiter-performance', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const { from, to, limit = 10 } = req.query;
     // ✅ Use the authenticated user's company
     const userCompanyId = req.user.company_id;
     if (!userCompanyId) return res.status(400).json({ success: false, message: 'User is not associated with any company' });
-    
+
     const userWhere = { user_type: { [Op.in]: ['employer', 'admin'] }, company_id: userCompanyId };
     const recruiters = await User.findAll({ where: userWhere, attributes: ['id', 'first_name', 'last_name', 'email'] });
     const recruiterIds = recruiters.map(r => r.id);
@@ -611,21 +579,21 @@ router.get('/debug-activities', authenticateToken, async (req, res) => {
   try {
     const count = await UserActivityLog.count();
     const sample = await UserActivityLog.findAll({ limit: 5, order: [['timestamp', 'DESC']] });
-    
+
     // Get company users to see what we're working with
-    const companyUsers = await User.findAll({ 
+    const companyUsers = await User.findAll({
       where: { user_type: { [Op.in]: ['employer', 'admin'] } },
       attributes: ['id', 'email', 'user_type', 'company_id'],
       limit: 10
     });
-    
-    return res.json({ 
-      success: true, 
-      data: { 
-        totalActivityCount: count, 
+
+    return res.json({
+      success: true,
+      data: {
+        totalActivityCount: count,
         sampleActivities: sample.map(s => s.toJSON()),
         companyUsers: companyUsers.map(u => u.toJSON())
-      } 
+      }
     });
   } catch (error) {
     console.error('Debug activities error:', error);
@@ -637,27 +605,27 @@ router.get('/debug-activities', authenticateToken, async (req, res) => {
 router.post('/test-activity', authenticateToken, async (req, res) => {
   try {
     console.log('🧪 Creating test activity log for user:', req.user.id);
-    
+
     const testLog = await UserActivityLog.create({
       userId: req.user.id,
       activityType: 'test_activity',
       details: { message: 'This is a test activity log' },
       timestamp: new Date()
     });
-    
+
     console.log('✅ Test activity log created:', testLog.id);
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       message: 'Test activity log created successfully',
-      data: testLog 
+      data: testLog
     });
   } catch (error) {
     console.error('❌ Test activity creation error:', error);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: 'Failed to create test activity log',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -667,20 +635,20 @@ router.post('/create-sample-activities', async (req, res) => {
   try {
     const EmployerActivityService = require('../services/employerActivityService');
     const EmployerQuotaService = require('../services/employerQuotaService');
-    
+
     // Get a company user to create activities for
-    const companyUser = await User.findOne({ 
+    const companyUser = await User.findOne({
       where: { user_type: { [Op.in]: ['employer', 'admin'] } },
       attributes: ['id', 'email']
     });
-    
+
     if (!companyUser) {
       return res.status(400).json({ success: false, message: 'No company users found' });
     }
-    
+
     // Create some sample activities with quota consumption
     await EmployerActivityService.logLogin(companyUser.id, { source: 'test' });
-    
+
     // Consume some quotas to show usage
     try {
       await EmployerQuotaService.consume(companyUser.id, EmployerQuotaService.QUOTA_TYPES.JOB_POSTINGS, 1, {
@@ -690,7 +658,7 @@ router.post('/create-sample-activities', async (req, res) => {
     } catch (e) {
       console.log('Quota consumption test:', e.message);
     }
-    
+
     try {
       await EmployerQuotaService.consume(companyUser.id, EmployerQuotaService.QUOTA_TYPES.RESUME_SEARCH, 5, {
         activityType: 'candidate_search',
@@ -699,10 +667,10 @@ router.post('/create-sample-activities', async (req, res) => {
     } catch (e) {
       console.log('Resume search quota test:', e.message);
     }
-    
-    return res.json({ 
-      success: true, 
-      message: `Created sample activities and consumed quotas for user ${companyUser.email}` 
+
+    return res.json({
+      success: true,
+      message: `Created sample activities and consumed quotas for user ${companyUser.email}`
     });
   } catch (error) {
     console.error('Create sample activities error:', error);

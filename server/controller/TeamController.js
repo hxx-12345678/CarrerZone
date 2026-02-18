@@ -34,11 +34,11 @@ exports.getTeamMembers = async (req, res) => {
       });
     }
 
-    // Verify user is admin
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin') {
+    // Verify user is admin or has settings permission
+    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can view team members'
+        message: 'Only admins or users with settings permission can view team members'
       });
     }
 
@@ -90,10 +90,17 @@ exports.getTeamMembers = async (req, res) => {
             isActive: member.is_active,
             isEmailVerified: isEmailVerified,
             isPhoneVerified: member.is_phone_verified,
-            permissions: member.preferences?.permissions || {},
-            createdAt: member.created_at,
-            lastLoginAt: member.last_login_at,
-            isAdmin: member.user_type === 'admin' || member.user_type === 'superadmin'
+            isAdmin: member.user_type === 'admin' || member.user_type === 'superadmin',
+            permissions: member.permissions || member.preferences?.permissions || {
+              jobPosting: true,
+              resumeDatabase: true,
+              analytics: true,
+              featuredJobs: false,
+              hotVacancies: false,
+              applications: true,
+              requirements: true,
+              settings: false
+            }
           };
         }),
         pendingInvitations: pendingInvitations.map(inv => ({
@@ -139,11 +146,11 @@ exports.inviteTeamMember = async (req, res) => {
       });
     }
 
-    // Verify user is admin
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin') {
+    // Verify user is admin or has settings permission
+    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can invite team members'
+        message: 'Only admins or users with settings permission can invite team members'
       });
     }
 
@@ -261,17 +268,18 @@ exports.inviteTeamMember = async (req, res) => {
         designation: designation || 'Recruiter',
         is_email_verified: true,
         account_status: 'active',
+        permissions: permissions || {
+          jobPosting: true,
+          resumeDatabase: true,
+          analytics: true,
+          featuredJobs: false,
+          hotVacancies: false,
+          applications: true,
+          requirements: true,
+          settings: false
+        },
         preferences: {
-          permissions: permissions || {
-            jobPosting: true,
-            resumeDatabase: true,
-            analytics: true,
-            featuredJobs: false,
-            hotVacancies: false,
-            applications: true,
-            requirements: true,
-            settings: false
-          },
+          ...req.user?.preferences,
           employerRole: 'recruiter'
         },
         profile_completion: 100 // Set profile as complete to skip onboarding workflow
@@ -429,11 +437,11 @@ exports.removeTeamMember = async (req, res) => {
       });
     }
 
-    // Verify user is admin
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin') {
+    // Verify user is admin or has settings permission
+    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can remove team members'
+        message: 'Only admins or users with settings permission can remove team members'
       });
     }
 
@@ -515,11 +523,11 @@ exports.cancelInvitation = async (req, res) => {
       });
     }
 
-    // Verify user is admin
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin') {
+    // Verify user is admin or has settings permission
+    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can cancel invitations'
+        message: 'Only admins or users with settings permission can cancel invitations'
       });
     }
 
@@ -696,9 +704,9 @@ exports.acceptInvitation = async (req, res) => {
         designation: invitation.designation,
         is_email_verified: true,
         profile_completion: 100, // Set profile as complete
+        permissions: invitation.permissions,
         preferences: {
           ...user.preferences,
-          permissions: invitation.permissions,
           employerRole: 'recruiter'
         }
       });
@@ -716,8 +724,8 @@ exports.acceptInvitation = async (req, res) => {
         designation: invitation.designation,
         is_email_verified: true,
         profile_completion: 100, // Set profile as complete
+        permissions: invitation.permissions,
         preferences: {
-          permissions: invitation.permissions,
           employerRole: 'recruiter'
         }
       });
@@ -771,11 +779,11 @@ exports.updateTeamMemberPermissions = async (req, res) => {
       });
     }
 
-    // Verify user is admin
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin') {
+    // Verify user is admin or has settings permission
+    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can update permissions'
+        message: 'Only admins or users with settings permission can update permissions'
       });
     }
 
@@ -796,10 +804,7 @@ exports.updateTeamMemberPermissions = async (req, res) => {
     const updateData = {};
 
     if (permissions) {
-      updateData.preferences = {
-        ...teamMember.preferences,
-        permissions: permissions
-      };
+      updateData.permissions = permissions;
     }
 
     if (designation) {
@@ -838,11 +843,11 @@ exports.updateTeamMemberPhone = async (req, res) => {
       });
     }
 
-    // Verify user is admin
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin') {
+    // Verify user is admin or has settings permission
+    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
-        message: 'Only admins can update phone numbers'
+        message: 'Only admins or users with settings permission can update member details'
       });
     }
 

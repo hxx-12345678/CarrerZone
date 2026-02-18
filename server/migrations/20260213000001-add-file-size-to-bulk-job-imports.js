@@ -13,10 +13,26 @@ module.exports = {
     }
 
     if (!desc.file_size) {
-      await queryInterface.addColumn(table, 'file_size', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('table');
+        if (!tableInfo['file_size']) {
+          await queryInterface.addColumn('table', 'file_size', {
         type: Sequelize.INTEGER,
         allowNull: true
       });
+          console.log('✅ Added file_size to table');
+        } else {
+          console.log('ℹ️ Column file_size already exists in table, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column file_size already exists in table, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add file_size to table:', err.message);
+        }
+      }
+
     }
   },
 

@@ -15,10 +15,14 @@ import { EmployerAuthGuard } from '@/components/employer-auth-guard'
 import { EmployerDashboardNavbar } from '@/components/employer-dashboard-navbar'
 import { EmployerDashboardFooter } from '@/components/employer-dashboard-footer'
 
+import { PermissionGuard } from "@/components/permission-guard"
+
 export default function KYCVerificationPage() {
   return (
     <EmployerAuthGuard>
-      <KYCVerificationContent />
+      <PermissionGuard permission="settings">
+        <KYCVerificationContent />
+      </PermissionGuard>
     </EmployerAuthGuard>
   )
 }
@@ -28,7 +32,7 @@ function KYCVerificationContent() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [kycStatus, setKycStatus] = useState<any>(null)
-  const [files, setFiles] = useState<{[key: string]: File | null}>({
+  const [files, setFiles] = useState<{ [key: string]: File | null }>({
     gstCertificate: null,
     panCard: null,
     addressProof: null,
@@ -61,7 +65,7 @@ function KYCVerificationContent() {
         toast.error('File size must be less than 10MB')
         return
       }
-      
+
       // Validate file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
       if (!allowedTypes.includes(file.type)) {
@@ -76,7 +80,7 @@ function KYCVerificationContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validate at least GST certificate or Incorporation certificate is uploaded
     if (!files.gstCertificate && !files.incorporationCertificate) {
       toast.error('Please upload either GST Certificate or Incorporation Certificate (Required for instant verification)')
@@ -97,7 +101,7 @@ function KYCVerificationContent() {
 
     try {
       const formData = new FormData()
-      
+
       Object.entries(files).forEach(([key, file]) => {
         if (file) {
           formData.append(key, file)
@@ -118,7 +122,7 @@ function KYCVerificationContent() {
         toast.success('🎉 KYC documents uploaded successfully!')
         toast.info('Your documents are under review. You will be notified within 1-3 business days.')
         await loadKYCStatus()
-        
+
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
           router.push('/employer-dashboard')
@@ -153,10 +157,10 @@ function KYCVerificationContent() {
     if (!kycStatus) return 0
     if (kycStatus.verificationStatus === 'verified') return 100
     if (kycStatus.verificationStatus === 'pending') return 60
-    
+
     const uploadedDocs = kycStatus.agencyDocuments
     if (!uploadedDocs) return 0
-    
+
     const totalDocs = 6
     const uploaded = Object.keys(uploadedDocs).length
     return (uploaded / totalDocs) * 50 // 50% for uploading, 50% for verification
@@ -165,7 +169,7 @@ function KYCVerificationContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900">
       <EmployerDashboardNavbar />
-      
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -199,14 +203,14 @@ function KYCVerificationContent() {
                   </div>
                   <Progress value={getProgress()} className="h-2" />
                 </div>
-                
+
                 {kycStatus.verificationStatus === 'verified' && (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                     <p className="text-green-800 dark:text-green-200 font-medium flex items-center gap-2">
                       <CheckCircle className="w-5 h-5" />
                       Your agency is verified! You can now add clients and start posting jobs.
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => router.push('/employer-dashboard/manage-clients')}
                       className="mt-3 bg-green-600 hover:bg-green-700"
                     >
@@ -214,7 +218,7 @@ function KYCVerificationContent() {
                     </Button>
                   </div>
                 )}
-                
+
                 {kycStatus.verificationStatus === 'pending' && (
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                     <p className="text-yellow-800 dark:text-yellow-200 font-medium flex items-center gap-2">
@@ -377,7 +381,7 @@ function KYCVerificationContent() {
                       </>
                     )}
                   </Button>
-                  
+
                   <Button
                     type="button"
                     variant="outline"
@@ -392,7 +396,7 @@ function KYCVerificationContent() {
           </Card>
         )}
       </div>
-      
+
       <EmployerDashboardFooter />
     </div>
   )

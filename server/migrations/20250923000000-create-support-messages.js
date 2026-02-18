@@ -2,7 +2,12 @@
 
 module.exports = {
   async up (queryInterface, Sequelize) {
-    await queryInterface.createTable('support_messages', {
+    
+      try {
+        const tables = await queryInterface.showAllTables();
+        const normalized = Array.isArray(tables) ? tables.map(t => typeof t === 'string' ? t : t.tableName || t).map(n => String(n).toLowerCase()) : [];
+        if (!normalized.includes('support_messages')) {
+          await queryInterface.createTable('support_messages', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -75,13 +80,80 @@ module.exports = {
         defaultValue: Sequelize.NOW
       }
     });
+          console.log('✅ Created table support_messages');
+        } else {
+          console.log('ℹ️ Table support_messages already exists, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Table support_messages already exists, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/create table support_messages:', err.message);
+        }
+      }
+
 
     // Add indexes
-    await queryInterface.addIndex('support_messages', ['email']);
-    await queryInterface.addIndex('support_messages', ['status']);
-    await queryInterface.addIndex('support_messages', ['category']);
-    await queryInterface.addIndex('support_messages', ['priority']);
-    await queryInterface.addIndex('support_messages', ['created_at']);
+    
+      try {
+        await queryInterface.addIndex('support_messages', ['email']);
+        console.log('✅ Added index support_messages_email_idx to support_messages');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on support_messages already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on support_messages:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('support_messages', ['status']);
+        console.log('✅ Added index support_messages_status_idx to support_messages');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on support_messages already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on support_messages:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('support_messages', ['category']);
+        console.log('✅ Added index support_messages_category_idx to support_messages');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on support_messages already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on support_messages:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('support_messages', ['priority']);
+        console.log('✅ Added index support_messages_priority_idx to support_messages');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on support_messages already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on support_messages:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('support_messages', ['created_at']);
+        console.log('✅ Added index support_messages_created_at_idx to support_messages');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on support_messages already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on support_messages:', err.message);
+        }
+      }
+
   },
 
   async down (queryInterface, Sequelize) {

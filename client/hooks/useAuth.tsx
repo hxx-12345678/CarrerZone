@@ -68,6 +68,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     certifications: u.certifications,
     socialLinks: u.social_links ?? u.socialLinks,
     preferences: u.preferences,
+    permissions: u.permissions ?? u.preferences?.permissions ?? {
+      jobPosting: true,
+      resumeDatabase: true,
+      analytics: true,
+      featuredJobs: false,
+      hotVacancies: false,
+      applications: true,
+      requirements: true,
+      settings: false
+    },
     oauthProvider: u.oauth_provider ?? u.oauthProvider,
     oauthId: u.oauth_id ?? u.oauthId,
     createdAt: u.createdAt,

@@ -12,6 +12,7 @@ const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const { uploadBufferToCloudinary, isConfigured: isCloudinaryConfigured, deleteFromCloudinary } = require('../config/cloudinary');
 const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 const router = express.Router();
 
@@ -464,7 +465,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 // Get candidate profile for employers (general candidate profile)
-router.get('/candidates/:candidateId', authenticateToken, async (req, res) => {
+router.get('/candidates/:candidateId', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     const { candidateId } = req.params;
 
@@ -1833,7 +1834,7 @@ router.get('/debug/applications', authenticateToken, async (req, res) => {
 });
 
 // Simple test endpoint for employer applications
-router.get('/employer/applications/test', authenticateToken, async (req, res) => {
+router.get('/employer/applications/test', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     console.log('🧪 Testing employer applications endpoint...');
     console.log('🧪 User:', { id: req.user.id, type: req.user.user_type });
@@ -1881,7 +1882,7 @@ router.get('/employer/applications/test', authenticateToken, async (req, res) =>
 });
 
 // Get applications for employer's jobs
-router.get('/employer/applications', authenticateToken, async (req, res) => {
+router.get('/employer/applications', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     console.log('🔍 Fetching employer applications for user:', req.user?.id, 'type:', req.user?.user_type);
     console.log('🔍 Full user object:', req.user);
@@ -2244,7 +2245,7 @@ router.get('/employer/applications', authenticateToken, async (req, res) => {
 });
 
 // Get detailed application information for employer
-router.get('/employer/applications/:id', authenticateToken, async (req, res) => {
+router.get('/employer/applications/:id', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     const { JobApplication, Job, Company, User, Resume, CoverLetter, WorkExperience, Education } = require('../config/index');
     const { id } = req.params;
@@ -2439,7 +2440,7 @@ router.get('/employer/applications/:id', authenticateToken, async (req, res) => 
 });
 
 // Update application status (for employers)
-router.put('/employer/applications/:id/status', authenticateToken, async (req, res) => {
+router.put('/employer/applications/:id/status', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     console.log('🔍 Employer application status update request:', {
       applicationId: req.params.id,
@@ -4493,7 +4494,7 @@ router.get('/cover-letters/:id/download', attachTokenFromQuery, authenticateToke
 });
 
 // Download candidate cover letter (for employers)
-router.get('/employer/candidates/:candidateId/cover-letters/:coverLetterId/download', authenticateToken, async (req, res) => {
+router.get('/employer/candidates/:candidateId/cover-letters/:coverLetterId/download', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     // Check if user is an employer or admin
     if (req.user.user_type !== 'employer' && req.user.user_type !== 'admin') {
@@ -4579,7 +4580,7 @@ router.get('/employer/candidates/:candidateId/cover-letters/:coverLetterId/downl
 });
 
 // Employer endpoint to download cover letter from application
-router.get('/employer/applications/:applicationId/cover-letter/download', authenticateToken, async (req, res) => {
+router.get('/employer/applications/:applicationId/cover-letter/download', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     const { applicationId } = req.params;
 
@@ -4663,7 +4664,7 @@ router.get('/employer/applications/:applicationId/cover-letter/download', authen
 });
 
 // Employer endpoint to view resume from application (increment view count)
-router.get('/employer/applications/:applicationId/resume/view', authenticateToken, async (req, res) => {
+router.get('/employer/applications/:applicationId/resume/view', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     console.log('🔍 Employer resume view request:', { applicationId: req.params.applicationId, userId: req.user?.id, userType: req.user?.user_type });
 
@@ -4796,7 +4797,7 @@ router.get('/employer/applications/:applicationId/resume/view', authenticateToke
 });
 
 // Employer dashboard summary (parity with normal employer dashboard, Gulf-compatible)
-router.get('/employer/dashboard', authenticateToken, async (req, res) => {
+router.get('/employer/dashboard', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const { Job, JobApplication, Company } = require('../config/index');
 
@@ -4876,7 +4877,7 @@ function attachTokenFromQuery(req, _res, next) {
   next();
 }
 
-router.get('/employer/applications/:applicationId/resume/download', attachTokenFromQuery, authenticateToken, async (req, res) => {
+router.get('/employer/applications/:applicationId/resume/download', attachTokenFromQuery, authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     console.log('🔍 Employer resume download request:', { applicationId: req.params.applicationId, userId: req.user?.id, userType: req.user?.user_type });
 

@@ -72,6 +72,17 @@ export interface User {
   certifications?: any[];
   socialLinks?: any;
   preferences?: any;
+  permissions?: {
+    jobPosting: boolean;
+    resumeDatabase: boolean;
+    analytics: boolean;
+    featuredJobs: boolean;
+    hotVacancies: boolean;
+    applications: boolean;
+    requirements: boolean;
+    settings: boolean;
+    [key: string]: boolean;
+  };
   oauthProvider?: string;
   oauthId?: string;
   createdAt?: string;

@@ -3,7 +3,12 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('admin_notifications', {
+    
+      try {
+        const tables = await queryInterface.showAllTables();
+        const normalized = Array.isArray(tables) ? tables.map(t => typeof t === 'string' ? t : t.tableName || t).map(n => String(n).toLowerCase()) : [];
+        if (!normalized.includes('admin_notifications')) {
+          await queryInterface.createTable('admin_notifications', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -119,15 +124,104 @@ module.exports = {
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
+          console.log('✅ Created table admin_notifications');
+        } else {
+          console.log('ℹ️ Table admin_notifications already exists, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Table admin_notifications already exists, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/create table admin_notifications:', err.message);
+        }
+      }
+
 
     // Add indexes for better performance
-    await queryInterface.addIndex('admin_notifications', ['type']);
-    await queryInterface.addIndex('admin_notifications', ['category']);
-    await queryInterface.addIndex('admin_notifications', ['priority']);
-    await queryInterface.addIndex('admin_notifications', ['is_read']);
-    await queryInterface.addIndex('admin_notifications', ['created_at']);
-    await queryInterface.addIndex('admin_notifications', ['related_user_id']);
-    await queryInterface.addIndex('admin_notifications', ['related_company_id']);
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['type']);
+        console.log('✅ Added index admin_notifications_type_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['category']);
+        console.log('✅ Added index admin_notifications_category_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['priority']);
+        console.log('✅ Added index admin_notifications_priority_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['is_read']);
+        console.log('✅ Added index admin_notifications_is_read_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['created_at']);
+        console.log('✅ Added index admin_notifications_created_at_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['related_user_id']);
+        console.log('✅ Added index admin_notifications_related_user_id_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
+    
+      try {
+        await queryInterface.addIndex('admin_notifications', ['related_company_id']);
+        console.log('✅ Added index admin_notifications_related_company_id_idx to admin_notifications');
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+          console.log('ℹ️ Index on admin_notifications already exists, skipping...');
+        } else {
+          console.warn('⚠️ Could not add index on admin_notifications:', err.message);
+        }
+      }
+
   },
 
   async down(queryInterface, Sequelize) {

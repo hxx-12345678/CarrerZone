@@ -19,42 +19,8 @@ const {
 
 const { HotVacancyPhoto } = require('../config');
 
-// Middleware to verify JWT token
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access token required'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from database to ensure they still exist and are active
-    const User = require('../models/User');
-    const user = await User.findByPk(decoded.id);
-    
-    if (!user || !user.is_active) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid or inactive user'
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('❌ Token verification error:', error);
-    return res.status(403).json({
-      success: false,
-      message: 'Invalid or expired token'
-    });
-  }
-};
+const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 // Middleware to check if user is employer or admin
 const requireEmployer = (req, res, next) => {
@@ -107,6 +73,7 @@ router.get('/pricing', getPricingTiers);
 
 // Protected routes (authentication required)
 router.use(authenticateToken);
+router.use(checkPermission('hotVacancies'));
 
 // Employer-only routes
 router.use(requireEmployer);
@@ -135,7 +102,7 @@ router.post('/:id/photos/upload', hotVacancyPhotoUpload.single('photo'), async (
     // Check if hot vacancy exists and belongs to user
     const HotVacancy = require('../models/HotVacancy');
     const hotVacancy = await HotVacancy.findByPk(id);
-    
+
     if (!hotVacancy) {
       return res.status(404).json({
         success: false,
@@ -153,7 +120,7 @@ router.post('/:id/photos/upload', hotVacancyPhotoUpload.single('photo'), async (
     const filename = req.file.filename;
     const filePath = `/uploads/hot-vacancy-photos/${filename}`;
     const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}${filePath}`;
-    
+
     console.log('🔍 Generated hot vacancy photo URL:', fileUrl);
 
     const hotVacancyPhoto = await HotVacancyPhoto.create({
@@ -207,7 +174,7 @@ router.get('/:id/photos', async (req, res) => {
     // Check if hot vacancy exists and belongs to user
     const HotVacancy = require('../models/HotVacancy');
     const hotVacancy = await HotVacancy.findByPk(id);
-    
+
     if (!hotVacancy) {
       return res.status(404).json({
         success: false,

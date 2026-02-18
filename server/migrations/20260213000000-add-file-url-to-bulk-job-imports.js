@@ -12,11 +12,27 @@ module.exports = {
     }
 
     if (!desc.file_url) {
-      await queryInterface.addColumn(table, 'file_url', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('table');
+        if (!tableInfo['file_url']) {
+          await queryInterface.addColumn('table', 'file_url', {
         type: Sequelize.STRING(500),
         allowNull: true,
         comment: 'URL to the uploaded file'
       });
+          console.log('✅ Added file_url to table');
+        } else {
+          console.log('ℹ️ Column file_url already exists in table, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column file_url already exists in table, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add file_url to table:', err.message);
+        }
+      }
+
     }
 
     // Backfill file_url from file_path for existing rows if needed

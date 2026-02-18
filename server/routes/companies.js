@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 const router = express.Router();
 // (moved list and join company routes below middleware definition)
@@ -51,7 +52,7 @@ const companyLogoUpload = multer({
 });
 
 // Upload a company gallery photo
-router.post('/:id/photos', authenticateToken, companyPhotoUpload.single('photo'), async (req, res) => {
+router.post('/:id/photos', authenticateToken, checkPermission('settings'), companyPhotoUpload.single('photo'), async (req, res) => {
   try {
     const { id } = req.params;
     const { altText, caption, displayOrder, isPrimary } = req.body || {};
@@ -151,7 +152,7 @@ router.get('/:id/photos', async (req, res) => {
 });
 
 // Delete a company photo
-router.delete('/photos/:photoId', authenticateToken, async (req, res) => {
+router.delete('/photos/:photoId', authenticateToken, checkPermission('settings'), async (req, res) => {
   try {
     const { photoId } = req.params;
     // CompanyPhoto model is now directly imported
@@ -178,7 +179,7 @@ router.delete('/photos/:photoId', authenticateToken, async (req, res) => {
 });
 
 // Upload/replace company logo
-router.post('/:id/logo', authenticateToken, companyLogoUpload.single('logo'), async (req, res) => {
+router.post('/:id/logo', authenticateToken, checkPermission('settings'), companyLogoUpload.single('logo'), async (req, res) => {
   try {
     const { id } = req.params;
     if (!req.file) {
@@ -234,7 +235,7 @@ router.post('/:id/logo', authenticateToken, companyLogoUpload.single('logo'), as
 });
 
 // Upload/replace company banner/placeholder image
-router.post('/:id/banner', authenticateToken, companyLogoUpload.single('banner'), async (req, res) => {
+router.post('/:id/banner', authenticateToken, checkPermission('settings'), companyLogoUpload.single('banner'), async (req, res) => {
   try {
     const { id } = req.params;
     if (!req.file) {
@@ -546,7 +547,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Set company photo as placeholder
-router.post('/:companyId/photos/:photoId/set-placeholder', authenticateToken, async (req, res) => {
+router.post('/:companyId/photos/:photoId/set-placeholder', authenticateToken, checkPermission('settings'), async (req, res) => {
   try {
     const { companyId, photoId } = req.params;
 
@@ -873,7 +874,7 @@ router.get('/:id/jobs', async (req, res) => {
 });
 
 // Update company information
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, checkPermission('settings'), async (req, res) => {
   try {
     const { id } = req.params;
     const {

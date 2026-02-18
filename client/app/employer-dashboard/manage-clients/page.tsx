@@ -12,12 +12,15 @@ import { apiService } from '@/lib/api'
 import { EmployerAuthGuard } from '@/components/employer-auth-guard'
 import { EmployerDashboardNavbar } from '@/components/employer-dashboard-navbar'
 import { EmployerDashboardFooter } from '@/components/employer-dashboard-footer'
-import { useAuth } from '@/hooks/useAuth'
+import { PermissionGuard } from "@/components/permission-guard"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function ManageClientsPage() {
   return (
     <EmployerAuthGuard>
-      <ManageClientsContent />
+      <PermissionGuard permission="agencyClients">
+        <ManageClientsContent />
+      </PermissionGuard>
     </EmployerAuthGuard>
   )
 }
@@ -47,10 +50,10 @@ function ManageClientsContent() {
       const companyResponse = await apiService.getCompany(user.companyId)
       if (companyResponse.success && companyResponse.data) {
         const company = companyResponse.data
-        const agencyCheck = company.companyAccountType === 'recruiting_agency' || 
-                           company.companyAccountType === 'consulting_firm'
+        const agencyCheck = company.companyAccountType === 'recruiting_agency' ||
+          company.companyAccountType === 'consulting_firm'
         setIsAgency(agencyCheck)
-        
+
         if (agencyCheck) {
           loadClients()
         } else {
@@ -75,7 +78,7 @@ function ManageClientsContent() {
       setLoading(true)
       setError(null)
       const response = await apiService.getAgencyClients()
-      
+
       if (response.success) {
         setClients(response.data || [])
       } else {
@@ -129,7 +132,7 @@ function ManageClientsContent() {
 
   // Render client card
   const ClientCard = ({ client }: { client: any }) => {
-    const daysUntilExpiry = client.contractEndDate 
+    const daysUntilExpiry = client.contractEndDate
       ? Math.ceil((new Date(client.contractEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
       : null
 
@@ -139,8 +142,8 @@ function ManageClientsContent() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               {client.ClientCompany?.logo ? (
-                <img 
-                  src={client.ClientCompany.logo} 
+                <img
+                  src={client.ClientCompany.logo}
                   alt={client.ClientCompany.name}
                   className="w-12 h-12 rounded-lg object-cover"
                 />
@@ -171,7 +174,7 @@ function ManageClientsContent() {
                 <p className="text-xs text-amber-600 mt-1">⚠️ Expires in {daysUntilExpiry} days</p>
               )}
             </div>
-            
+
             <div>
               <p className="text-gray-500 flex items-center gap-1">
                 <Briefcase className="w-4 h-4" />
@@ -186,15 +189,15 @@ function ManageClientsContent() {
 
           {client.status === 'active' && client.canPostJobs && (
             <div className="mt-4 flex gap-2">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={() => router.push(`/employer-dashboard/post-job?clientId=${client.id}`)}
                 className="flex-1"
               >
                 Post Job for this Client
               </Button>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="outline"
                 onClick={() => router.push(`/employer-dashboard/manage-clients/${client.id}`)}
               >
@@ -215,8 +218,8 @@ function ManageClientsContent() {
 
           {client.status === 'expired' && (
             <div className="mt-4">
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="outline"
                 className="w-full"
                 onClick={() => toast.info('Contact client to renew authorization')}
@@ -240,9 +243,9 @@ function ManageClientsContent() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-br from-cyan-300/10 to-blue-300/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/4 left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
       </div>
-      
+
       <EmployerDashboardNavbar />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-16 relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -255,7 +258,7 @@ function ManageClientsContent() {
               View and manage your authorized client companies
             </p>
           </div>
-          
+
           {isAgency && (
             <Button
               onClick={() => router.push('/employer-dashboard/add-client')}
@@ -305,110 +308,110 @@ function ManageClientsContent() {
         {isAgency === true && (
           <>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Total Clients</p>
-                  <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-                </div>
-                <Building2 className="w-8 h-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Active</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-                </div>
-                <Clock className="w-8 h-8 text-yellow-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Expired</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.expired}</p>
-                </div>
-                <AlertTriangle className="w-8 h-8 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Clients List */}
-        <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-          <CardHeader>
-            <CardTitle className="text-slate-900 dark:text-white">Client Companies</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-6">
-                <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-                <TabsTrigger value="active">Active ({stats.active})</TabsTrigger>
-                <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
-                <TabsTrigger value="expired">Expired ({stats.expired})</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value={activeTab}>
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Total Clients</p>
+                      <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
+                    </div>
+                    <Building2 className="w-8 h-8 text-blue-600" />
                   </div>
-                ) : getFilteredClients(activeTab).length === 0 ? (
-                  <div className="text-center py-12">
-                    <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      No clients found
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      {activeTab === 'all' && "You haven't added any clients yet"}
-                      {activeTab === 'active' && "You don't have any active clients"}
-                      {activeTab === 'pending' && "No pending authorizations"}
-                      {activeTab === 'expired' && "No expired authorizations"}
-                    </p>
-                    {activeTab === 'all' && (
-                      <Button onClick={() => router.push('/employer-dashboard/add-client')}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Your First Client
-                      </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Active</p>
+                      <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+                    </div>
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Pending</p>
+                      <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+                    </div>
+                    <Clock className="w-8 h-8 text-yellow-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Expired</p>
+                      <p className="text-2xl font-bold text-red-600">{stats.expired}</p>
+                    </div>
+                    <AlertTriangle className="w-8 h-8 text-red-600" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Clients List */}
+            <Card className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-slate-900 dark:text-white">Client Companies</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="mb-6">
+                    <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
+                    <TabsTrigger value="active">Active ({stats.active})</TabsTrigger>
+                    <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
+                    <TabsTrigger value="expired">Expired ({stats.expired})</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value={activeTab}>
+                    {loading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : getFilteredClients(activeTab).length === 0 ? (
+                      <div className="text-center py-12">
+                        <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                          No clients found
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4">
+                          {activeTab === 'all' && "You haven't added any clients yet"}
+                          {activeTab === 'active' && "You don't have any active clients"}
+                          {activeTab === 'pending' && "No pending authorizations"}
+                          {activeTab === 'expired' && "No expired authorizations"}
+                        </p>
+                        {activeTab === 'all' && (
+                          <Button onClick={() => router.push('/employer-dashboard/add-client')}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Your First Client
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {getFilteredClients(activeTab).map((client: any) => (
+                          <ClientCard key={client.id} client={client} />
+                        ))}
+                      </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {getFilteredClients(activeTab).map((client: any) => (
-                      <ClientCard key={client.id} client={client} />
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
-      
+
       <EmployerDashboardFooter />
     </div>
   )

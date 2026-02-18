@@ -36,8 +36,8 @@ export function TeamMembersSection() {
   const [cancelInvitationDialogOpen, setCancelInvitationDialogOpen] = useState(false)
   const [invitationToCancel, setInvitationToCancel] = useState<any>(null)
 
-  // Only show for admin users
-  const isAdmin = user?.userType === 'admin' || user?.userType === 'superadmin'
+  // Only show for users with settings permission or admins
+  const isAdmin = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.settings === true
 
   useEffect(() => {
     if (isAdmin) {
@@ -95,7 +95,7 @@ export function TeamMembersSection() {
 
   const handleRemove = async () => {
     if (!userToDelete) return
-    
+
     try {
       const response = await apiService.removeTeamMember(userToDelete.id)
       if (response.success) {
@@ -113,7 +113,7 @@ export function TeamMembersSection() {
 
   const handleCancelInvitation = async () => {
     if (!invitationToCancel) return
-    
+
     try {
       const response = await apiService.cancelInvitation(invitationToCancel.id)
       if (response.success) {
@@ -160,7 +160,7 @@ export function TeamMembersSection() {
                   Invite a new team member to join your company
                 </DialogDescription>
               </DialogHeader>
-              <InviteTeamMemberForm 
+              <InviteTeamMemberForm
                 onInvite={handleInvite}
                 onClose={() => setIsInviteDialogOpen(false)}
               />
@@ -331,7 +331,7 @@ export function TeamMembersSection() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove {userToDelete?.firstName} {userToDelete?.lastName} ({userToDelete?.email}) from the team? 
+              Are you sure you want to remove {userToDelete?.firstName} {userToDelete?.lastName} ({userToDelete?.email}) from the team?
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -386,7 +386,7 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!email) {
       toast.error('Email is required')
       return

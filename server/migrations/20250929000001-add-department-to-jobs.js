@@ -8,11 +8,27 @@ module.exports = {
     const tableDescription = await queryInterface.describeTable('jobs');
     
     if (!tableDescription.department) {
-      await queryInterface.addColumn('jobs', 'department', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('jobs');
+        if (!tableInfo['department']) {
+          await queryInterface.addColumn('jobs', 'department', {
         type: Sequelize.STRING,
         allowNull: true,
         defaultValue: null
       });
+          console.log('✅ Added department to jobs');
+        } else {
+          console.log('ℹ️ Column department already exists in jobs, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column department already exists in jobs, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add department to jobs:', err.message);
+        }
+      }
+
       console.log('✅ Successfully added department column to jobs table');
     } else {
       console.log('ℹ️ Department column already exists in jobs table');

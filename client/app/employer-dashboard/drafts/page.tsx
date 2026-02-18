@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { apiService } from "@/lib/api"
 import { toast } from "sonner"
 import { EmployerAuthGuard } from "@/components/employer-auth-guard"
+import { PermissionGuard } from "@/components/permission-guard"
 
 export default function DraftsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -45,7 +46,7 @@ export default function DraftsPage() {
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('🔍 Fetching drafts with params:', {
         page: pagination.page,
         limit: pagination.limit,
@@ -64,17 +65,17 @@ export default function DraftsPage() {
 
       if (response.success) {
         console.log('✅ Drafts fetched successfully:', response.data)
-        
+
         // Filter to ensure only draft jobs are shown (in case backend doesn't filter properly)
         const draftJobsOnly = response.data.filter((job: any) => job.status === 'draft');
         console.log('🔍 Filtered drafts:', draftJobsOnly.length, 'out of', response.data.length, 'jobs');
-        
+
         // Log any jobs that shouldn't be in drafts
         const nonDraftJobs = response.data.filter((job: any) => job.status !== 'draft');
         if (nonDraftJobs.length > 0) {
           console.log('⚠️ Found non-draft jobs in response:', nonDraftJobs.map((j: any) => ({ id: j.id, title: j.title, status: j.status })));
         }
-        
+
         setDrafts(draftJobsOnly)
         setPagination(prev => ({
           ...prev,
@@ -88,7 +89,7 @@ export default function DraftsPage() {
       }
     } catch (error: any) {
       console.error('❌ Error fetching drafts:', error)
-      
+
       if (error.message?.includes('DATABASE_CONNECTION_ERROR')) {
         setError('Database connection error. Please try again later.')
         toast.error('Database connection error. Please try again later.')
@@ -120,9 +121,9 @@ export default function DraftsPage() {
 
     try {
       console.log('📤 Publishing draft:', jobId)
-      
+
       const response = await apiService.updateJobStatus(jobId, 'active')
-      
+
       if (response.success) {
         console.log('✅ Draft published successfully')
         toast.success('Draft published successfully')
@@ -144,9 +145,9 @@ export default function DraftsPage() {
 
     try {
       console.log('🗑️ Deleting draft:', jobId)
-      
+
       const response = await apiService.deleteJob(jobId)
-      
+
       if (response.success) {
         console.log('✅ Draft deleted successfully')
         toast.success('Draft deleted successfully')
@@ -166,7 +167,7 @@ export default function DraftsPage() {
     const now = new Date()
     const diffTime = Math.abs(now.getTime() - date.getTime())
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays === 1) return '1 day ago'
     if (diffDays < 7) return `${diffDays} days ago`
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
@@ -175,222 +176,223 @@ export default function DraftsPage() {
 
   return (
     <EmployerAuthGuard>
-      return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
-      <EmployerNavbar />
+      <PermissionGuard permission="jobPosting">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
+          <EmployerNavbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Job Drafts</h1>
-            <p className="text-slate-600">Manage your unpublished job drafts</p>
-          </div>
-          <Link href="/employer-dashboard/post-job">
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Draft
-            </Button>
-          </Link>
-        </div>
-
-        {/* Search */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/50 mb-8">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search drafts by title, department..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Job Drafts</h1>
+                <p className="text-slate-600">Manage your unpublished job drafts</p>
               </div>
+              <Link href="/employer-dashboard/post-job">
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Draft
+                </Button>
+              </Link>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Drafts List */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/50">
-          <CardContent className="p-6">
-            <div className="space-y-6">
-              {/* Loading State */}
-              {loading && (
-                <div className="text-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-                  <p className="text-slate-600">Loading your drafts...</p>
+            {/* Search */}
+            <Card className="bg-white/80 backdrop-blur-xl border-slate-200/50 mb-8">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search drafts by title, department..."
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              {/* Error State */}
-              {error && !loading && (
-                <Alert className="border-red-200 bg-red-50">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800">
-                    {error}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="ml-2"
-                      onClick={fetchDrafts}
-                    >
-                      Try Again
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
+            {/* Drafts List */}
+            <Card className="bg-white/80 backdrop-blur-xl border-slate-200/50">
+              <CardContent className="p-6">
+                <div className="space-y-6">
+                  {/* Loading State */}
+                  {loading && (
+                    <div className="text-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+                      <p className="text-slate-600">Loading your drafts...</p>
+                    </div>
+                  )}
 
-              {/* Drafts List */}
-              {!loading && !error && drafts.length > 0 ? (
-                drafts.map((draft: any, index: number) => (
-                  <motion.div
-                    key={draft.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1, duration: 0.5 }}
-                    className="border border-slate-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                          <Link
-                            href={`/employer-dashboard/post-job?draft=${draft.id}`}
-                            className="text-xl font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                          >
-                            {draft.title || 'Untitled Job'}
-                          </Link>
-                          <Badge className="bg-gray-100 text-gray-800 border-gray-200">Draft</Badge>
-                        </div>
+                  {/* Error State */}
+                  {error && !loading && (
+                    <Alert className="border-red-200 bg-red-50">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <AlertDescription className="text-red-800">
+                        {error}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="ml-2"
+                          onClick={fetchDrafts}
+                        >
+                          Try Again
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                          <div className="flex items-center space-x-2 text-sm text-slate-600">
-                            <Briefcase className="w-4 h-4" />
-                            <span>{draft.department || 'Not specified'}</span>
+                  {/* Drafts List */}
+                  {!loading && !error && drafts.length > 0 ? (
+                    drafts.map((draft: any, index: number) => (
+                      <motion.div
+                        key={draft.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1, duration: 0.5 }}
+                        className="border border-slate-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                              <Link
+                                href={`/employer-dashboard/post-job?draft=${draft.id}`}
+                                className="text-xl font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                              >
+                                {draft.title || 'Untitled Job'}
+                              </Link>
+                              <Badge className="bg-gray-100 text-gray-800 border-gray-200">Draft</Badge>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                                <Briefcase className="w-4 h-4" />
+                                <span>{draft.department || 'Not specified'}</span>
+                              </div>
+                              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                                <MapPin className="w-4 h-4" />
+                                <span>
+                                  {draft.location || 'Not specified'} • {draft.jobType || draft.type || 'Not specified'}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                                <Calendar className="w-4 h-4" />
+                                <span>{formatDate(draft.createdAt)}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-sm text-slate-600 mb-4">
+                              {draft.description ? (
+                                <p className="line-clamp-2">{draft.description}</p>
+                              ) : (
+                                <p className="text-slate-400 italic">No description added yet</p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center space-x-6 text-sm text-slate-600">
+                              <span>•</span>
+                              <span>{draft.salary || (draft.salaryMin && draft.salaryMax ? `₹${draft.salaryMin}-${draft.salaryMax} LPA` : 'Salary not specified')}</span>
+                              <span>•</span>
+                              <span>{draft.skills?.length || 0} skills added</span>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-slate-600">
-                            <MapPin className="w-4 h-4" />
-                            <span>
-                              {draft.location || 'Not specified'} • {draft.jobType || draft.type || 'Not specified'}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2 text-sm text-slate-600">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatDate(draft.createdAt)}</span>
-                          </div>
-                        </div>
 
-                        <div className="text-sm text-slate-600 mb-4">
-                          {draft.description ? (
-                            <p className="line-clamp-2">{draft.description}</p>
-                          ) : (
-                            <p className="text-slate-400 italic">No description added yet</p>
-                          )}
+                          <div className="flex items-center space-x-2">
+                            <Link href={`/employer-dashboard/post-job?draft=${draft.id}`}>
+                              <Button size="sm" variant="outline">
+                                <Edit className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                            </Link>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handlePublishDraft(draft.id)}>
+                                  <Send className="w-4 h-4 mr-2" />
+                                  Publish Draft
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Preview
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDeleteDraft(draft.id)}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete Draft
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-
-                        <div className="flex items-center space-x-6 text-sm text-slate-600">
-                          <span>•</span>
-                          <span>{draft.salary || (draft.salaryMin && draft.salaryMax ? `₹${draft.salaryMin}-${draft.salaryMax} LPA` : 'Salary not specified')}</span>
-                          <span>•</span>
-                          <span>{draft.skills?.length || 0} skills added</span>
-                        </div>
+                      </motion.div>
+                    ))
+                  ) : !loading && !error && drafts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Briefcase className="w-8 h-8 text-slate-400" />
                       </div>
+                      <h3 className="text-lg font-medium text-slate-900 mb-2">No drafts found</h3>
+                      <p className="text-slate-600 mb-4">
+                        {searchQuery
+                          ? "Try adjusting your search"
+                          : "To create a draft, go to Post a Job and click 'Save Draft' before publishing"}
+                      </p>
+                      <Link href="/employer-dashboard/post-job">
+                        <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Your First Draft
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : null}
 
+                  {/* Pagination */}
+                  {!loading && !error && drafts.length > 0 && pagination.pages > 1 && (
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-200">
+                      <div className="text-sm text-slate-600">
+                        Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} drafts
+                      </div>
                       <div className="flex items-center space-x-2">
-                        <Link href={`/employer-dashboard/post-job?draft=${draft.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button>
-                        </Link>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handlePublishDraft(draft.id)}>
-                              <Send className="w-4 h-4 mr-2" />
-                              Publish Draft
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Eye className="w-4 h-4 mr-2" />
-                              Preview
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => handleDeleteDraft(draft.id)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete Draft
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePageChange(pagination.page - 1)}
+                          disabled={pagination.page <= 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-slate-600">
+                          Page {pagination.page} of {pagination.pages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePageChange(pagination.page + 1)}
+                          disabled={pagination.page >= pagination.pages}
+                        >
+                          Next
+                        </Button>
                       </div>
                     </div>
-                  </motion.div>
-                ))
-              ) : !loading && !error && drafts.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Briefcase className="w-8 h-8 text-slate-400" />
-                  </div>
-                                     <h3 className="text-lg font-medium text-slate-900 mb-2">No drafts found</h3>
-                   <p className="text-slate-600 mb-4">
-                     {searchQuery
-                       ? "Try adjusting your search"
-                       : "To create a draft, go to Post a Job and click 'Save Draft' before publishing"}
-                   </p>
-                  <Link href="/employer-dashboard/post-job">
-                    <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Your First Draft
-                    </Button>
-                  </Link>
+                  )}
                 </div>
-              ) : null}
+              </CardContent>
+            </Card>
+          </div>
 
-              {/* Pagination */}
-              {!loading && !error && drafts.length > 0 && pagination.pages > 1 && (
-                <div className="flex items-center justify-between pt-6 border-t border-slate-200">
-                  <div className="text-sm text-slate-600">
-                    Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} drafts
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.page - 1)}
-                      disabled={pagination.page <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <span className="text-sm text-slate-600">
-                      Page {pagination.page} of {pagination.pages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                      disabled={pagination.page >= pagination.pages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <EmployerFooter />
-    </div>
+          <EmployerFooter />
+        </div>
+      </PermissionGuard>
     </EmployerAuthGuard>
   )
 }

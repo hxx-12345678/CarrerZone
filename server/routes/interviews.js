@@ -2,69 +2,37 @@ const express = require('express');
 const router = express.Router();
 const EmployerActivityService = require('../services/employerActivityService');
 const jwt = require('jsonwebtoken');
+const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
-// Middleware to verify JWT token
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Access token required' 
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const { User } = require('../config/index');
-    
-    const user = await User.findByPk(decoded.id);
-    if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid token' 
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(403).json({ 
-      success: false, 
-      message: 'Invalid or expired token' 
-    });
-  }
-};
 
 // Create interview
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
-    const { 
-      jobApplicationId, 
-      candidateId, 
-      jobId, 
-      title, 
-      description, 
-      interviewType, 
-      scheduledAt, 
-      duration, 
-      timezone, 
-      location, 
-      meetingLink, 
-      meetingPassword, 
-      interviewers, 
-      agenda, 
-      requirements, 
-      notes 
+    const {
+      jobApplicationId,
+      candidateId,
+      jobId,
+      title,
+      description,
+      interviewType,
+      scheduledAt,
+      duration,
+      timezone,
+      location,
+      meetingLink,
+      meetingPassword,
+      interviewers,
+      agenda,
+      requirements,
+      notes
     } = req.body;
 
     // Check if user is an employer or admin
     if (req.user.user_type !== 'employer' && req.user.user_type !== 'admin') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. Only employers can schedule interviews.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only employers can schedule interviews.'
       });
     }
 
@@ -72,9 +40,9 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Verify the job application exists and belongs to the employer
     const jobApplication = await JobApplication.findOne({
-      where: { 
+      where: {
         id: jobApplicationId,
-        employerId: req.user.id 
+        employerId: req.user.id
       },
       include: [
         { model: Job, as: 'job' },
@@ -83,25 +51,25 @@ router.post('/', authenticateToken, async (req, res) => {
     });
 
     if (!jobApplication) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Job application not found or access denied' 
+      return res.status(404).json({
+        success: false,
+        message: 'Job application not found or access denied'
       });
     }
 
     // Verify candidate exists
     const candidate = await User.findOne({
-      where: { 
+      where: {
         id: candidateId,
         user_type: 'jobseeker',
-        is_active: true 
+        is_active: true
       }
     });
 
     if (!candidate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Candidate not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Candidate not found'
       });
     }
 
@@ -216,12 +184,12 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Get interviews for employer
-router.get('/employer', authenticateToken, async (req, res) => {
+router.get('/employer', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     if (req.user.user_type !== 'employer' && req.user.user_type !== 'admin') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. Only employers can view interviews.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only employers can view interviews.'
       });
     }
 
@@ -243,10 +211,10 @@ router.get('/employer', authenticateToken, async (req, res) => {
         {
           model: JobApplication,
           as: 'jobApplication',
-          attributes: ['id','status','appliedAt'],
+          attributes: ['id', 'status', 'appliedAt'],
           include: [
-            { model: Job, as: 'job', attributes: ['id','title'] },
-            { model: User, as: 'applicant', attributes: ['id','first_name','last_name','email'] }
+            { model: Job, as: 'job', attributes: ['id', 'title'] },
+            { model: User, as: 'applicant', attributes: ['id', 'first_name', 'last_name', 'email'] }
           ]
         }
       ],
@@ -287,9 +255,9 @@ router.get('/employer', authenticateToken, async (req, res) => {
 router.get('/candidate', authenticateToken, async (req, res) => {
   try {
     if (req.user.user_type !== 'jobseeker') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. Only jobseekers can view their interviews.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only jobseekers can view their interviews.'
       });
     }
 
@@ -362,24 +330,24 @@ router.put('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!interview) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Interview not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Interview not found'
       });
     }
 
     // Check permissions
     if (req.user.user_type === 'employer' && interview.employerId !== req.user.id) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 
     if (req.user.user_type === 'jobseeker' && interview.candidateId !== req.user.id) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 
@@ -442,7 +410,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Cancel interview
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('applications'), async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -456,17 +424,17 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!interview) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Interview not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Interview not found'
       });
     }
 
     // Check permissions (only employer or admin can cancel)
     if ((req.user.user_type !== 'employer' && req.user.user_type !== 'admin') || interview.employerId !== req.user.id) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. Only employers and admins can cancel interviews.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only employers and admins can cancel interviews.'
       });
     }
 
@@ -537,24 +505,24 @@ router.get('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!interview) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Interview not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Interview not found'
       });
     }
 
     // Check permissions
     if (req.user.user_type === 'employer' && interview.employerId !== req.user.id) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 
     if (req.user.user_type === 'jobseeker' && interview.candidateId !== req.user.id) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 

@@ -948,7 +948,8 @@ router.post('/login', validateLogin, async (req, res) => {
         region: user.region,
         regions: userRegions, // Include regions array for multi-portal access
         currentLocation: user.current_location,
-        profileCompletion: user.profile_completion
+        profileCompletion: user.profile_completion,
+        permissions: user.permissions || {}
       },
       token,
       redirectTo: getRedirectUrl(user.user_type, user.region, company)
@@ -1072,7 +1073,8 @@ router.get('/me', authenticateToken, async (req, res) => {
       profileCompletion: user.profile_completion,
       designation: user.designation,
       region: user.region,
-      regions: userRegions // Include regions array for multi-portal access
+      regions: userRegions, // Include regions array for multi-portal access
+      permissions: user.permissions || {}
     };
 
     res.status(200).json({

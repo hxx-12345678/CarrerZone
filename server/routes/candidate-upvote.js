@@ -3,40 +3,9 @@ const router = express.Router();
 const { CandidateLike, User, Notification } = require('../config');
 const DashboardService = require('../services/dashboardService');
 const jwt = require('jsonwebtoken');
+const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
-// Auth middleware (copied pattern from other route files)
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access token required'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const user = await User.findByPk(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return res.status(403).json({
-      success: false,
-      message: 'Invalid or expired token'
-    });
-  }
-};
 
 // Ensure only employers and admins can like
 function ensureEmployer(req, res, next) {
@@ -47,7 +16,7 @@ function ensureEmployer(req, res, next) {
 }
 
 // Get like count and whether current employer liked
-router.get('/:candidateId', authenticateToken, async (req, res) => {
+router.get('/:candidateId', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
 	try {
 		const { candidateId } = req.params;
 		const likeCount = await CandidateLike.count({ where: { candidateId } });
@@ -64,11 +33,11 @@ router.get('/:candidateId', authenticateToken, async (req, res) => {
 });
 
 // Like a candidate
-router.post('/:candidateId', authenticateToken, ensureEmployer, async (req, res) => {
+router.post('/:candidateId', authenticateToken, checkPermission('resumeDatabase'), ensureEmployer, async (req, res) => {
 	try {
 		const { candidateId } = req.params;
 		const { requirementId } = req.body;
-		
+
 		if (candidateId === req.user.id) {
 			return res.status(400).json({ success: false, message: 'Cannot like your own profile' });
 		}
@@ -77,13 +46,13 @@ router.post('/:candidateId', authenticateToken, ensureEmployer, async (req, res)
 		if (!candidate || candidate.user_type !== 'jobseeker') {
 			return res.status(404).json({ success: false, message: 'Candidate not found' });
 		}
-		
+
 		// Create like with requirement ID if provided
 		const [like, created] = await CandidateLike.findOrCreate({
-			where: requirementId 
+			where: requirementId
 				? { employerId: req.user.id, candidateId, requirementId }
 				: { employerId: req.user.id, candidateId },
-			defaults: requirementId 
+			defaults: requirementId
 				? { employerId: req.user.id, candidateId, requirementId }
 				: { employerId: req.user.id, candidateId }
 		});
@@ -111,15 +80,15 @@ router.post('/:candidateId', authenticateToken, ensureEmployer, async (req, res)
 });
 
 // Unlike a candidate
-router.delete('/:candidateId', authenticateToken, ensureEmployer, async (req, res) => {
+router.delete('/:candidateId', authenticateToken, checkPermission('resumeDatabase'), ensureEmployer, async (req, res) => {
 	try {
 		const { candidateId } = req.params;
 		const { requirementId } = req.query;
-		
-		const whereClause = requirementId 
+
+		const whereClause = requirementId
 			? { employerId: req.user.id, candidateId, requirementId }
 			: { employerId: req.user.id, candidateId };
-		
+
 		const deleted = await CandidateLike.destroy({ where: whereClause });
 		return res.json({ success: true, data: { removed: deleted > 0, requirementId } });
 	} catch (error) {

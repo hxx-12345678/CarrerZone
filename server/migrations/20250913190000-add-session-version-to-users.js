@@ -15,11 +15,27 @@ module.exports = {
     }
 
 
-    await queryInterface.addColumn('users', 'session_version', {
+    
+      try {
+        const tableInfo = await queryInterface.describeTable('users');
+        if (!tableInfo['session_version']) {
+          await queryInterface.addColumn('users', 'session_version', {
       type: Sequelize.INTEGER,
       defaultValue: 1,
       allowNull: false
     });
+          console.log('✅ Added session_version to users');
+        } else {
+          console.log('ℹ️ Column session_version already exists in users, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column session_version already exists in users, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add session_version to users:', err.message);
+        }
+      }
+
     console.log('✅ Added session_version column to users table');
   },
 

@@ -16,7 +16,11 @@ module.exports = {
     
     try {
       // Track if company was created by an agency
-      await queryInterface.addColumn('companies', 'created_by_agency_id', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('companies');
+        if (!tableInfo['created_by_agency_id']) {
+          await queryInterface.addColumn('companies', 'created_by_agency_id', {
         type: Sequelize.UUID,
         allowNull: true,
         references: {
@@ -26,27 +30,75 @@ module.exports = {
         onDelete: 'SET NULL',
         comment: 'Agency that created this company profile'
       });
+          console.log('✅ Added created_by_agency_id to companies');
+        } else {
+          console.log('ℹ️ Column created_by_agency_id already exists in companies, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column created_by_agency_id already exists in companies, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add created_by_agency_id to companies:', err.message);
+        }
+      }
+
       console.log('✅ Added created_by_agency_id');
       
       // Track if company is claimed by its actual owner
-      await queryInterface.addColumn('companies', 'is_claimed', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('companies');
+        if (!tableInfo['is_claimed']) {
+          await queryInterface.addColumn('companies', 'is_claimed', {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue: true,
         comment: 'Whether company is claimed by its actual owner (false if created by agency)'
       });
+          console.log('✅ Added is_claimed to companies');
+        } else {
+          console.log('ℹ️ Column is_claimed already exists in companies, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column is_claimed already exists in companies, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add is_claimed to companies:', err.message);
+        }
+      }
+
       console.log('✅ Added is_claimed');
       
       // Track when company was claimed
-      await queryInterface.addColumn('companies', 'claimed_at', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('companies');
+        if (!tableInfo['claimed_at']) {
+          await queryInterface.addColumn('companies', 'claimed_at', {
         type: Sequelize.DATE,
         allowNull: true,
         comment: 'When company was claimed by its owner'
       });
+          console.log('✅ Added claimed_at to companies');
+        } else {
+          console.log('ℹ️ Column claimed_at already exists in companies, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column claimed_at already exists in companies, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add claimed_at to companies:', err.message);
+        }
+      }
+
       console.log('✅ Added claimed_at');
       
       // Track who claimed the company
-      await queryInterface.addColumn('companies', 'claimed_by_user_id', {
+      
+      try {
+        const tableInfo = await queryInterface.describeTable('companies');
+        if (!tableInfo['claimed_by_user_id']) {
+          await queryInterface.addColumn('companies', 'claimed_by_user_id', {
         type: Sequelize.UUID,
         allowNull: true,
         references: {
@@ -56,6 +108,18 @@ module.exports = {
         onDelete: 'SET NULL',
         comment: 'User who claimed the company'
       });
+          console.log('✅ Added claimed_by_user_id to companies');
+        } else {
+          console.log('ℹ️ Column claimed_by_user_id already exists in companies, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Column claimed_by_user_id already exists in companies, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/add claimed_by_user_id to companies:', err.message);
+        }
+      }
+
       console.log('✅ Added claimed_by_user_id');
       
       console.log('🎉 Company claiming fields added successfully!');

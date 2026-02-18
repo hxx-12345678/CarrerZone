@@ -3,26 +3,12 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const FeaturedJobController = require('../controller/FeaturedJobController');
 
-// Authentication middleware
-const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ success: false, message: 'Access token required' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ success: false, message: 'Invalid or expired token' });
-  }
-};
+const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
+router.use(checkPermission('featuredJobs'));
 
 // Get pricing plans
 router.get('/pricing', FeaturedJobController.getPricingPlans);

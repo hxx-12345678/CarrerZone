@@ -61,6 +61,10 @@ const User = sequelize.define('User', {
     type: DataTypes.JSONB,
     defaultValue: {}
   },
+  permissions: {
+    type: DataTypes.JSONB,
+    defaultValue: {}
+  },
   // For job seekers
   date_of_birth: {
     type: DataTypes.DATEONLY,

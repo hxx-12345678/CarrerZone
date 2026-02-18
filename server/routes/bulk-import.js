@@ -31,6 +31,7 @@ const JobTemplate = require('../models/JobTemplate');
 
 
 const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 const router = express.Router();
 
@@ -148,8 +149,7 @@ const upload = multer({
 
 
 // Get all bulk imports for a company
-
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
 
   try {
 
@@ -187,15 +187,15 @@ router.get('/', authenticateToken, async (req, res) => {
     try {
       imports = await BulkJobImport.findAndCountAll({
 
-      where: whereClause,
+        where: whereClause,
 
-      order: [['created_at', 'DESC']],
+        order: [['created_at', 'DESC']],
 
-      limit: parseInt(limit),
+        limit: parseInt(limit),
 
-      offset: parseInt(offset)
+        offset: parseInt(offset)
 
-      // Removed include to avoid association error
+        // Removed include to avoid association error
 
       });
     } catch (err) {
@@ -268,8 +268,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 
 // Get specific bulk import details
-
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
 
   try {
 
@@ -281,15 +280,15 @@ router.get('/:id', authenticateToken, async (req, res) => {
     try {
       importRecord = await BulkJobImport.findOne({
 
-      where: {
+        where: {
 
-        id: id,
+          id: id,
 
-        companyId: req.user.companyId || req.user.company_id
+          companyId: req.user.companyId || req.user.company_id
 
-      }
+        }
 
-      // Removed include to avoid association error
+        // Removed include to avoid association error
 
       });
     } catch (err) {
@@ -357,8 +356,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 
 // Simple upload route for testing
-
-router.post('/upload', authenticateToken, upload.single('file'), async (req, res) => {
+router.post('/upload', authenticateToken, checkPermission('jobPosting'), upload.single('file'), async (req, res) => {
 
   try {
 
@@ -417,8 +415,7 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
 
 
 // Create new bulk import with proper multer handling
-
-router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
+router.post('/', authenticateToken, checkPermission('jobPosting'), upload.single('file'), async (req, res) => {
 
   try {
 
@@ -697,8 +694,7 @@ router.post('/', authenticateToken, upload.single('file'), async (req, res) => {
 
 
 // Cancel bulk import
-
-router.post('/:id/cancel', authenticateToken, async (req, res) => {
+router.post('/:id/cancel', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
 
   try {
 
@@ -789,8 +785,7 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
 
 
 // Retry failed bulk import
-
-router.post('/:id/retry', authenticateToken, async (req, res) => {
+router.post('/:id/retry', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
 
   try {
 
@@ -908,7 +903,7 @@ router.post('/:id/retry', authenticateToken, async (req, res) => {
 
 
 // Delete single bulk import (and associated jobs if requested)
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
   try {
     const { id } = req.params;
     const { deleteJobs = false } = req.query; // Optional: delete associated jobs
@@ -980,7 +975,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete all bulk imports for the user's company
-router.delete('/', authenticateToken, async (req, res) => {
+router.delete('/', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
   try {
     // Prioritize user's company_id first
     const userCompanyId = req.user.company_id || req.user.companyId;
@@ -1056,8 +1051,7 @@ router.delete('/', authenticateToken, async (req, res) => {
 
 
 // Download template
-
-router.get('/template/:type', authenticateToken, async (req, res) => {
+router.get('/template/:type', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
 
   try {
 

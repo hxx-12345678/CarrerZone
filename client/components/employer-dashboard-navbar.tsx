@@ -19,7 +19,18 @@ export function EmployerDashboardNavbar() {
   const [unseenNotifications, setUnseenNotifications] = useState(0)
   const { user, logout, refreshUser } = useAuth()
   const [company, setCompany] = useState<any>(null)
-  const isAdmin = (user?.userType === 'admin') || (user?.preferences?.employerRole === 'admin')
+
+  // Use permissions for granular access control
+  const canManageJobs = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.jobPosting
+  const canViewApplications = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.applications
+  const canViewDatabase = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.resumeDatabase
+  const canViewAnalytics = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.analytics
+  const canManageFeatured = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.featuredJobs
+  const canManageHotVacancies = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.hotVacancies
+  const canManageRequirements = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.requirements
+  const canManageSettings = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.settings
+
+  const isAdmin = user?.userType === 'admin' || user?.userType === 'superadmin' || canManageSettings
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -27,9 +38,9 @@ export function EmployerDashboardNavbar() {
   }, [])
 
   // Check if mock mode is enabled
-  const isMockMode = typeof window !== 'undefined' && 
-    (localStorage.getItem('useMockData') === 'true' || 
-     window.location.search.includes('mock=true'))
+  const isMockMode = typeof window !== 'undefined' &&
+    (localStorage.getItem('useMockData') === 'true' ||
+      window.location.search.includes('mock=true'))
 
   // Mock user for development
   const mockUser = {
@@ -94,7 +105,7 @@ export function EmployerDashboardNavbar() {
     const handleNotificationRead = () => {
       fetchUnseenNotifications()
     }
-    
+
     if (typeof window !== 'undefined') {
       window.addEventListener('notificationRead', handleNotificationRead)
       return () => {
@@ -167,54 +178,62 @@ export function EmployerDashboardNavbar() {
                       <p className="text-xs text-slate-600">Manage your job postings and candidate responses</p>
                     </div>
                     <div className="space-y-1">
-                      <Link
-                        href="/employer-dashboard/post-job"
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
-                      >
-                        <div className="w-8 h-8 bg-blue-100/80 rounded-lg flex items-center justify-center group-hover:bg-blue-200/80 transition-colors">
-                          <Plus className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-slate-900 text-sm">Post a Free Job</div>
-                          <div className="text-xs text-slate-500">Post your job for free and reach thousands of candidates</div>
-                        </div>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/post-internship"
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
-                      >
-                        <div className="w-8 h-8 bg-green-100/80 rounded-lg flex items-center justify-center group-hover:bg-green-200/80 transition-colors">
-                          <Users className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-slate-900 text-sm">Post an Internship</div>
-                          <div className="text-xs text-slate-500">Find talented interns for your organization</div>
-                        </div>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/hot-vacancies"
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
-                      >
-                        <div className="w-8 h-8 bg-red-100/80 rounded-lg flex items-center justify-center group-hover:bg-red-200/80 transition-colors">
-                          <Briefcase className="w-4 h-4 text-red-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-slate-900 text-sm">Post a Hot Vacancy</div>
-                          <div className="text-xs text-slate-500">Premium urgent hiring solutions for immediate recruitment</div>
-                        </div>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/manage-jobs"
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
-                      >
-                        <div className="w-8 h-8 bg-blue-100/80 rounded-lg flex items-center justify-center group-hover:bg-blue-200/80 transition-colors">
-                          <Briefcase className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-slate-900 text-sm">Manage Jobs and Responses</div>
-                          <div className="text-xs text-slate-500">Track and manage all your job postings</div>
-                        </div>
-                      </Link>
+                      {canManageJobs && (
+                        <Link
+                          href="/employer-dashboard/post-job"
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
+                        >
+                          <div className="w-8 h-8 bg-blue-100/80 rounded-lg flex items-center justify-center group-hover:bg-blue-200/80 transition-colors">
+                            <Plus className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900 text-sm">Post a Free Job</div>
+                            <div className="text-xs text-slate-500">Post your job for free and reach thousands of candidates</div>
+                          </div>
+                        </Link>
+                      )}
+                      {canManageJobs && (
+                        <Link
+                          href="/employer-dashboard/post-internship"
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
+                        >
+                          <div className="w-8 h-8 bg-green-100/80 rounded-lg flex items-center justify-center group-hover:bg-green-200/80 transition-colors">
+                            <Users className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900 text-sm">Post an Internship</div>
+                            <div className="text-xs text-slate-500">Find talented interns for your organization</div>
+                          </div>
+                        </Link>
+                      )}
+                      {canManageHotVacancies && (
+                        <Link
+                          href="/employer-dashboard/hot-vacancies"
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
+                        >
+                          <div className="w-8 h-8 bg-red-100/80 rounded-lg flex items-center justify-center group-hover:bg-red-200/80 transition-colors">
+                            <Briefcase className="w-4 h-4 text-red-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900 text-sm">Post a Hot Vacancy</div>
+                            <div className="text-xs text-slate-500">Premium urgent hiring solutions for immediate recruitment</div>
+                          </div>
+                        </Link>
+                      )}
+                      {canManageJobs && (
+                        <Link
+                          href="/employer-dashboard/manage-jobs"
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
+                        >
+                          <div className="w-8 h-8 bg-blue-100/80 rounded-lg flex items-center justify-center group-hover:bg-blue-200/80 transition-colors">
+                            <Briefcase className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900 text-sm">Manage Jobs and Responses</div>
+                            <div className="text-xs text-slate-500">Track and manage all your job postings</div>
+                          </div>
+                        </Link>
+                      )}
                       <Link
                         href="/employer-dashboard/job-templates"
                         className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
@@ -227,18 +246,20 @@ export function EmployerDashboardNavbar() {
                           <div className="text-xs text-slate-500">Use pre-built templates for faster job posting</div>
                         </div>
                       </Link>
-                      <Link
-                        href="/employer-dashboard/applications"
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
-                      >
-                        <div className="w-8 h-8 bg-orange-100/80 rounded-lg flex items-center justify-center group-hover:bg-orange-200/80 transition-colors">
-                          <Users className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium text-slate-900 text-sm">View Applications</div>
-                          <div className="text-xs text-slate-500">Review and manage candidate applications</div>
-                        </div>
-                      </Link>
+                      {canViewApplications && (
+                        <Link
+                          href="/employer-dashboard/applications"
+                          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50/80 transition-colors group"
+                        >
+                          <div className="w-8 h-8 bg-orange-100/80 rounded-lg flex items-center justify-center group-hover:bg-orange-200/80 transition-colors">
+                            <Users className="w-4 h-4 text-orange-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900 text-sm">View Applications</div>
+                            <div className="text-xs text-slate-500">Review and manage candidate applications</div>
+                          </div>
+                        </Link>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -274,13 +295,15 @@ export function EmployerDashboardNavbar() {
                       <FileText className="w-4 h-4" />
                       <span>Create Requirement</span>
                     </Link>
-                    <Link
-                      href="/employer-dashboard/requirements"
-                      className="flex items-center space-x-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                    >
-                      <Users className="w-4 h-4" />
-                      <span>Manage Requirements</span>
-                    </Link>
+                    {canManageRequirements && (
+                      <Link
+                        href="/employer-dashboard/requirements"
+                        className="flex items-center space-x-2 px-4 py-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>Manage Requirements</span>
+                      </Link>
+                    )}
                     {isAdmin && (
                       <Link
                         href="/employer-dashboard/bulk-import"
@@ -319,8 +342,8 @@ export function EmployerDashboardNavbar() {
                   <Avatar className="w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
                     <AvatarImage src={company?.logo || company?.companyLogo || "/placeholder-logo.png"} />
                     <AvatarFallback>
-                      {company?.logo || company?.companyLogo ? 
-                        <Building2 className="w-3 h-3 sm:w-4 sm:h-4" /> : 
+                      {company?.logo || company?.companyLogo ?
+                        <Building2 className="w-3 h-3 sm:w-4 sm:h-4" /> :
                         `${displayUser?.firstName?.[0]}${displayUser?.lastName?.[0]}`
                       }
                     </AvatarFallback>
@@ -362,8 +385,8 @@ export function EmployerDashboardNavbar() {
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent 
-                side="right" 
+              <SheetContent
+                side="right"
                 className="w-full sm:w-80 bg-white/95 backdrop-blur-xl border-white/40 p-0 flex flex-col max-h-screen overflow-hidden"
               >
                 <div className="sr-only">

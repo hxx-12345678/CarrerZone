@@ -25,6 +25,7 @@ const {
 const { isApplicationsClosed } = require('../utils/applicationDeadline');
 
 const { authenticateToken } = require('../middlewares/auth');
+const checkPermission = require('../middlewares/checkPermission');
 
 // Public routes (order matters: specific routes before parameterized ':id')
 router.get('/', getAllJobs);
@@ -35,11 +36,11 @@ router.get('/:id', getJobById);
 // Protected routes (require authentication)
 router.get('/employer/manage-jobs', authenticateToken, getJobsByEmployer);
 router.get('/edit/:id', authenticateToken, getJobForEdit);
-router.post('/create', authenticateToken, createJob);
-router.put('/:id', authenticateToken, updateJob);
-router.delete('/:id', authenticateToken, deleteJob);
+router.post('/create', authenticateToken, checkPermission('jobPosting'), createJob);
+router.put('/:id', authenticateToken, checkPermission('jobPosting'), updateJob);
+router.delete('/:id', authenticateToken, checkPermission('jobPosting'), deleteJob);
 // Hardened status update with inline watcher notifications and explicit logs
-router.patch('/:id/status', authenticateToken, async (req, res) => {
+router.patch('/:id/status', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
@@ -236,7 +237,7 @@ router.post('/:id/notify-watchers', authenticateToken, async (req, res) => {
 });
 
 // Expire job immediately (set status to expired and validTill = now)
-router.patch('/:id/expire', authenticateToken, async (req, res) => {
+router.patch('/:id/expire', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
   try {
     const { id } = req.params;
     const job = await Job.findByPk(id);

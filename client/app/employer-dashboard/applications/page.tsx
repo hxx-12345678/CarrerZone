@@ -46,12 +46,16 @@ import { apiService } from "@/lib/api"
 import { toast } from "sonner"
 import Link from "next/link"
 
+import { PermissionGuard } from "@/components/permission-guard"
+
 export default function ApplicationsPage() {
   const { user, loading: authLoading } = useAuth()
 
   return (
     <EmployerAuthGuard>
-      <ApplicationsPageContent user={user} authLoading={authLoading} />
+      <PermissionGuard permission="applications">
+        <ApplicationsPageContent user={user} authLoading={authLoading} />
+      </PermissionGuard>
     </EmployerAuthGuard>
   )
 }
@@ -61,7 +65,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
   const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedApplication, setSelectedApplication] = useState<any>(null)
@@ -93,13 +97,13 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
     try {
       setLoading(true)
       setError(null)
-      
+
       console.log('🔄 Fetching employer applications for user:', user?.id, 'type:', user?.user_type)
-      
+
       const response = await apiService.getEmployerApplications()
-      
+
       console.log('📊 Employer applications API response:', response)
-      
+
       if (response.success) {
         console.log('✅ Applications fetched successfully:', response.data)
         console.log('📋 Number of applications:', response.data?.length || 0)
@@ -248,32 +252,32 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
 
   const filteredApplications = applications
     .filter(app => {
-      const matchesSearch = !searchQuery || 
+      const matchesSearch = !searchQuery ||
         app.applicant?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         app.job?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         app.applicant?.email?.toLowerCase().includes(searchQuery.toLowerCase())
-      
+
       const matchesStatus = statusFilter === "all" || app.status === statusFilter
-      
+
       return matchesSearch && matchesStatus
     })
     .sort((a, b) => {
       // Sort premium users first
       const aIsPremium = a.applicant && (
-        a.applicant.verification_level === 'premium' || 
-        a.applicant.verificationLevel === 'premium' || 
+        a.applicant.verification_level === 'premium' ||
+        a.applicant.verificationLevel === 'premium' ||
         a.applicant?.preferences?.premium
       )
       const bIsPremium = b.applicant && (
-        b.applicant.verification_level === 'premium' || 
-        b.applicant.verificationLevel === 'premium' || 
+        b.applicant.verification_level === 'premium' ||
+        b.applicant.verificationLevel === 'premium' ||
         b.applicant?.preferences?.premium
       )
-      
+
       // Premium users come first
       if (aIsPremium && !bIsPremium) return -1
       if (!aIsPremium && bIsPremium) return 1
-      
+
       // Within same premium status, sort by application date (newest first)
       return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
     })
@@ -299,7 +303,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
       if (response.success) {
         if (newStatus === 'rejected') {
           // Remove rejected application from the list
-          setApplications(prevApplications => 
+          setApplications(prevApplications =>
             prevApplications.filter(app => app.id !== applicationId)
           )
           toast.success('Application rejected and removed from list')
@@ -307,16 +311,16 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
           // For other status updates, check if the new status matches the current filter
           if (statusFilter === 'all' || statusFilter === newStatus) {
             // Update the application in the list if it should still be visible
-            setApplications(prevApplications => 
-              prevApplications.map(app => 
-                app.id === applicationId 
+            setApplications(prevApplications =>
+              prevApplications.map(app =>
+                app.id === applicationId
                   ? { ...app, status: newStatus }
                   : app
               )
             )
           } else {
             // Remove the application from the list if it no longer matches the filter
-            setApplications(prevApplications => 
+            setApplications(prevApplications =>
               prevApplications.filter(app => app.id !== applicationId)
             )
           }
@@ -338,11 +342,11 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
     console.log('🔍 Has applicant:', !!application?.applicant)
     console.log('🔍 Candidate data:', application?.candidate)
     console.log('🔍 Applicant data:', application?.applicant)
-    
+
     if (application && (application.candidate || application.applicant)) {
       const candidate = application.candidate || application.applicant;
       const candidateName = candidate?.name || candidate?.fullName || (candidate?.first_name && candidate?.last_name);
-      
+
       if (candidateName) {
         setInterviewApplication(application)
         setIsInterviewDialogOpen(true)
@@ -364,14 +368,14 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
         <EmployerDashboardNavbar />
-        
+
         {/* Background Effects - Blue theme */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-200/45 via-cyan-200/35 to-indigo-200/45"></div>
           <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-indigo-300/10 to-violet-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
-        
+
         <div className="relative z-10 container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
             <div className="text-center bg-white/50 backdrop-blur-xl border-white/40 rounded-3xl p-8 shadow-[0_8px_30px_rgba(59,130,246,0.06)]">
@@ -388,7 +392,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
       <EmployerDashboardNavbar />
-      
+
       {/* Background Effects - Blue theme */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Base blue gradient overlay to ensure visible background */}
@@ -399,7 +403,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
         {/* Wide translucent blue gradient strip */}
         <div className="absolute top-1/3 left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
       </div>
-      
+
       <div className="relative z-10 container mx-auto px-4 pt-16 pb-8">
         {/* Header */}
         <div className="mb-8">
@@ -416,24 +420,24 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                {statusFilter === 'all' ? 'Job Applications' : 
-                 statusFilter === 'reviewing' ? 'Applications Under Review' :
-                 statusFilter === 'shortlisted' ? 'Shortlisted Candidates' :
-                 statusFilter === 'interview_scheduled' ? 'Interview Scheduled' :
-                 statusFilter === 'hired' ? 'Hired Candidates' :
-                 statusFilter === 'rejected' ? 'Rejected Applications' :
-                 statusFilter === 'applied' ? 'New Applications' :
-                 'Job Applications'}
+                {statusFilter === 'all' ? 'Job Applications' :
+                  statusFilter === 'reviewing' ? 'Applications Under Review' :
+                    statusFilter === 'shortlisted' ? 'Shortlisted Candidates' :
+                      statusFilter === 'interview_scheduled' ? 'Interview Scheduled' :
+                        statusFilter === 'hired' ? 'Hired Candidates' :
+                          statusFilter === 'rejected' ? 'Rejected Applications' :
+                            statusFilter === 'applied' ? 'New Applications' :
+                              'Job Applications'}
               </h1>
               <p className="text-gray-600 mt-2">
                 {statusFilter === 'all' ? 'Manage and review applications from job seekers' :
-                 statusFilter === 'reviewing' ? 'Applications currently being reviewed' :
-                 statusFilter === 'shortlisted' ? 'Candidates who have been shortlisted' :
-                 statusFilter === 'interview_scheduled' ? 'Candidates with scheduled interviews' :
-                 statusFilter === 'hired' ? 'Successfully hired candidates' :
-                 statusFilter === 'rejected' ? 'Applications that have been rejected' :
-                 statusFilter === 'applied' ? 'Recently submitted applications' :
-                 'Manage and review applications from job seekers'}
+                  statusFilter === 'reviewing' ? 'Applications currently being reviewed' :
+                    statusFilter === 'shortlisted' ? 'Candidates who have been shortlisted' :
+                      statusFilter === 'interview_scheduled' ? 'Candidates with scheduled interviews' :
+                        statusFilter === 'hired' ? 'Successfully hired candidates' :
+                          statusFilter === 'rejected' ? 'Applications that have been rejected' :
+                            statusFilter === 'applied' ? 'Recently submitted applications' :
+                              'Manage and review applications from job seekers'}
               </p>
             </div>
             <div className="flex items-center space-x-4">
@@ -491,22 +495,22 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
         {filteredApplications.some(app => {
           const applicant = app.applicant
           return applicant && (
-            applicant.verification_level === 'premium' || 
-            applicant.verificationLevel === 'premium' || 
+            applicant.verification_level === 'premium' ||
+            applicant.verificationLevel === 'premium' ||
             applicant?.preferences?.premium
           )
         }) && (
-          <Card className="bg-yellow-50 border-yellow-200">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Star className="w-5 h-5 text-yellow-600" />
-                <p className="text-sm text-yellow-800">
-                  <strong>Premium Priority:</strong> Premium candidates are shown at the top of the list and highlighted with a golden border.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            <Card className="bg-yellow-50 border-yellow-200">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Star className="w-5 h-5 text-yellow-600" />
+                  <p className="text-sm text-yellow-800">
+                    <strong>Premium Priority:</strong> Premium candidates are shown at the top of the list and highlighted with a golden border.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         {/* Applications List */}
         <div className="space-y-4">
@@ -516,7 +520,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                 <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No applications found</h3>
                 <p className="text-gray-600">
-                  {searchQuery || statusFilter !== "all" 
+                  {searchQuery || statusFilter !== "all"
                     ? "No applications match your current filters."
                     : "You haven't received any job applications yet."
                   }
@@ -528,14 +532,14 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
               const StatusIcon = getStatusIcon(application.status)
               const applicant = application.applicant
               const job = application.job
-              
+
               // Check if applicant is premium
               const isPremium = applicant && (
-                applicant.verification_level === 'premium' || 
-                applicant.verificationLevel === 'premium' || 
+                applicant.verification_level === 'premium' ||
+                applicant.verificationLevel === 'premium' ||
                 applicant?.preferences?.premium
               )
-              
+
               return (
                 <Card key={application.id} className={`rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] ${isPremium ? 'ring-2 ring-yellow-200' : ''}`}>
                   <CardContent className="p-6">
@@ -547,7 +551,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                             {applicant?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'U'}
                           </AvatarFallback>
                         </Avatar>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="text-lg font-semibold text-gray-900 truncate">
@@ -562,7 +566,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                               {application.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                             </Badge>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div className="space-y-2">
                               <div className="flex items-center text-sm text-gray-600">
@@ -587,7 +591,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                                 </div>
                               )}
                             </div>
-                            
+
                             <div className="space-y-2">
                               {applicant?.current_location && (
                                 <div className="flex items-center text-sm text-gray-600">
@@ -609,13 +613,13 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                               )}
                             </div>
                           </div>
-                          
+
                           {applicant?.headline && (
                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                               {applicant.headline}
                             </p>
                           )}
-                          
+
                           {applicant?.allSkills && applicant.allSkills.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-3">
                               {applicant.allSkills.slice(0, 5).map((skill: string, index: number) => (
@@ -630,14 +634,14 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                               )}
                             </div>
                           )}
-                          
+
                           <div className="flex items-center text-xs text-gray-500">
                             <Calendar className="w-3 h-3 mr-1" />
                             Applied {new Date(application.appliedAt).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center space-x-2 ml-4">
                         <Button
                           variant="outline"
@@ -647,7 +651,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                           <Eye className="w-4 h-4 mr-1" />
                           View Details
                         </Button>
-                        
+
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm">
@@ -684,10 +688,10 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
             <DialogHeader>
               <DialogTitle>Application Details</DialogTitle>
             </DialogHeader>
-            
+
             {selectedApplication && (
-              <ApplicationDetailView 
-                application={selectedApplication} 
+              <ApplicationDetailView
+                application={selectedApplication}
                 onDownloadCoverLetter={handleDownloadCoverLetter}
               />
             )}
@@ -704,7 +708,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
           />
         )}
       </div>
-      
+
       <EmployerFooter />
     </div>
   )
@@ -740,28 +744,28 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
 
       // Fallback: application-based download
       const response = await apiService.downloadApplicationResume(resume.id, application.id)
-      
+
       console.log('🔍 Download response:', { status: response.status, ok: response.ok })
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error('❌ Download failed:', { status: response.status, statusText: response.statusText, errorText })
         throw new Error(`Download failed: ${response.status} ${response.statusText}`)
       }
-      
+
       // Get the filename from the response headers or use a default
       const contentDisposition = response.headers.get('content-disposition')
       let filename = resume.metadata?.filename || `${resume.title || 'Resume'}.pdf`
-      
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/)
         if (filenameMatch) {
           filename = filenameMatch[1]
         }
       }
-      
+
       console.log('🔍 Downloading file:', filename)
-      
+
       // Create blob and download
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -771,13 +775,13 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
       a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
-      
+
       // Clean up
       setTimeout(() => {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       }, 100)
-      
+
       toast.success('Resume downloaded successfully')
     } catch (error) {
       console.error('Error downloading resume:', error)
@@ -793,7 +797,7 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
 
     try {
       console.log('🔍 Attempting to view resume:', { resumeId: resume.id, applicationId: application.id })
-      
+
       // First log the resume view activity
       try {
         await apiService.viewApplicationResume(application.id)
@@ -811,23 +815,23 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
 
       // If no direct URL, fetch the resume file and create a blob URL for viewing
       const response = await apiService.downloadApplicationResume(resume.id, application.id)
-      
+
       console.log('🔍 View response:', { status: response.status, ok: response.ok })
-      
+
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
-        
+
         console.log('🔍 Opening resume in new tab')
-        
+
         // Open the resume in a new tab
         const newWindow = window.open(url, '_blank', 'noopener,noreferrer')
-        
+
         // Clean up the blob URL after a delay to allow the browser to load it
         setTimeout(() => {
           window.URL.revokeObjectURL(url)
         }, 10000)
-        
+
         if (!newWindow) {
           toast.error('Please allow popups to view the resume')
         }
@@ -872,7 +876,7 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
               <p className="text-gray-600">{applicant.summary}</p>
             </div>
           )}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-gray-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">{applicant?.totalExperienceYears || 0}</div>
@@ -1060,7 +1064,7 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
               </div>
             )}
           </div>
-          
+
           {application.coverLetter && (
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
@@ -1133,7 +1137,7 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
                   <p className="text-gray-600 mt-2">{jobResume.summary}</p>
                 )}
               </div>
-              
+
               {jobResume.skills && jobResume.skills.length > 0 && (
                 <div>
                   <h5 className="font-medium text-gray-900 mb-2">Resume Skills</h5>
@@ -1146,12 +1150,12 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
                   </div>
                 </div>
               )}
-              
+
               <div className="flex items-center text-sm text-gray-500">
                 <Calendar className="w-4 h-4 mr-1" />
                 Last updated: {new Date(jobResume.lastUpdated).toLocaleDateString()}
               </div>
-              
+
               {jobResume.metadata?.filename && (
                 <div className="flex items-center text-sm text-gray-500">
                   <FileText className="w-4 h-4 mr-1" />

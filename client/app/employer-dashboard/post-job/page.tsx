@@ -24,6 +24,7 @@ import DepartmentDropdown from "@/components/ui/department-dropdown"
 import IndustryDropdown from "@/components/ui/industry-dropdown"
 import RoleCategoryDropdown from "@/components/ui/role-category-dropdown"
 import { EmployerAuthGuard } from "@/components/employer-auth-guard"
+import { PermissionGuard } from "@/components/permission-guard"
 
 export default function PostJobPage() {
   const router = useRouter()
@@ -110,7 +111,7 @@ export default function PostJobPage() {
   const [jobPhotos, setJobPhotos] = useState<any[]>([])
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
   const [uploadedJobId, setUploadedJobId] = useState<string | null>(null)
-  const [brandingMedia, setBrandingMedia] = useState<{type: 'video' | 'photo', file?: File, preview: string, filename?: string}[]>([])
+  const [brandingMedia, setBrandingMedia] = useState<{ type: 'video' | 'photo', file?: File, preview: string, filename?: string }[]>([])
   const [uploadingBranding, setUploadingBranding] = useState(false)
   const [templates, setTemplates] = useState<any[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<string>("")
@@ -125,7 +126,7 @@ export default function PostJobPage() {
   const [selectedEducation, setSelectedEducation] = useState<string[]>([])
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([])
   const [currentEmail, setCurrentEmail] = useState("")
-  
+
   // ========== AGENCY CLIENT SELECTION STATE ==========
   const [isAgency, setIsAgency] = useState(false)
   const [activeClients, setActiveClients] = useState<any[]>([])
@@ -143,14 +144,14 @@ export default function PostJobPage() {
     { id: 5, title: "Photos", description: "Showcase your workplace" },
     { id: 6, title: "Review & Post", description: "Final review" },
   ]
-  
+
   // Filter steps based on hot vacancy mode
-  const steps = formData.isHotVacancy 
-    ? allSteps 
+  const steps = formData.isHotVacancy
+    ? allSteps
     : allSteps.filter(step => !step.hotVacancyOnly).map((step, index) => ({
-        ...step,
-        id: index + 1 // Renumber steps when Step 4 is excluded
-      }))
+      ...step,
+      id: index + 1 // Renumber steps when Step 4 is excluded
+    }))
 
   // ========== LOAD COMPANY DATA AND AGENCY CLIENTS ==========
   useEffect(() => {
@@ -163,7 +164,7 @@ export default function PostJobPage() {
           if (companyResponse.success && companyResponse.data) {
             const company = companyResponse.data
             setCompanyData(company)
-            
+
             // Auto-populate company name if not already set
             if (company.name && !formData.companyName) {
               setFormData(prev => ({
@@ -171,12 +172,12 @@ export default function PostJobPage() {
                 companyName: company.name
               }))
             }
-            
+
             // Check if user's company is an agency
             const companyAccountType = company.companyAccountType || 'direct'
             const isAgencyAccount = companyAccountType === 'recruiting_agency' || companyAccountType === 'consulting_firm'
             setIsAgency(isAgencyAccount)
-            
+
             if (isAgencyAccount) {
               // Load active clients
               setLoadingClients(true)
@@ -232,30 +233,30 @@ export default function PostJobPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const jobId = urlParams.get('draft') || urlParams.get('job');
     const hotVacancyParam = urlParams.get('hotVacancy');
-    
+
     const loadJobData = async () => {
       const templateId = urlParams.get('template');
       const templateDataParam = urlParams.get('templateData');
       const templateName = urlParams.get('templateName');
-      
+
       if (jobId && user) {
         try {
           setLoadingDraft(true);
           console.log('🔍 Loading job data for job ID:', jobId);
-          
+
           const response = await apiService.getJobForEdit(jobId);
-          
+
           if (response.success) {
             const jobData = response.data;
             console.log('✅ Job data loaded:', jobData);
-            
+
             setEditingJobId(jobId);
             setUploadedJobId(jobId);
-            
+
             // Sync selectedEducation state
             const educationArray = Array.isArray(jobData.education) ? jobData.education : (jobData.education ? [jobData.education] : [])
             setSelectedEducation(educationArray)
-            
+
             // Sync selectedIndustries state - fuzzy match against dropdown options
             // Industry dropdown has formats like "Software Product (532)" - we need to match against these
             const allIndustryOptions: string[] = [];
@@ -279,27 +280,27 @@ export default function PostJobPage() {
             industryCategories.forEach(cat => {
               allIndustryOptions.push(...cat.industries);
             });
-            
+
             // Fuzzy match function for industries
             const fuzzyMatchIndustry = (input: string): string | null => {
               if (!input || !input.trim()) return null;
               const normalized = input.toLowerCase().trim();
               const cleanInput = normalized.replace(/\s*\(\d+\)\s*$/, ''); // Remove numbers from input
-              
+
               // Exact match first (with or without numbers)
               const exactMatch = allIndustryOptions.find(opt => {
                 const cleanOpt = opt.toLowerCase().replace(/\s*\(\d+\)\s*$/, '');
                 return cleanOpt === cleanInput || opt.toLowerCase() === normalized;
               });
               if (exactMatch) return exactMatch;
-              
+
               // Partial match
               const partialMatch = allIndustryOptions.find(opt => {
                 const cleanOpt = opt.toLowerCase().replace(/\s*\(\d+\)\s*$/, '');
                 return cleanOpt.includes(cleanInput) || cleanInput.includes(cleanOpt);
               });
               if (partialMatch) return partialMatch;
-              
+
               // Word-based matching
               const inputWords = cleanInput.split(/\s+/);
               const wordMatch = allIndustryOptions.find(opt => {
@@ -310,11 +311,11 @@ export default function PostJobPage() {
                 });
               });
               if (wordMatch) return wordMatch;
-              
+
               return null;
             };
-            
-            const industryArray = jobData.industryType ? 
+
+            const industryArray = jobData.industryType ?
               jobData.industryType.split(', ')
                 .filter((i: string) => i.trim())
                 .map((i: string) => {
@@ -328,7 +329,7 @@ export default function PostJobPage() {
                   return trimmed.includes('(') ? trimmed : trimmed;
                 }) : []
             setSelectedIndustries(industryArray)
-            
+
             // Sync selectedRoleCategories state - fuzzy match against dropdown options
             const allRoleCategoryOptions = [
               "Engineering - Software & QA", "Sales & Business Development", "Customer Success, Service & Operations",
@@ -355,23 +356,23 @@ export default function PostJobPage() {
               "SCM & Logistics", "Production & Manufacturing", "Lending", "Content Management (Print)",
               "Engineering & Manufacturing"
             ];
-            
+
             // Fuzzy match function for role categories
             const fuzzyMatchRoleCategory = (input: string): string | null => {
               if (!input || !input.trim()) return null;
               const normalized = input.toLowerCase().trim();
-              
+
               // Exact match first
               const exactMatch = allRoleCategoryOptions.find(opt => opt.toLowerCase() === normalized);
               if (exactMatch) return exactMatch;
-              
+
               // Partial match
               const partialMatch = allRoleCategoryOptions.find(opt => {
                 const optLower = opt.toLowerCase();
                 return optLower.includes(normalized) || normalized.includes(optLower.split(' ')[0]);
               });
               if (partialMatch) return partialMatch;
-              
+
               // Word-based matching
               const inputWords = normalized.split(/\s+/);
               const wordMatch = allRoleCategoryOptions.find(opt => {
@@ -382,11 +383,11 @@ export default function PostJobPage() {
                 });
               });
               if (wordMatch) return wordMatch;
-              
+
               return null;
             };
-            
-            const roleCategoryArray = jobData.roleCategory ? 
+
+            const roleCategoryArray = jobData.roleCategory ?
               jobData.roleCategory.split(', ')
                 .filter((r: string) => r.trim())
                 .map((r: string) => {
@@ -399,7 +400,7 @@ export default function PostJobPage() {
                   return trimmed;
                 }) : []
             setSelectedRoleCategories(roleCategoryArray)
-            
+
             // FUZZY MATCH DEPARTMENT: Auto-select matching department from dropdown
             // Department dropdown options
             const departmentOptions = [
@@ -441,25 +442,25 @@ export default function PostJobPage() {
               "Energy & Mining",
               "Shipping & Maritime"
             ];
-            
+
             // Fuzzy match function - finds best matching department
             const fuzzyMatchDepartment = (input: string): string | null => {
               if (!input || !input.trim()) return null;
               const normalized = input.toLowerCase().trim();
-              
+
               // Exact match first
-              const exactMatch = departmentOptions.find(dept => 
+              const exactMatch = departmentOptions.find(dept =>
                 dept.toLowerCase() === normalized
               );
               if (exactMatch) return exactMatch;
-              
+
               // Partial match - check if input is contained in department name
               const partialMatch = departmentOptions.find(dept => {
                 const deptLower = dept.toLowerCase();
                 return deptLower.includes(normalized) || normalized.includes(deptLower.split(' ')[0]);
               });
               if (partialMatch) return partialMatch;
-              
+
               // Word-based matching (e.g., "marketing" -> "Marketing & Communication")
               const inputWords = normalized.split(/\s+/);
               const wordMatch = departmentOptions.find(dept => {
@@ -470,10 +471,10 @@ export default function PostJobPage() {
                 });
               });
               if (wordMatch) return wordMatch;
-              
+
               return null;
             };
-            
+
             // Auto-match department if it's not already a dropdown option
             let finalDepartment = jobData.department || '';
             if (finalDepartment && !departmentOptions.includes(finalDepartment)) {
@@ -483,10 +484,10 @@ export default function PostJobPage() {
                 finalDepartment = matched;
               }
             }
-            
+
             // Extract metadata for consultancy fields
             const metadata = jobData.metadata || {};
-            
+
             // Parse benefits to separate written text and selected checkboxes
             // Handle benefits as string, array, or object (JSONB from database)
             let benefitsStr: string = '';
@@ -501,11 +502,11 @@ export default function PostJobPage() {
                 benefitsStr = JSON.stringify(jobData.benefits);
               }
             }
-            
+
             let writtenBenefits = '';
             const commonBenefits = ["Health Insurance", "Dental Insurance", "Vision Insurance", "Life Insurance", "401(k) Plan", "Paid Time Off", "Flexible Hours", "Remote Work", "Professional Development", "Gym Membership", "Free Lunch", "Stock Options"];
             const selectedBenefitsFromData: string[] = [];
-            
+
             if (benefitsStr && typeof benefitsStr === 'string') {
               // Split by newlines or commas
               const separator = benefitsStr.includes('\n') ? '\n' : (benefitsStr.includes(',') ? ',' : '\n');
@@ -526,7 +527,7 @@ export default function PostJobPage() {
               });
             }
             setSelectedBenefits(selectedBenefitsFromData);
-            
+
             setFormData((prev) => ({
               ...prev,
               title: jobData.title || '',
@@ -534,7 +535,7 @@ export default function PostJobPage() {
               companyName: metadata.companyName || '',
               postingType: metadata.postingType || 'company',
               // CRITICAL: Ensure consultancyName is always the current employer's company name for consultancy jobs
-              consultancyName: metadata.postingType === 'consultancy' 
+              consultancyName: metadata.postingType === 'consultancy'
                 ? (metadata.consultancyName || companyData?.name || '')
                 : (metadata.consultancyName || ''),
               hiringCompanyName: metadata.hiringCompany?.name || '',
@@ -612,7 +613,7 @@ export default function PostJobPage() {
               impressions: jobData.impressions || 0,
               clicks: jobData.clicks || 0
             }));
-            
+
             // Load existing job photos
             try {
               const photosResponse = await apiService.getJobPhotos(jobId);
@@ -622,7 +623,7 @@ export default function PostJobPage() {
             } catch (photoError) {
               console.error('Failed to load job photos:', photoError);
             }
-            
+
             // Restore branding media from customBranding
             if (jobData.customBranding?.brandingMedia && Array.isArray(jobData.customBranding.brandingMedia)) {
               console.log('📸 Restoring branding media:', jobData.customBranding.brandingMedia);
@@ -639,7 +640,7 @@ export default function PostJobPage() {
                   preview: item.preview || item.url || '',
                   filename: item.filename || 'uploaded-file'
                 }));
-              
+
               if (restoredMedia.length > 0) {
                 setBrandingMedia(restoredMedia);
               } else if (jobData.customBranding.brandingMedia.length > 0) {
@@ -648,7 +649,7 @@ export default function PostJobPage() {
                 toast.info(`${jobData.customBranding.brandingMedia.length} branding media item(s) found. Please re-upload files for preview.`);
               }
             }
-            
+
             const isDraft = jobData.status === 'draft';
             toast.success(`${isDraft ? 'Draft' : 'Job'} loaded successfully! Continue editing where you left off.`);
           } else {
@@ -666,10 +667,10 @@ export default function PostJobPage() {
         try {
           setLoadingDraft(true);
           console.log('🔍 Loading template data from URL:', templateId);
-          
+
           const templateData = JSON.parse(decodeURIComponent(templateDataParam));
           console.log('✅ Template data loaded:', templateData);
-          
+
           setSelectedTemplate(templateId);
           setFormData((prev) => ({
             ...prev,
@@ -736,9 +737,9 @@ export default function PostJobPage() {
             impressions: templateData.impressions || 0,
             clicks: templateData.clicks || 0
           }));
-          
+
           toast.success(`Template "${decodeURIComponent(templateName || '')}" applied successfully! Customize the fields as needed.`);
-          
+
           // Clean up URL parameters
           const newUrl = new URL(window.location.href);
           newUrl.searchParams.delete('template');
@@ -757,7 +758,7 @@ export default function PostJobPage() {
     if (user && !loading && apiService.isAuthenticated()) {
       loadJobData();
       loadTemplates();
-      
+
       // Check if hot vacancy mode should be enabled
       if (hotVacancyParam === 'true' && !jobId) {
         console.log('🔥 Hot Vacancy mode enabled from URL parameter');
@@ -781,7 +782,7 @@ export default function PostJobPage() {
       console.log('Not authenticated, skipping template loading');
       return;
     }
-    
+
     try {
       const response = await apiService.getJobTemplates();
       if (response.success) {
@@ -795,25 +796,25 @@ export default function PostJobPage() {
   // Handle template selection
   const handleTemplateSelect = async (templateId: string) => {
     if (!templateId) return;
-    
+
     try {
       const response = await apiService.getJobTemplateById(templateId);
       if (response.success && response.data) {
         const template = response.data;
         console.log('🔍 Applying template:', template.name);
         console.log('📋 Template data:', template.templateData);
-        
+
         // Check if we're in hot vacancy mode from URL
         const urlParams = new URLSearchParams(window.location.search);
         const hotVacancyParam = urlParams.get('hotVacancy');
         const isHotVacancyMode = hotVacancyParam === 'true' || formData.isHotVacancy;
-        
+
         console.log('🔥 Hot vacancy mode:', isHotVacancyMode);
-        
+
         // Sync selectedEducation state
         const educationArray = Array.isArray(template.templateData.education) ? template.templateData.education : (template.templateData.education ? [template.templateData.education] : [])
         setSelectedEducation(educationArray)
-        
+
         const newFormData = {
           title: template.templateData.title || '',
           companyName: template.templateData.companyName || '',
@@ -887,13 +888,13 @@ export default function PostJobPage() {
           clicks: template.templateData.clicks || 0,
           currentSkillInput: ""
         };
-        
+
         console.log('📝 Setting form data:', newFormData);
         setFormData(newFormData);
-        
+
         // Record template usage
         await apiService.useJobTemplate(templateId);
-        
+
         toast.success(`Template "${template.name}" applied successfully! All fields have been pre-filled.`);
         setSelectedTemplate(templateId);
         setShowTemplateDialog(false);
@@ -910,7 +911,7 @@ export default function PostJobPage() {
       toast.error('Please set a valid hot vacancy price in Step 4 before proceeding')
       return
     }
-    
+
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1)
     }
@@ -930,7 +931,7 @@ export default function PostJobPage() {
       setShowAuthDialog(true)
       return
     }
-    
+
     if (user.userType !== 'employer' && user.userType !== 'admin') {
       toast.error('Only employers can save job drafts')
       setShowAuthDialog(true)
@@ -940,7 +941,7 @@ export default function PostJobPage() {
     try {
       setSavingDraft(true)
       console.log('💾 Saving job:', formData)
-      
+
       const jobData = {
         title: formData.title || 'Untitled Job',
         description: formData.description || '',
@@ -1038,13 +1039,13 @@ export default function PostJobPage() {
           setUploadedJobId(response.data.id);
         }
       }
-      
+
       if (response.success) {
         const action = editingJobId ? 'updated' : 'saved';
         const jobType = editingJobId ? 'job' : 'draft';
         toast.success(`${jobType.charAt(0).toUpperCase() + jobType.slice(1)} ${action} successfully!`)
         console.log(`✅ ${jobType.charAt(0).toUpperCase() + jobType.slice(1)} ${action}:`, response.data)
-        
+
         // For drafts, just show success message and stay on the form
         // For published jobs, show success dialog
         if (editingJobId || jobData.status === 'active') {
@@ -1060,7 +1061,7 @@ export default function PostJobPage() {
       }
     } catch (error: any) {
       console.error('❌ Job saving error:', error)
-      
+
       // Handle specific error types
       if (error.message?.includes('DATABASE_CONNECTION_ERROR')) {
         toast.error('Database connection error. Please try again later.')
@@ -1086,7 +1087,7 @@ export default function PostJobPage() {
       setShowAuthDialog(true)
       return
     }
-    
+
     if (user.userType !== 'employer' && user.userType !== 'admin') {
       toast.error('Only employers can post jobs')
       setShowAuthDialog(true)
@@ -1095,11 +1096,11 @@ export default function PostJobPage() {
 
     // Validate required fields with specific messages
     const validationErrors = []
-    
+
     if (!formData.title || formData.title.trim() === '') {
       validationErrors.push('Job title is required')
     }
-    
+
     // Validate posting type specific fields
     if (formData.postingType === 'consultancy') {
       // CRITICAL: Consultancy name is auto-set to company name, no validation needed
@@ -1121,7 +1122,7 @@ export default function PostJobPage() {
         validationErrors.push('Company name is required')
       }
     }
-    
+
     if (!formData.description || formData.description.trim() === '') {
       validationErrors.push('Job description is required')
     }
@@ -1143,14 +1144,14 @@ export default function PostJobPage() {
     if (!formData.salary || formData.salary.trim() === '') {
       validationErrors.push('Salary range is required')
     }
-    
+
     // Validate hot vacancy pricing if it's a hot vacancy
     if (formData.isHotVacancy) {
       if (!formData.hotVacancyPrice || formData.hotVacancyPrice <= 0) {
         validationErrors.push('Hot vacancy price is required and must be greater than 0')
       }
     }
-    
+
     if (validationErrors.length > 0) {
       toast.error(`Please fill in the following required fields: ${validationErrors.join(', ')}`)
       return
@@ -1164,14 +1165,14 @@ export default function PostJobPage() {
         hotVacancyPrice: formData.hotVacancyPrice,
         hotVacancyCurrency: formData.hotVacancyCurrency
       })
-      
+
       // Debug logging
       console.log('🔍 Form Data before sending:', {
         department: formData.department,
         brandingMediaCount: brandingMedia.length,
         isHotVacancy: formData.isHotVacancy
       });
-      
+
       const jobData = {
         title: formData.title,
         description: formData.description,
@@ -1266,7 +1267,7 @@ export default function PostJobPage() {
           }
         })
       }
-      
+
       // Debug logging for final jobData
       console.log('📤 Sending jobData to backend:', {
         department: jobData.department,
@@ -1274,50 +1275,50 @@ export default function PostJobPage() {
         brandingMediaCount: jobData.customBranding?.brandingMedia?.length || 0
       });
 
-             let response;
-       if (editingJobId) {
-         // Update existing job to active status
-         console.log('🔄 Publishing existing job:', editingJobId);
-         response = await apiService.updateJob(editingJobId, jobData);
-         setUploadedJobId(editingJobId);
-       } else {
-         // Create new job
-         console.log('🆕 Creating new job');
-         response = await apiService.postJob(jobData);
-         if (response.success && response.data?.id) {
-           setUploadedJobId(response.data.id);
-         }
-       }
-      
-             if (response.success) {
-         const action = editingJobId ? 'updated' : 'posted';
-         toast.success(`Job ${action} successfully!`)
-         console.log(`✅ Job ${action}:`, response.data)
-         
-         // Store the posted job ID and show success dialog
-         setPostedJobId(response.data.id)
-         setShowSuccessDialog(true)
-         
-         if (!editingJobId) {
-           // Only reset form for new jobs, not when editing
-           setFormData({
-             title: "",
+      let response;
+      if (editingJobId) {
+        // Update existing job to active status
+        console.log('🔄 Publishing existing job:', editingJobId);
+        response = await apiService.updateJob(editingJobId, jobData);
+        setUploadedJobId(editingJobId);
+      } else {
+        // Create new job
+        console.log('🆕 Creating new job');
+        response = await apiService.postJob(jobData);
+        if (response.success && response.data?.id) {
+          setUploadedJobId(response.data.id);
+        }
+      }
+
+      if (response.success) {
+        const action = editingJobId ? 'updated' : 'posted';
+        toast.success(`Job ${action} successfully!`)
+        console.log(`✅ Job ${action}:`, response.data)
+
+        // Store the posted job ID and show success dialog
+        setPostedJobId(response.data.id)
+        setShowSuccessDialog(true)
+
+        if (!editingJobId) {
+          // Only reset form for new jobs, not when editing
+          setFormData({
+            title: "",
             companyName: companyData?.name || "",
-             department: "",
-             location: "",
-             type: "",
-             experience: "",
-             salary: "",
-             description: "",
-             requirements: "",
-             benefits: "",
-             skills: [],
-             currentSkillInput: "",
-             role: "",
-             industryType: "",
-             roleCategory: "",
-             education: [],
-             employmentType: "",
+            department: "",
+            location: "",
+            type: "",
+            experience: "",
+            salary: "",
+            description: "",
+            requirements: "",
+            benefits: "",
+            skills: [],
+            currentSkillInput: "",
+            role: "",
+            industryType: "",
+            roleCategory: "",
+            education: [],
+            employmentType: "",
             // Consultancy fields
             postingType: "company",
             consultancyName: "",
@@ -1325,31 +1326,31 @@ export default function PostJobPage() {
             hiringCompanyIndustry: "",
             hiringCompanyDescription: "",
             showHiringCompanyDetails: false,
-             // Hot Vacancy Premium Features
-             isHotVacancy: false,
-             urgentHiring: false,
-             multipleEmailIds: [],
-             boostedSearch: false,
-             searchBoostLevel: "standard",
-             citySpecificBoost: [],
-             videoBanner: "",
-             whyWorkWithUs: "",
-             companyReviews: [],
-             autoRefresh: false,
-             refreshDiscount: 0,
-             attachmentFiles: [],
-             officeImages: [],
-             companyProfile: "",
-             proactiveAlerts: false,
-             alertRadius: 50,
-             alertFrequency: "immediate",
-             featuredKeywords: [],
-             customBranding: {},
-             superFeatured: false,
-             tierLevel: "basic",
-             externalApplyUrl: "",
-             hotVacancyPrice: 0,
-             hotVacancyCurrency: "INR",
+            // Hot Vacancy Premium Features
+            isHotVacancy: false,
+            urgentHiring: false,
+            multipleEmailIds: [],
+            boostedSearch: false,
+            searchBoostLevel: "standard",
+            citySpecificBoost: [],
+            videoBanner: "",
+            whyWorkWithUs: "",
+            companyReviews: [],
+            autoRefresh: false,
+            refreshDiscount: 0,
+            attachmentFiles: [],
+            officeImages: [],
+            companyProfile: "",
+            proactiveAlerts: false,
+            alertRadius: 50,
+            alertFrequency: "immediate",
+            featuredKeywords: [],
+            customBranding: {},
+            superFeatured: false,
+            tierLevel: "basic",
+            externalApplyUrl: "",
+            hotVacancyPrice: 0,
+            hotVacancyCurrency: "INR",
             hotVacancyPaymentStatus: "pending",
             // CRITICAL PREMIUM HOT VACANCY FEATURES
             urgencyLevel: "high",
@@ -1372,16 +1373,16 @@ export default function PostJobPage() {
             keywords: [],
             impressions: 0,
             clicks: 0
-           })
-           setCurrentStep(1)
-         }
-       } else {
+          })
+          setCurrentStep(1)
+        }
+      } else {
         console.error('❌ Job posting failed:', response)
         toast.error(response.message || 'Failed to post job')
       }
     } catch (error: any) {
       console.error('❌ Job posting error:', error)
-      
+
       // Handle specific error types
       if (error.message?.includes('DATABASE_CONNECTION_ERROR')) {
         toast.error('Database connection error. Please try again later.')
@@ -1423,7 +1424,7 @@ export default function PostJobPage() {
     setUploadingPhotos(true)
     const uploadPromises = Array.from(files).map(async (file, index) => {
       console.log(`📸 Uploading file ${index + 1}:`, file.name, file.size, file.type)
-      
+
       const uploadFormData = new FormData()
       uploadFormData.append('photo', file)
       uploadFormData.append('jobId', uploadedJobId)
@@ -1435,7 +1436,7 @@ export default function PostJobPage() {
         console.log('📸 Sending upload request for:', file.name)
         const response = await apiService.uploadJobPhoto(uploadFormData)
         console.log('📸 Upload response:', response)
-        
+
         if (response.success) {
           console.log('✅ Photo uploaded successfully:', response.data)
           return response.data
@@ -1453,7 +1454,7 @@ export default function PostJobPage() {
       const uploadedPhotos = await Promise.all(uploadPromises)
       console.log('✅ All photos uploaded:', uploadedPhotos)
       setJobPhotos(prev => [...prev, ...uploadedPhotos])
-      
+
       // Refresh photos from server to ensure consistency
       try {
         const photosResponse = await apiService.getJobPhotos(uploadedJobId)
@@ -1466,7 +1467,7 @@ export default function PostJobPage() {
       } catch (refreshError) {
         console.error('Failed to refresh photos:', refreshError)
       }
-      
+
       toast.success(`${uploadedPhotos.length} photo(s) uploaded successfully!`)
     } catch (error: any) {
       console.error('❌ Photo upload failed:', error)
@@ -1530,7 +1531,7 @@ export default function PostJobPage() {
     }
 
     const newFiles = Array.from(files).slice(0, remainingSlots)
-    
+
     // Validate files first
     for (const file of newFiles) {
       const isVideo = file.type.startsWith('video/')
@@ -1550,13 +1551,13 @@ export default function PostJobPage() {
 
     // Upload files to server
     setUploadingBranding(true)
-    const uploadedMedia: {type: 'video' | 'photo', file?: File, preview: string, filename?: string}[] = []
-    
+    const uploadedMedia: { type: 'video' | 'photo', file?: File, preview: string, filename?: string }[] = []
+
     try {
       for (const file of newFiles) {
         // Upload to server
         const uploadResponse = await apiService.uploadBrandingMedia(file)
-        
+
         if (uploadResponse.success && uploadResponse.data) {
           uploadedMedia.push({
             type: uploadResponse.data.type as 'video' | 'photo',
@@ -1568,7 +1569,7 @@ export default function PostJobPage() {
           toast.error(`Failed to upload ${file.name}`)
         }
       }
-      
+
       if (uploadedMedia.length > 0) {
         setBrandingMedia(prev => [...prev, ...uploadedMedia])
         toast.success(`Successfully uploaded ${uploadedMedia.length} file(s)`)
@@ -1602,7 +1603,7 @@ export default function PostJobPage() {
       toast.error('Please set a valid hot vacancy price in Step 4 before proceeding')
       return
     }
-    
+
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1)
     }
@@ -1614,7 +1615,7 @@ export default function PostJobPage() {
     }
   }
 
-  
+
 
   const renderStepContent = () => {
     // Map current step to actual content based on hot vacancy mode
@@ -1625,9 +1626,9 @@ export default function PostJobPage() {
       }
       return currentStep
     }
-    
+
     const actualStep = getActualStep()
-    
+
     switch (actualStep) {
       case 1:
         return (
@@ -1651,7 +1652,7 @@ export default function PostJobPage() {
                   Browse Templates
                 </Button>
               </div>
-              
+
               {selectedTemplate ? (
                 <div className="bg-white rounded-lg p-4 border border-green-200">
                   <div className="flex items-center justify-between">
@@ -1675,7 +1676,7 @@ export default function PostJobPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                        onClick={() => {
+                      onClick={() => {
                         setSelectedTemplate("");
                         setFormData({
                           title: "",
@@ -1727,28 +1728,28 @@ export default function PostJobPage() {
                           externalApplyUrl: "",
                           hotVacancyPrice: 0,
                           hotVacancyCurrency: "INR",
-                        hotVacancyPaymentStatus: "pending",
-                        // CRITICAL PREMIUM HOT VACANCY FEATURES
-                        urgencyLevel: "high",
-                        hiringTimeline: "immediate",
-                        maxApplications: 50,
-                        applicationDeadline: "",
-                        pricingTier: "premium",
-                        price: 0,
-                        currency: "INR",
-                        paymentId: "",
-                        paymentDate: "",
-                        priorityListing: false,
-                        featuredBadge: false,
-                        unlimitedApplications: false,
-                        advancedAnalytics: false,
-                        candidateMatching: false,
-                        directContact: false,
-                        seoTitle: "",
-                        seoDescription: "",
-                        keywords: [],
-                        impressions: 0,
-                        clicks: 0
+                          hotVacancyPaymentStatus: "pending",
+                          // CRITICAL PREMIUM HOT VACANCY FEATURES
+                          urgencyLevel: "high",
+                          hiringTimeline: "immediate",
+                          maxApplications: 50,
+                          applicationDeadline: "",
+                          pricingTier: "premium",
+                          price: 0,
+                          currency: "INR",
+                          paymentId: "",
+                          paymentDate: "",
+                          priorityListing: false,
+                          featuredBadge: false,
+                          unlimitedApplications: false,
+                          advancedAnalytics: false,
+                          candidateMatching: false,
+                          directContact: false,
+                          seoTitle: "",
+                          seoDescription: "",
+                          keywords: [],
+                          impressions: 0,
+                          clicks: 0
                         });
                         toast.info("Template cleared. Form has been reset.");
                       }}
@@ -1791,7 +1792,7 @@ export default function PostJobPage() {
                 </div>
               )}
             </div>
-            
+
             {/* Posting Type Selection */}
             <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
               <label className="block text-sm font-medium text-gray-900 mb-3">
@@ -1801,11 +1802,10 @@ export default function PostJobPage() {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, postingType: "company" })}
-                  className={`p-4 border-2 rounded-lg transition-all ${
-                    formData.postingType === "company"
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
+                  className={`p-4 border-2 rounded-lg transition-all ${formData.postingType === "company"
+                    ? "border-blue-600 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
+                    }`}
                 >
                   <Building2 className={`w-6 h-6 mx-auto mb-2 ${formData.postingType === "company" ? "text-blue-600" : "text-gray-400"}`} />
                   <div className="font-medium text-sm">Your Company/Business</div>
@@ -1813,18 +1813,17 @@ export default function PostJobPage() {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, postingType: "consultancy" })}
-                  className={`p-4 border-2 rounded-lg transition-all ${
-                    formData.postingType === "consultancy"
-                      ? "border-purple-600 bg-purple-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
+                  className={`p-4 border-2 rounded-lg transition-all ${formData.postingType === "consultancy"
+                    ? "border-purple-600 bg-purple-50"
+                    : "border-gray-200 hover:border-gray-300"
+                    }`}
                 >
                   <ExternalLink className={`w-6 h-6 mx-auto mb-2 ${formData.postingType === "consultancy" ? "text-purple-600" : "text-gray-400"}`} />
                   <div className="font-medium text-sm">Consultancy</div>
                 </button>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
@@ -1839,7 +1838,7 @@ export default function PostJobPage() {
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
               </div>
-              
+
               {/* Company Name or Consultancy Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
@@ -1861,9 +1860,9 @@ export default function PostJobPage() {
                     <Input
                       placeholder="e.g. Tech Solutions Pvt Ltd"
                       value={formData.companyName}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        companyName: e.target.value 
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        companyName: e.target.value
                       })}
                       disabled={companyData?.name ? true : false}
                       className={companyData?.name ? "bg-gray-50 cursor-not-allowed" : ""}
@@ -1893,15 +1892,15 @@ export default function PostJobPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-900 mb-2">Industry*</label>
-                <Button
+                        <Button
                           type="button"
-                  variant="outline"
-                  className="w-full justify-between"
+                          variant="outline"
+                          className="w-full justify-between"
                           onClick={() => setShowIndustryDropdown(true)}
-                >
+                        >
                           {formData.hiringCompanyIndustry || "Select industry"}
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-900 mb-2">Company Description*</label>
@@ -1939,7 +1938,7 @@ export default function PostJobPage() {
                     className="w-full justify-between"
                     onClick={() => setShowIndustryDropdown(true)}
                   >
-                    {selectedIndustries.length > 0 
+                    {selectedIndustries.length > 0
                       ? `${selectedIndustries.length} industry${selectedIndustries.length > 1 ? 'ies' : ''} selected`
                       : "Select industry type"
                     }
@@ -1956,8 +1955,8 @@ export default function PostJobPage() {
                         <Badge variant="secondary" className="text-xs">
                           +{selectedIndustries.length - 3} more
                         </Badge>
-                )}
-              </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1984,8 +1983,8 @@ export default function PostJobPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Experience Level*</label>
-                <Select 
-                  value={formData.experience || undefined} 
+                <Select
+                  value={formData.experience || undefined}
                   onValueChange={(value) => {
                     console.log('Experience level selected:', value);
                     setFormData({ ...formData, experience: value });
@@ -2076,7 +2075,7 @@ export default function PostJobPage() {
                 <span>{formData.department || "Select department"}</span>
                 <ChevronDown className="w-4 h-4" />
               </Button>
-              
+
               {showDepartmentDropdown && (
                 <DepartmentDropdown
                   selectedDepartments={formData.department ? [formData.department] : []}
@@ -2141,7 +2140,7 @@ export default function PostJobPage() {
                 className="w-full justify-between"
                 onClick={() => setShowRoleCategoryDropdown(true)}
               >
-                {selectedRoleCategories.length > 0 
+                {selectedRoleCategories.length > 0
                   ? `${selectedRoleCategories.length} role${selectedRoleCategories.length > 1 ? 's' : ''} selected`
                   : "Select role category"
                 }
@@ -2197,18 +2196,16 @@ export default function PostJobPage() {
                         setSelectedEducation(updated)
                         setFormData({ ...formData, education: updated })
                       }}
-                      className={`px-3 py-2 rounded-lg border-2 cursor-pointer transition-all ${
-                        selectedEducation.includes(edu)
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
-                          : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-                      }`}
+                      className={`px-3 py-2 rounded-lg border-2 cursor-pointer transition-all ${selectedEducation.includes(edu)
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                          selectedEducation.includes(edu)
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300'
-                        }`}>
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${selectedEducation.includes(edu)
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-gray-300'
+                          }`}>
                           {selectedEducation.includes(edu) && (
                             <CheckCircle className="h-3 w-3 text-white" />
                           )}
@@ -2264,7 +2261,7 @@ export default function PostJobPage() {
                   <span className="ml-2 text-xs text-green-600">✨ Pre-filled from template</span>
                 )}
               </label>
-              <Input 
+              <Input
                 placeholder="e.g. SAP Security, SAP GRC, JavaScript, React (press Enter or comma to add)"
                 value={formData.currentSkillInput || ''}
                 onChange={(e) => {
@@ -2277,15 +2274,15 @@ export default function PostJobPage() {
                     const input = e.currentTarget.value.trim();
                     if (input) {
                       // Split by comma if it exists, otherwise use the entire input
-                      const newSkills = input.includes(',') 
+                      const newSkills = input.includes(',')
                         ? input.split(',').map(skill => skill.trim()).filter(skill => skill)
                         : [input];
-                      
+
                       // Add to existing skills, avoiding duplicates
                       const existingSkills = Array.isArray(formData.skills) ? formData.skills : [];
                       const combinedSkills = [...existingSkills, ...newSkills];
                       const uniqueSkills = Array.from(new Set(combinedSkills));
-                      
+
                       setFormData({ ...formData, skills: uniqueSkills, currentSkillInput: '' });
                     }
                   }
@@ -2351,7 +2348,7 @@ export default function PostJobPage() {
                   "Stock Options",
                 ].map((benefit) => (
                   <div key={benefit} className="flex items-center space-x-2">
-                    <Checkbox 
+                    <Checkbox
                       id={benefit}
                       checked={selectedBenefits.includes(benefit)}
                       onCheckedChange={(checked) => {
@@ -2369,7 +2366,7 @@ export default function PostJobPage() {
                 ))}
               </div>
             </div>
-            
+
             {/* Application Deadline - Available for ALL users (not just hot vacancy) */}
             <div className="bg-white rounded-lg p-4 border border-gray-200 mt-6">
               <h4 className="font-semibold text-gray-900 mb-4">📅 Application Deadline</h4>
@@ -2388,7 +2385,7 @@ export default function PostJobPage() {
                 </p>
               </div>
             </div>
-            
+
             {/* Hot Vacancy Toggle */}
             <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-lg p-6 mt-6">
               <div className="flex items-start space-x-3">
@@ -2410,7 +2407,7 @@ export default function PostJobPage() {
                     <Badge variant="destructive" className="text-xs">Premium</Badge>
                   </label>
                   <p className="text-xs text-gray-600 mt-1">
-                    Get premium visibility, boosted search rankings, and advanced features to attract top talent faster. 
+                    Get premium visibility, boosted search rankings, and advanced features to attract top talent faster.
                     Unlock features like urgent hiring badges, city-specific boosts, multiple contact emails, and more.
                   </p>
                 </div>
@@ -2434,7 +2431,7 @@ export default function PostJobPage() {
               <p className="text-sm text-gray-600 mb-4">
                 Make your job posting stand out with premium features for maximum visibility and faster hiring.
               </p>
-              
+
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -2442,8 +2439,8 @@ export default function PostJobPage() {
                     checked={formData.isHotVacancy}
                     onCheckedChange={(checked) => {
                       const newValue = checked as boolean;
-                      setFormData({ 
-                        ...formData, 
+                      setFormData({
+                        ...formData,
                         isHotVacancy: newValue,
                         // Set default pricing when enabling hot vacancy
                         hotVacancyPrice: newValue && formData.hotVacancyPrice === 0 ? 1000 : formData.hotVacancyPrice
@@ -2461,19 +2458,19 @@ export default function PostJobPage() {
                     </div>
                   )}
                 </div>
-                
+
                 {formData.isHotVacancy && (
                   <div className="ml-6 space-y-6 border-l-2 border-red-200 pl-4">
                     {/* Urgency & Timeline Settings */}
                     <div className="bg-white rounded-lg p-4 border border-gray-200">
                       <h4 className="font-semibold text-gray-900 mb-4">⏰ Urgency & Timeline</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-900 mb-2">
                             Urgency Level
                           </label>
-                          <Select 
-                            value={formData.urgencyLevel} 
+                          <Select
+                            value={formData.urgencyLevel}
                             onValueChange={(value) => setFormData({ ...formData, urgencyLevel: value })}
                           >
                             <SelectTrigger>
@@ -2486,13 +2483,13 @@ export default function PostJobPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        
+
                         <div>
                           <label className="block text-sm font-medium text-gray-900 mb-2">
                             Hiring Timeline
                           </label>
-                          <Select 
-                            value={formData.hiringTimeline} 
+                          <Select
+                            value={formData.hiringTimeline}
                             onValueChange={(value) => setFormData({ ...formData, hiringTimeline: value })}
                           >
                             <SelectTrigger>
@@ -2508,7 +2505,7 @@ export default function PostJobPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Premium Paid Features */}
                     <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
                       <h4 className="font-semibold text-gray-900 mb-4">💎 Premium Paid Features</h4>
@@ -2524,7 +2521,7 @@ export default function PostJobPage() {
                             Priority Listing (Top Placement)
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="featuredBadge"
@@ -2536,7 +2533,7 @@ export default function PostJobPage() {
                             Featured Badge
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="advancedAnalytics"
@@ -2547,7 +2544,7 @@ export default function PostJobPage() {
                             📊 Advanced Analytics
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="candidateMatching"
@@ -2558,7 +2555,7 @@ export default function PostJobPage() {
                             🤖 AI Candidate Matching
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="directContact"
@@ -2569,7 +2566,7 @@ export default function PostJobPage() {
                             📞 Direct Contact Access
                           </label>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Checkbox
                             id="unlimitedApplications"
@@ -2582,70 +2579,70 @@ export default function PostJobPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Basic Premium Features */}
                     <div className="bg-white rounded-lg p-4 border border-gray-200">
                       <h4 className="font-semibold text-gray-900 mb-4">🚀 Visibility Boosters</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="urgentHiring"
-                          checked={formData.urgentHiring}
-                          onCheckedChange={(checked) => setFormData({ ...formData, urgentHiring: checked as boolean })}
-                        />
-                        <label htmlFor="urgentHiring" className="text-sm flex items-center gap-1">
-                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="urgentHiring"
+                            checked={formData.urgentHiring}
+                            onCheckedChange={(checked) => setFormData({ ...formData, urgentHiring: checked as boolean })}
+                          />
+                          <label htmlFor="urgentHiring" className="text-sm flex items-center gap-1">
+                            <AlertCircle className="h-4 w-4 text-red-500" />
                             Urgent Hiring Badge
-                        </label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="boostedSearch"
-                          checked={formData.boostedSearch}
-                          onCheckedChange={(checked) => setFormData({ ...formData, boostedSearch: checked as boolean })}
-                        />
-                        <label htmlFor="boostedSearch" className="text-sm flex items-center gap-1">
-                          <TrendingUp className="h-4 w-4 text-blue-500" />
-                          Boosted Search
-                        </label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="proactiveAlerts"
-                          checked={formData.proactiveAlerts}
-                          onCheckedChange={(checked) => setFormData({ ...formData, proactiveAlerts: checked as boolean })}
-                        />
-                        <label htmlFor="proactiveAlerts" className="text-sm flex items-center gap-1">
-                          <Zap className="h-4 w-4 text-green-500" />
-                          Proactive Alerts
-                        </label>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="superFeatured"
-                          checked={formData.superFeatured}
-                          onCheckedChange={(checked) => setFormData({ ...formData, superFeatured: checked as boolean })}
-                        />
-                        <label htmlFor="superFeatured" className="text-sm flex items-center gap-1">
-                          <Star className="h-4 w-4 text-purple-500" />
-                          Super Featured
-                        </label>
+                          </label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="boostedSearch"
+                            checked={formData.boostedSearch}
+                            onCheckedChange={(checked) => setFormData({ ...formData, boostedSearch: checked as boolean })}
+                          />
+                          <label htmlFor="boostedSearch" className="text-sm flex items-center gap-1">
+                            <TrendingUp className="h-4 w-4 text-blue-500" />
+                            Boosted Search
+                          </label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="proactiveAlerts"
+                            checked={formData.proactiveAlerts}
+                            onCheckedChange={(checked) => setFormData({ ...formData, proactiveAlerts: checked as boolean })}
+                          />
+                          <label htmlFor="proactiveAlerts" className="text-sm flex items-center gap-1">
+                            <Zap className="h-4 w-4 text-green-500" />
+                            Proactive Alerts
+                          </label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="superFeatured"
+                            checked={formData.superFeatured}
+                            onCheckedChange={(checked) => setFormData({ ...formData, superFeatured: checked as boolean })}
+                          />
+                          <label htmlFor="superFeatured" className="text-sm flex items-center gap-1">
+                            <Star className="h-4 w-4 text-purple-500" />
+                            Super Featured
+                          </label>
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Application Settings */}
                     <div className="bg-white rounded-lg p-4 border border-gray-200">
                       <h4 className="font-semibold text-gray-900 mb-4">📝 Application Settings</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-900 mb-2">
                             Max Applications
-                      </label>
-                      <Input
+                          </label>
+                          <Input
                             type="number"
                             placeholder="50"
                             value={formData.maxApplications}
@@ -2656,7 +2653,7 @@ export default function PostJobPage() {
                             {formData.unlimitedApplications ? 'Unlimited enabled' : 'Max number of applications accepted'}
                           </p>
                         </div>
-                        
+
                         <div>
                           <label className="block text-sm font-medium text-gray-900 mb-2">
                             Application Deadline
@@ -2673,7 +2670,7 @@ export default function PostJobPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Hot Vacancy Pricing */}
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border-2 border-green-300">
                       <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -2696,13 +2693,13 @@ export default function PostJobPage() {
                             Minimum ₹1,000 for hot vacancy features
                           </p>
                         </div>
-                        
+
                         <div>
                           <label className="block text-sm font-medium text-gray-900 mb-2">
                             Currency
                           </label>
-                          <Select 
-                            value={formData.hotVacancyCurrency} 
+                          <Select
+                            value={formData.hotVacancyCurrency}
                             onValueChange={(value) => setFormData({ ...formData, hotVacancyCurrency: value })}
                           >
                             <SelectTrigger className="border-green-300">
@@ -2717,18 +2714,18 @@ export default function PostJobPage() {
                           </Select>
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                         <div className="flex items-start gap-2">
                           <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                           <div className="text-xs text-yellow-800">
-                            <strong className="font-semibold">Important:</strong> Hot vacancy pricing is required for premium features. 
+                            <strong className="font-semibold">Important:</strong> Hot vacancy pricing is required for premium features.
                             This ensures your job gets maximum visibility and priority placement in search results.
                           </div>
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* External Application URL */}
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-300">
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -2739,23 +2736,23 @@ export default function PostJobPage() {
                         <div>
                           <Input
                             placeholder="https://yourcompany.com/careers/apply"
-                        value={formData.externalApplyUrl}
-                        onChange={(e) => setFormData({ ...formData, externalApplyUrl: e.target.value })}
+                            value={formData.externalApplyUrl}
+                            onChange={(e) => setFormData({ ...formData, externalApplyUrl: e.target.value })}
                             className="border-blue-300"
                           />
                           <p className="text-xs text-gray-600 mt-1">
                             Redirect candidates to your company's career portal or external application system
                           </p>
                         </div>
-                        
+
                         {formData.externalApplyUrl && (
                           <div className="bg-yellow-50 border border-yellow-300 rounded-md p-3">
                             <div className="flex items-start gap-2">
                               <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                               <div className="text-xs text-yellow-800">
-                                <strong className="font-semibold">Note:</strong> Since you're using an external application link, 
-                                we cannot track applications submitted through your platform. You'll need to manage and 
-                                count applications on your own system. The "Apply" button will redirect candidates directly 
+                                <strong className="font-semibold">Note:</strong> Since you're using an external application link,
+                                we cannot track applications submitted through your platform. You'll need to manage and
+                                count applications on your own system. The "Apply" button will redirect candidates directly
                                 to your provided URL.
                               </div>
                             </div>
@@ -2763,7 +2760,7 @@ export default function PostJobPage() {
                         )}
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-2">
                         Additional Email IDs for Applications
@@ -2784,15 +2781,15 @@ export default function PostJobPage() {
                           <Badge key={index} variant="secondary" className="flex items-center gap-1">
                             <Mail className="h-3 w-3" />
                             {email}
-                            <X 
-                              className="h-3 w-3 cursor-pointer" 
+                            <X
+                              className="h-3 w-3 cursor-pointer"
                               onClick={() => handleEmailRemove(email)}
                             />
                           </Badge>
                         ))}
                       </div>
                     </div>
-                    
+
                     {/* Why Work With Us */}
                     <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -2809,7 +2806,7 @@ export default function PostJobPage() {
                         This will be displayed prominently on the job details page to attract top talent
                       </p>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-2">
                         Company Profile
@@ -2821,7 +2818,7 @@ export default function PostJobPage() {
                         onChange={(e) => setFormData({ ...formData, companyProfile: e.target.value })}
                       />
                     </div>
-                    
+
                     {/* Video Banner URL */}
                     <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-4 border border-red-200">
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -2840,14 +2837,14 @@ export default function PostJobPage() {
                         💡 Use this for YouTube or hosted videos. For local files, use the "Company Branding Media" section below.
                       </p>
                     </div>
-                    
+
                     {/* Branding Photos & Videos */}
                     <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border-2 border-indigo-300">
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                         <ImageIcon className="h-5 w-5 text-indigo-600" />
                         Company Branding Media
                       </h4>
-                      
+
                       <div className="space-y-4">
                         <div>
                           <p className="text-sm text-gray-700 mb-2">
@@ -2858,15 +2855,14 @@ export default function PostJobPage() {
                               <span className="text-sm font-medium text-gray-700">
                                 {brandingMedia.length} / 5 items
                               </span>
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                brandingMedia.length >= 5 
-                                  ? 'bg-red-100 text-red-700' 
-                                  : 'bg-green-100 text-green-700'
-                              }`}>
+                              <span className={`text-xs px-2 py-1 rounded ${brandingMedia.length >= 5
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-green-100 text-green-700'
+                                }`}>
                                 {5 - brandingMedia.length} slots remaining
                               </span>
-                  </div>
-                            
+                            </div>
+
                             <input
                               type="file"
                               accept="image/*,video/*"
@@ -2878,11 +2874,10 @@ export default function PostJobPage() {
                             />
                             <label
                               htmlFor="branding-media-upload"
-                              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed transition-all ${
-                                brandingMedia.length >= 5 || uploadingBranding
-                                  ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
-                                  : 'border-indigo-300 bg-white hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer'
-                              }`}
+                              className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed transition-all ${brandingMedia.length >= 5 || uploadingBranding
+                                ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                                : 'border-indigo-300 bg-white hover:bg-indigo-50 hover:border-indigo-400 cursor-pointer'
+                                }`}
                             >
                               {uploadingBranding ? (
                                 <>
@@ -2899,7 +2894,7 @@ export default function PostJobPage() {
                               )}
                             </label>
                           </div>
-                          
+
                           <div className="mt-2 space-y-1 text-xs text-gray-600">
                             <p>📸 <strong>Photos:</strong> Max 5MB each, JPG/PNG format</p>
                             <p>🎥 <strong>Video:</strong> Max 50MB, MP4/WebM format (recommended: 1080p, 30fps, compressed)</p>
@@ -2907,7 +2902,7 @@ export default function PostJobPage() {
                             <p>💡 <strong>Tip:</strong> Compress videos for faster loading (use tools like HandBrake)</p>
                           </div>
                         </div>
-                        
+
                         {/* Preview Grid */}
                         {brandingMedia.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -2947,7 +2942,7 @@ export default function PostJobPage() {
                                       )}
                                     </>
                                   )}
-                                  
+
                                   {/* Overlay */}
                                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Button
@@ -2960,15 +2955,15 @@ export default function PostJobPage() {
                                       <X className="h-4 w-4" />
                                       Remove
                                     </Button>
-              </div>
-                                  
+                                  </div>
+
                                   {/* Type Badge */}
                                   <div className="absolute top-2 left-2">
                                     <Badge variant="secondary" className="bg-white/90 backdrop-blur">
                                       {item.type === 'video' ? '🎥 Video' : '📸 Photo'}
                                     </Badge>
                                   </div>
-                                  
+
                                   {/* File Size */}
                                   {item.file && (
                                     <div className="absolute bottom-2 right-2">
@@ -2978,7 +2973,7 @@ export default function PostJobPage() {
                                     </div>
                                   )}
                                 </div>
-                                
+
                                 <p className="text-xs text-gray-600 mt-1 truncate">
                                   {item.filename || (item.file ? item.file.name : 'Uploaded file')}
                                 </p>
@@ -3002,7 +2997,7 @@ export default function PostJobPage() {
               <p className="text-blue-700 mb-4">
                 Showcase your workplace, team, or company culture with photos. This helps job seekers get a better sense of your work environment.
               </p>
-              
+
               {!uploadedJobId && (
                 <Alert className="mb-4">
                   <AlertCircle className="h-4 w-4" />
@@ -3050,45 +3045,45 @@ export default function PostJobPage() {
                         {jobPhotos.map((photo, index) => {
                           console.log('📸 Rendering photo:', photo);
                           return (
-                          <div key={photo.id || photo.photoId} className="relative group">
-                            {photo.fileUrl ? (
-                              <img
-                                src={photo.fileUrl}
-                                alt={photo.altText || `Job photo ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                                onLoad={() => console.log('✅ Image loaded successfully:', photo.fileUrl)}
-                                onError={(e) => {
-                                  console.error('❌ Image failed to load:', photo.fileUrl, e);
-                                  console.log('🔄 Retrying image load in 1 second...');
-                                  setTimeout(() => {
-                                    e.currentTarget.src = photo.fileUrl + '?t=' + Date.now();
-                                  }, 1000);
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-32 bg-gray-200 rounded-lg border border-gray-200 flex items-center justify-center">
-                                <div className="text-center">
-                                  <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                  <p className="text-xs text-gray-500">No image URL</p>
+                            <div key={photo.id || photo.photoId} className="relative group">
+                              {photo.fileUrl ? (
+                                <img
+                                  src={photo.fileUrl}
+                                  alt={photo.altText || `Job photo ${index + 1}`}
+                                  className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                                  onLoad={() => console.log('✅ Image loaded successfully:', photo.fileUrl)}
+                                  onError={(e) => {
+                                    console.error('❌ Image failed to load:', photo.fileUrl, e);
+                                    console.log('🔄 Retrying image load in 1 second...');
+                                    setTimeout(() => {
+                                      e.currentTarget.src = photo.fileUrl + '?t=' + Date.now();
+                                    }, 1000);
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-32 bg-gray-200 rounded-lg border border-gray-200 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <ImageIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                    <p className="text-xs text-gray-500">No image URL</p>
+                                  </div>
                                 </div>
+                              )}
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handlePhotoDelete(photo.id || photo.photoId)}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               </div>
-                            )}
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => handlePhotoDelete(photo.id || photo.photoId)}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
+                              {photo.isPrimary && (
+                                <div className="absolute top-2 left-2">
+                                  <Badge className="bg-blue-600 text-white text-xs">Primary</Badge>
+                                </div>
+                              )}
                             </div>
-                            {photo.isPrimary && (
-                              <div className="absolute top-2 left-2">
-                                <Badge className="bg-blue-600 text-white text-xs">Primary</Badge>
-                              </div>
-                            )}
-                          </div>
                           );
                         })}
                       </div>
@@ -3124,7 +3119,7 @@ export default function PostJobPage() {
                     <Badge variant="secondary">{formData.location || "Location"}</Badge>
                   </div>
                 </div>
-                
+
                 {/* Salary */}
                 {formData.salary && (
                   <div>
@@ -3132,7 +3127,7 @@ export default function PostJobPage() {
                     <p className="text-gray-700 mt-1">{formData.salary}</p>
                   </div>
                 )}
-                
+
                 {/* Experience */}
                 {formData.experience && (
                   <div>
@@ -3140,7 +3135,7 @@ export default function PostJobPage() {
                     <p className="text-gray-700 mt-1">{formData.experience}</p>
                   </div>
                 )}
-                
+
                 {/* Job Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -3256,7 +3251,7 @@ export default function PostJobPage() {
                 )}
               </div>
             </div>
-            
+
             <Alert className="bg-green-50 border-green-200">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
@@ -3271,7 +3266,7 @@ export default function PostJobPage() {
           <div className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-blue-900 mb-4">Job Preview</h3>
-            <div className="space-y-4">
+              <div className="space-y-4">
                 <div>
                   <h4 className="text-xl font-bold text-gray-900">{formData.title || "Job Title"}</h4>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -3283,31 +3278,31 @@ export default function PostJobPage() {
                         🔥 HOT VACANCY
                       </Badge>
                     )}
+                  </div>
                 </div>
-                </div>
-                
+
                 {/* Salary */}
                 {formData.salary && (
                   <div>
                     <h5 className="font-semibold text-gray-900">Salary</h5>
                     <p className="text-gray-700 mt-1">{formData.salary}</p>
-                </div>
+                  </div>
                 )}
-                
+
                 {/* Experience */}
                 {formData.experience && (
                   <div>
                     <h5 className="font-semibold text-gray-900">Experience</h5>
                     <p className="text-gray-700 mt-1">{formData.experience}</p>
-              </div>
+                  </div>
                 )}
-                
+
                 {/* Job Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h5 className="font-semibold text-gray-900">Role</h5>
                     <p className="text-gray-700 mt-1">{formData.role || "Not provided"}</p>
-            </div>
+                  </div>
                   <div>
                     <h5 className="font-semibold text-gray-900">Industry Type</h5>
                     <div className="text-gray-700 mt-1">
@@ -3392,7 +3387,7 @@ export default function PostJobPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Hot Vacancy Premium Features Preview */}
                 {formData.isHotVacancy && (
                   <div className="mt-6 pt-6 border-t border-blue-200">
@@ -3456,7 +3451,7 @@ export default function PostJobPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     {formData.externalApplyUrl && (
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-start gap-2">
@@ -3468,14 +3463,14 @@ export default function PostJobPage() {
                         </div>
                       </div>
                     )}
-                    
+
                     {formData.whyWorkWithUs && (
                       <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                         <p className="text-sm font-medium text-purple-900 mb-1">Why Work With Us</p>
                         <p className="text-xs text-purple-700 whitespace-pre-line">{formData.whyWorkWithUs}</p>
                       </div>
                     )}
-                    
+
                     {formData.videoBanner && (
                       <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <div className="flex items-start gap-2">
@@ -3487,7 +3482,7 @@ export default function PostJobPage() {
                         </div>
                       </div>
                     )}
-                    
+
                     {brandingMedia.length > 0 && (
                       <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
                         <p className="text-sm font-medium text-indigo-900 mb-2">Company Branding Media: {brandingMedia.length} items</p>
@@ -3502,7 +3497,7 @@ export default function PostJobPage() {
                     )}
                   </div>
                 )}
-                
+
                 {jobPhotos.length > 0 && (
                   <div>
                     <h5 className="font-semibold text-gray-900 mb-2">Job Showcase</h5>
@@ -3528,7 +3523,7 @@ export default function PostJobPage() {
                 )}
               </div>
             </div>
-            
+
             <Alert className="bg-green-50 border-green-200">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
@@ -3547,14 +3542,14 @@ export default function PostJobPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
         <EmployerDashboardNavbar />
-        
+
         {/* Background Effects - Blue theme */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-200/45 via-cyan-200/35 to-indigo-200/45"></div>
           <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-indigo-300/10 to-violet-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
-        
+
         <div className="relative z-10 flex items-center justify-center min-h-screen">
           <div className="text-center bg-white/50 backdrop-blur-xl border-white/40 rounded-3xl p-8 shadow-[0_8px_30px_rgba(59,130,246,0.06)]">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -3572,7 +3567,7 @@ export default function PostJobPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
         <EmployerDashboardNavbar />
-        
+
         <div className="relative z-10 flex items-center justify-center min-h-screen">
           <div className="text-center bg-white/50 backdrop-blur-xl border-white/40 rounded-3xl p-8 shadow-[0_8px_30px_rgba(59,130,246,0.06)]">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -3592,7 +3587,7 @@ export default function PostJobPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
         <EmployerDashboardNavbar />
-        
+
         <div className="relative z-10 flex items-center justify-center min-h-screen">
           <div className="text-center bg-white/50 backdrop-blur-xl border-white/40 rounded-3xl p-8 shadow-[0_8px_30px_rgba(59,130,246,0.06)]">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -3609,494 +3604,497 @@ export default function PostJobPage() {
 
   return (
     <EmployerAuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
-      <EmployerDashboardNavbar />
+      <PermissionGuard permission="jobPosting">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
+          <EmployerDashboardNavbar />
 
-      {/* Background Effects - Blue theme */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Base blue gradient overlay to ensure visible background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-200/45 via-cyan-200/35 to-indigo-200/45"></div>
-        <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-indigo-300/10 to-violet-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-br from-cyan-300/10 to-blue-300/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        {/* Wide translucent blue gradient strip */}
-        <div className="absolute top-[22%] left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Link href={user?.region === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
-                         <div>
-               <h1 className="text-3xl font-bold text-gray-900">
-                 {editingJobId ? 'Edit Job' : 'Post a New Job'}
-               </h1>
-               <p className="text-gray-600">
-                 {editingJobId 
-                   ? 'Update your job details and save changes' 
-                   : 'Create and publish your job posting'
-                 }
-               </p>
-             </div>
+          {/* Background Effects - Blue theme */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {/* Base blue gradient overlay to ensure visible background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-200/45 via-cyan-200/35 to-indigo-200/45"></div>
+            <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-indigo-300/10 to-violet-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-br from-cyan-300/10 to-blue-300/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            {/* Wide translucent blue gradient strip */}
+            <div className="absolute top-[22%] left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
           </div>
-        </div>
 
-        {/* ========== AGENCY CLIENT SELECTION (BEFORE STEPS) ========== */}
-        {isAgency && !clientSelectionMade && (
-          <Card className="mb-8 bg-white/50 backdrop-blur-xl border-white/40 shadow-[0_8px_30px_rgba(59,130,246,0.06)] rounded-3xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-6 h-6 text-blue-600" />
-                Who are you posting this job for?
-              </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
-                Select whether you're posting for your own company or for a client
-              </p>
-            </CardHeader>
-            <CardContent>
-              {loadingClients ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-3 text-gray-600">Loading clients...</span>
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-8">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-4">
+                <Link href={user?.region === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard'}>
+                  <Button variant="ghost" size="sm">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Dashboard
+                  </Button>
+                </Link>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {editingJobId ? 'Edit Job' : 'Post a New Job'}
+                  </h1>
+                  <p className="text-gray-600">
+                    {editingJobId
+                      ? 'Update your job details and save changes'
+                      : 'Create and publish your job posting'
+                    }
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Option: Our Company */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedClient('own')
-                      setClientSelectionMade(true)
-                      toast.success('Posting for your own company')
-                    }}
-                    className="w-full text-left p-6 border-2 rounded-lg transition-all hover:border-blue-400 hover:bg-white"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                        <Building2 className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-gray-900">Our Company</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Post for your own hiring needs. No additional verification required.
-                        </p>
-                      </div>
-                    </div>
-                  </button>
+              </div>
+            </div>
 
-                  {/* Divider */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
+            {/* ========== AGENCY CLIENT SELECTION (BEFORE STEPS) ========== */}
+            {isAgency && !clientSelectionMade && (
+              <Card className="mb-8 bg-white/50 backdrop-blur-xl border-white/40 shadow-[0_8px_30px_rgba(59,130,246,0.06)] rounded-3xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-6 h-6 text-blue-600" />
+                    Who are you posting this job for?
+                  </CardTitle>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Select whether you're posting for your own company or for a client
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {loadingClients ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-3 text-gray-600">Loading clients...</span>
                     </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-blue-50 text-gray-500">OR</span>
-                    </div>
-                  </div>
-
-                  {/* Option: Client Company */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-900">Post for Authorized Client</h3>
-                    
-                    {activeClients.length === 0 ? (
-                      <div className="text-center py-8 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                        <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 mb-4">No active clients yet</p>
-                        <Button
-                          onClick={() => router.push('/employer-dashboard/add-client')}
-                          variant="outline"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Your First Client
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {activeClients.map((client: any) => {
-                          const daysLeft = client.contractEndDate 
-                            ? Math.ceil((new Date(client.contractEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-                            : null
-                            
-                          return (
-                            <button
-                              key={client.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedClient(client.id)
-                                setClientSelectionMade(true)
-                                toast.success(`Posting for: ${client.ClientCompany?.name || 'Client'}`)
-                              }}
-                              disabled={!client.canPostJobs}
-                              className="text-left p-4 border-2 rounded-lg transition-all hover:border-blue-400 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <div className="flex items-start gap-3">
-                                {client.ClientCompany?.logo ? (
-                                  <img 
-                                    src={client.ClientCompany.logo} 
-                                    alt={client.ClientCompany.name}
-                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                                    <Building2 className="w-5 h-5 text-white" />
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-gray-900 truncate">
-                                    {client.ClientCompany?.name || 'Unknown Company'}
-                                  </h4>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {client.ClientCompany?.industry} • {client.ClientCompany?.city}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <Badge variant="secondary" className="text-xs">
-                                      {client.jobsPosted || 0}
-                                      {client.maxActiveJobs ? `/${client.maxActiveJobs}` : ''} jobs
-                                    </Badge>
-                                    {daysLeft !== null && daysLeft > 0 && daysLeft < 30 && (
-                                      <Badge variant="outline" className="text-xs text-amber-600">
-                                        {daysLeft}d left
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Show form only after client selection (or if direct employer) */}
-        {(!isAgency || clientSelectionMade) && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar - Steps */}
-          <div className="lg:col-span-1">
-            <Card className="bg-white/50 backdrop-blur-xl border-white/40 shadow-[0_8px_30px_rgba(59,130,246,0.06)] rounded-3xl sticky top-24">
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {steps.map((step) => (
-                    <div
-                      key={step.id}
-                      className={`flex items-start space-x-3 p-3 rounded-lg transition-colors ${
-                        currentStep === step.id
-                          ? "bg-blue-50 border border-blue-200"
-                          : currentStep > step.id
-                            ? "bg-green-50 border border-green-200"
-                            : "bg-gray-50 border border-gray-200"
-                      }`}
-                    >
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                          currentStep === step.id
-                            ? "bg-blue-600 text-white"
-                            : currentStep > step.id
-                              ? "bg-green-600 text-white"
-                              : "bg-gray-400 text-white"
-                        }`}
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Option: Our Company */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClient('own')
+                          setClientSelectionMade(true)
+                          toast.success('Posting for your own company')
+                        }}
+                        className="w-full text-left p-6 border-2 rounded-lg transition-all hover:border-blue-400 hover:bg-white"
                       >
-                        {currentStep > step.id ? "✓" : step.id}
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                            <Building2 className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg text-gray-900">Our Company</h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Post for your own hiring needs. No additional verification required.
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Divider */}
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-blue-50 text-gray-500">OR</span>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-medium text-gray-900">{step.title}</div>
-                        <div className="text-xs text-gray-600">{step.description}</div>
+
+                      {/* Option: Client Company */}
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-gray-900">Post for Authorized Client</h3>
+
+                        {activeClients.length === 0 ? (
+                          <div className="text-center py-8 bg-white rounded-lg border-2 border-dashed border-gray-300">
+                            <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                            <p className="text-gray-600 mb-4">No active clients yet</p>
+                            <Button
+                              onClick={() => router.push('/employer-dashboard/add-client')}
+                              variant="outline"
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add Your First Client
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {activeClients.map((client: any) => {
+                              const daysLeft = client.contractEndDate
+                                ? Math.ceil((new Date(client.contractEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+                                : null
+
+                              return (
+                                <button
+                                  key={client.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedClient(client.id)
+                                    setClientSelectionMade(true)
+                                    toast.success(`Posting for: ${client.ClientCompany?.name || 'Client'}`)
+                                  }}
+                                  disabled={!client.canPostJobs}
+                                  className="text-left p-4 border-2 rounded-lg transition-all hover:border-blue-400 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    {client.ClientCompany?.logo ? (
+                                      <img
+                                        src={client.ClientCompany.logo}
+                                        alt={client.ClientCompany.name}
+                                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                                        <Building2 className="w-5 h-5 text-white" />
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-semibold text-gray-900 truncate">
+                                        {client.ClientCompany?.name || 'Unknown Company'}
+                                      </h4>
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        {client.ClientCompany?.industry} • {client.ClientCompany?.city}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <Badge variant="secondary" className="text-xs">
+                                          {client.jobsPosted || 0}
+                                          {client.maxActiveJobs ? `/${client.maxActiveJobs}` : ''} jobs
+                                        </Badge>
+                                        {daysLeft !== null && daysLeft > 0 && daysLeft < 30 && (
+                                          <Badge variant="outline" className="text-xs text-amber-600">
+                                            {daysLeft}d left
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Show form only after client selection (or if direct employer) */}
+            {(!isAgency || clientSelectionMade) && (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* Sidebar - Steps */}
+                <div className="lg:col-span-1">
+                  <Card className="bg-white/50 backdrop-blur-xl border-white/40 shadow-[0_8px_30px_rgba(59,130,246,0.06)] rounded-3xl sticky top-24">
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        {steps.map((step) => (
+                          <div
+                            key={step.id}
+                            className={`flex items-start space-x-3 p-3 rounded-lg transition-colors ${currentStep === step.id
+                              ? "bg-blue-50 border border-blue-200"
+                              : currentStep > step.id
+                                ? "bg-green-50 border border-green-200"
+                                : "bg-gray-50 border border-gray-200"
+                              }`}
+                          >
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${currentStep === step.id
+                                ? "bg-blue-600 text-white"
+                                : currentStep > step.id
+                                  ? "bg-green-600 text-white"
+                                  : "bg-gray-400 text-white"
+                                }`}
+                            >
+                              {currentStep > step.id ? "✓" : step.id}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{step.title}</div>
+                              <div className="text-xs text-gray-600">{step.description}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Main Content */}
+                <div className="lg:col-span-3">
+                  <Card className="bg-white/50 backdrop-blur-xl border-white/40 shadow-[0_8px_30px_rgba(59,130,246,0.06)] rounded-3xl">
+                    <CardHeader>
+                      <CardTitle>
+                        Step {currentStep}: {steps[currentStep - 1].title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <motion.div
+                        key={currentStep}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {renderStepContent()}
+                      </motion.div>
+
+                      {/* Navigation Buttons */}
+                      <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+                        <div>
+                          {currentStep > 1 && (
+                            <Button variant="outline" onClick={goToPreviousStep}>
+                              Previous
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Button
+                            variant="outline"
+                            onClick={handleSaveDraft}
+                            disabled={savingDraft}
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            {savingDraft ? 'Saving...' : editingJobId ? 'Save Changes' : 'Save Draft'}
+                          </Button>
+                          {currentStep < steps.length ? (
+                            <Button onClick={goToNextStep} className="bg-blue-600 hover:bg-blue-700">
+                              Next Step
+                            </Button>
+                          ) : (
+                            <div className="flex space-x-2">
+                              <Button variant="outline">
+                                <Eye className="w-4 h-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button
+                                onClick={handlePublishJob}
+                                disabled={publishing}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <Send className="w-4 h-4 mr-2" />
+                                {publishing ? 'Publishing...' : editingJobId ? 'Update Job' : 'Publish Job'}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <EmployerDashboardFooter />
+
+          {/* Template Selection Dialog - Enhanced */}
+          <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+            <DialogContent className="max-w-4xl max-h-[80vh]">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold">Choose Your Job Template</DialogTitle>
+                <DialogDescription>
+                  Select a professional template to quickly create your job posting. All fields will be pre-filled for you to customize.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${selectedTemplate === template.id
+                        ? 'border-blue-500 bg-blue-50 shadow-lg'
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-25 hover:shadow-md'
+                        }`}
+                      onClick={() => handleTemplateSelect(template.id)}
+                    >
+                      <div className="flex flex-col h-full">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 text-lg mb-2">{template.name}</h4>
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-3">{template.description}</p>
+                          </div>
+                          <div className="ml-4">
+                            <Button
+                              size="sm"
+                              variant={selectedTemplate === template.id ? "default" : "outline"}
+                              className={selectedTemplate === template.id ? "bg-blue-600" : ""}
+                            >
+                              {selectedTemplate === template.id ? "✓ Applied" : "Use Template"}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Badge variant="outline" className="text-xs bg-gray-100">
+                            {template.category}
+                          </Badge>
+                          {template.createdBy === user?.id ? (
+                            <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                              👤 My Template
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">
+                              👥 Shared
+                            </Badge>
+                          )}
+                          {template.isPublic && (
+                            <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200">
+                              🌐 Public
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                            📊 {template.usageCount} uses
+                          </Badge>
+                        </div>
+
+                        {/* Template Preview */}
+                        <div className="mt-auto bg-white rounded-lg p-3 border border-gray-100">
+                          <div className="text-xs text-gray-500 mb-2">Template Preview:</div>
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium text-gray-900 truncate">
+                              {template.templateData?.title || 'Job Title'}
+                            </div>
+                            <div className="text-xs text-gray-600 truncate">
+                              {template.templateData?.location || 'Location'} • {template.templateData?.type || 'Job Type'}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {template.templateData?.experience || 'Experience Level'}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <Card className="bg-white/50 backdrop-blur-xl border-white/40 shadow-[0_8px_30px_rgba(59,130,246,0.06)] rounded-3xl">
-              <CardHeader>
-                <CardTitle>
-                  Step {currentStep}: {steps[currentStep - 1].title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <motion.div
-                  key={currentStep}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {renderStepContent()}
-                </motion.div>
-
-                                 {/* Navigation Buttons */}
-                 <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
-                   <div>
-                     {currentStep > 1 && (
-                       <Button variant="outline" onClick={goToPreviousStep}>
-                         Previous
-                       </Button>
-                     )}
-                   </div>
-                   <div className="flex items-center space-x-3">
-                     <Button 
-                       variant="outline" 
-                       onClick={handleSaveDraft}
-                       disabled={savingDraft}
-                     >
-                       <Save className="w-4 h-4 mr-2" />
-                       {savingDraft ? 'Saving...' : editingJobId ? 'Save Changes' : 'Save Draft'}
-                     </Button>
-                     {currentStep < steps.length ? (
-                       <Button onClick={goToNextStep} className="bg-blue-600 hover:bg-blue-700">
-                         Next Step
-                       </Button>
-                     ) : (
-                       <div className="flex space-x-2">
-                         <Button variant="outline">
-                           <Eye className="w-4 h-4 mr-2" />
-                           Preview
-                         </Button>
-                         <Button 
-                           onClick={handlePublishJob} 
-                           disabled={publishing}
-                           className="bg-green-600 hover:bg-green-700"
-                         >
-                           <Send className="w-4 h-4 mr-2" />
-                           {publishing ? 'Publishing...' : editingJobId ? 'Update Job' : 'Publish Job'}
-                         </Button>
-                       </div>
-                     )}
-                   </div>
-                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-        )}
-      </div>
-
-      <EmployerDashboardFooter />
-
-      {/* Template Selection Dialog - Enhanced */}
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Choose Your Job Template</DialogTitle>
-            <DialogDescription>
-              Select a professional template to quickly create your job posting. All fields will be pre-filled for you to customize.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {templates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`p-6 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                    selectedTemplate === template.id
-                      ? 'border-blue-500 bg-blue-50 shadow-lg'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-25 hover:shadow-md'
-                  }`}
-                  onClick={() => handleTemplateSelect(template.id)}
-                >
-                  <div className="flex flex-col h-full">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 text-lg mb-2">{template.name}</h4>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-3">{template.description}</p>
-                      </div>
-                      <div className="ml-4">
-                        <Button
-                          size="sm"
-                          variant={selectedTemplate === template.id ? "default" : "outline"}
-                          className={selectedTemplate === template.id ? "bg-blue-600" : ""}
-                        >
-                          {selectedTemplate === template.id ? "✓ Applied" : "Use Template"}
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Badge variant="outline" className="text-xs bg-gray-100">
-                        {template.category}
-                      </Badge>
-                      {template.createdBy === user?.id ? (
-                        <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
-                          👤 My Template
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-200">
-                          👥 Shared
-                        </Badge>
-                      )}
-                      {template.isPublic && (
-                        <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200">
-                          🌐 Public
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
-                        📊 {template.usageCount} uses
-                      </Badge>
-                    </div>
-                    
-                    {/* Template Preview */}
-                    <div className="mt-auto bg-white rounded-lg p-3 border border-gray-100">
-                      <div className="text-xs text-gray-500 mb-2">Template Preview:</div>
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {template.templateData?.title || 'Job Title'}
-                        </div>
-                        <div className="text-xs text-gray-600 truncate">
-                          {template.templateData?.location || 'Location'} • {template.templateData?.type || 'Job Type'}
-                        </div>
-                        <div className="text-xs text-gray-500 truncate">
-                          {template.templateData?.experience || 'Experience Level'}
-                        </div>
-                      </div>
-                    </div>
+                {templates.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 text-6xl mb-4">📝</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Templates Available</h3>
+                    <p className="text-gray-600 mb-4">Create your first template to get started with quick job posting.</p>
+                    <Button onClick={() => {
+                      setShowTemplateDialog(false);
+                      // Navigate to template creation
+                      window.open('/employer-dashboard/job-templates', '_blank');
+                    }}>
+                      Create Template
+                    </Button>
                   </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  💡 Tip: You can customize all fields after applying a template. Only template creators can edit or change privacy settings.
                 </div>
-              ))}
-            </div>
-            
-            {templates.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-gray-400 text-6xl mb-4">📝</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Templates Available</h3>
-                <p className="text-gray-600 mb-4">Create your first template to get started with quick job posting.</p>
-                <Button onClick={() => {
-                  setShowTemplateDialog(false);
-                  // Navigate to template creation
-                  window.open('/employer-dashboard/job-templates', '_blank');
-                }}>
-                  Create Template
+                <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
+                  Close
                 </Button>
               </div>
-            )}
-          </div>
-          
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
-              💡 Tip: You can customize all fields after applying a template. Only template creators can edit or change privacy settings.
-            </div>
-            <Button variant="outline" onClick={() => setShowTemplateDialog(false)}>
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
 
-      {/* Authentication Dialog */}
-      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-500" />
-              Authentication Required
-            </DialogTitle>
-            <DialogDescription>
-              You need to be logged in as an employer to post jobs. Please sign in or create an account to continue.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => handleAuthDialogAction('login')}>
-              Sign In
-            </Button>
-            <Button onClick={() => handleAuthDialogAction('register')}>
-              Create Account
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* Authentication Dialog */}
+          <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-orange-500" />
+                  Authentication Required
+                </DialogTitle>
+                <DialogDescription>
+                  You need to be logged in as an employer to post jobs. Please sign in or create an account to continue.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <Button variant="outline" onClick={() => handleAuthDialogAction('login')}>
+                  Sign In
+                </Button>
+                <Button onClick={() => handleAuthDialogAction('register')}>
+                  Create Account
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-      {/* Job Success Dialog */}
-      <Dialog open={showSuccessDialog} onOpenChange={(open) => {
-        if (!open) {
-          // When dialog is closed (X button), redirect to dashboard
-          router.push(user?.region === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard')
-        }
-        setShowSuccessDialog(open)
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              {editingJobId ? 'Job Updated Successfully!' : 'Job Posted Successfully!'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingJobId 
-                ? 'Your job has been updated successfully. You can view it, manage it, or make further changes.'
-                : 'Your job has been posted and is now live. You can view it, manage it, or post another job.'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push(user?.region === 'gulf' ? '/gulf-dashboard/manage-jobs' : '/employer-dashboard/manage-jobs')}>
-              Manage Jobs
-            </Button>
-            {postedJobId && (
-              <Button onClick={() => router.push(`/jobs/${postedJobId}`)}>
-                <Eye className="h-4 w-4 mr-2" />
-                View Job
-              </Button>
-            )}
-            <Button onClick={() => {
-              setShowSuccessDialog(false)
-              setPostedJobId(null)
-              // Redirect to dashboard
+          {/* Job Success Dialog */}
+          <Dialog open={showSuccessDialog} onOpenChange={(open) => {
+            if (!open) {
+              // When dialog is closed (X button), redirect to dashboard
               router.push(user?.region === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard')
-            }}>
-              Go to Dashboard
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Industry Dropdown */}
-      {showIndustryDropdown && (
-        <IndustryDropdown
-          selectedIndustries={formData.postingType === "consultancy" && formData.hiringCompanyIndustry 
-            ? [formData.hiringCompanyIndustry] 
-            : selectedIndustries
-          }
-          onIndustryChange={(industries) => {
-            if (formData.postingType === "consultancy") {
-              // For consultancy, set hiring company industry (single selection)
-              setFormData({ ...formData, hiringCompanyIndustry: industries[0] || "" })
-            } else {
-              // For regular company, set multiple industries
-            setSelectedIndustries(industries)
-            setFormData({ ...formData, industryType: industries.join(', ') })
             }
-          }}
-          onClose={() => setShowIndustryDropdown(false)}
-          hideSelectAllButtons={formData.postingType === "consultancy"}
-        />
-      )}
+            setShowSuccessDialog(open)
+          }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  {editingJobId ? 'Job Updated Successfully!' : 'Job Posted Successfully!'}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingJobId
+                    ? 'Your job has been updated successfully. You can view it, manage it, or make further changes.'
+                    : 'Your job has been posted and is now live. You can view it, manage it, or post another job.'
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex gap-2">
+                <Button variant="outline" onClick={() => router.push(user?.region === 'gulf' ? '/gulf-dashboard/manage-jobs' : '/employer-dashboard/manage-jobs')}>
+                  Manage Jobs
+                </Button>
+                {postedJobId && (
+                  <Button onClick={() => router.push(`/jobs/${postedJobId}`)}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Job
+                  </Button>
+                )}
+                <Button onClick={() => {
+                  setShowSuccessDialog(false)
+                  setPostedJobId(null)
+                  // Redirect to dashboard
+                  router.push(user?.region === 'gulf' ? '/gulf-dashboard' : '/employer-dashboard')
+                }}>
+                  Go to Dashboard
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-      {/* Role Category Dropdown */}
-      {showRoleCategoryDropdown && (
-        <RoleCategoryDropdown
-          selectedRoles={selectedRoleCategories}
-          onRoleChange={(roles) => {
-            setSelectedRoleCategories(roles)
-            setFormData({ ...formData, roleCategory: roles.join(', ') })
-          }}
-          onClose={() => setShowRoleCategoryDropdown(false)}
-          hideSelectAllButtons={true}
-        />
-      )}
-      </div>
+          {/* Industry Dropdown */}
+          {
+            showIndustryDropdown && (
+              <IndustryDropdown
+                selectedIndustries={formData.postingType === "consultancy" && formData.hiringCompanyIndustry
+                  ? [formData.hiringCompanyIndustry]
+                  : selectedIndustries
+                }
+                onIndustryChange={(industries) => {
+                  if (formData.postingType === "consultancy") {
+                    // For consultancy, set hiring company industry (single selection)
+                    setFormData({ ...formData, hiringCompanyIndustry: industries[0] || "" })
+                  } else {
+                    // For regular company, set multiple industries
+                    setSelectedIndustries(industries)
+                    setFormData({ ...formData, industryType: industries.join(', ') })
+                  }
+                }}
+                onClose={() => setShowIndustryDropdown(false)}
+                hideSelectAllButtons={formData.postingType === "consultancy"}
+              />
+            )
+          }
+
+          {/* Role Category Dropdown */}
+          {
+            showRoleCategoryDropdown && (
+              <RoleCategoryDropdown
+                selectedRoles={selectedRoleCategories}
+                onRoleChange={(roles) => {
+                  setSelectedRoleCategories(roles)
+                  setFormData({ ...formData, roleCategory: roles.join(', ') })
+                }}
+                onClose={() => setShowRoleCategoryDropdown(false)}
+                hideSelectAllButtons={true}
+              />
+            )
+          }
+        </div>
+      </PermissionGuard>
     </EmployerAuthGuard>
   )
 }

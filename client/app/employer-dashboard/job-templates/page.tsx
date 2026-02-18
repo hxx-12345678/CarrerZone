@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth"
 import DepartmentDropdown from "@/components/ui/department-dropdown"
 import IndustryDropdown from "@/components/ui/industry-dropdown"
 import RoleCategoryDropdown from "@/components/ui/role-category-dropdown"
+import { PermissionGuard } from "@/components/permission-guard"
 
 interface JobTemplate {
   id: string
@@ -226,7 +227,37 @@ export default function JobTemplatesPage() {
   if (loading) {
     return (
       <EmployerAuthGuard>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
+        <PermissionGuard permission="jobPosting">
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
+            <EmployerDashboardNavbar />
+
+            {/* Background Effects - Blue theme */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {/* Base blue gradient overlay to ensure visible background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-200/45 via-cyan-200/35 to-indigo-200/45"></div>
+              <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-indigo-300/10 to-violet-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-br from-cyan-300/10 to-blue-300/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+              {/* Wide translucent blue gradient strip */}
+              <div className="absolute top-1/3 left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
+            </div>
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-slate-600">Loading templates...</p>
+              </div>
+            </div>
+            <EmployerDashboardFooter />
+          </div>
+        </PermissionGuard>
+      </EmployerAuthGuard>
+    )
+  }
+
+  return (
+    <EmployerAuthGuard>
+      <PermissionGuard permission="jobPosting">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
           <EmployerDashboardNavbar />
 
           {/* Background Effects - Blue theme */}
@@ -239,268 +270,244 @@ export default function JobTemplatesPage() {
             {/* Wide translucent blue gradient strip */}
             <div className="absolute top-1/3 left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
           </div>
+
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-slate-600">Loading templates...</p>
-            </div>
-          </div>
-          <EmployerDashboardFooter />
-        </div>
-      </EmployerAuthGuard>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50/40 to-indigo-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
-      <EmployerDashboardNavbar />
-
-      {/* Background Effects - Blue theme */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Base blue gradient overlay to ensure visible background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-200/45 via-cyan-200/35 to-indigo-200/45"></div>
-        <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-indigo-300/10 to-violet-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gradient-to-br from-cyan-300/10 to-blue-300/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        {/* Wide translucent blue gradient strip */}
-        <div className="absolute top-1/3 left-0 right-0 h-24 bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-indigo-400/20"></div>
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Job Templates</h1>
-            <p className="text-slate-600">Create and manage reusable job posting templates</p>
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Template
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-              <DialogHeader>
-                <DialogTitle>Create New Template</DialogTitle>
-                <DialogDescription>
-                  Create a reusable template for job postings
-                </DialogDescription>
-              </DialogHeader>
-              <CreateTemplateForm onSubmit={handleCreateTemplate} loading={creating} />
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Filters */}
-        <Card className="mb-6 rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)]">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
               <div>
-                <Label className="text-sm font-medium mb-2 block">Search Templates</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search templates..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="pl-10"
-                  />
-                </div>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Job Templates</h1>
+                <p className="text-slate-600">Create and manage reusable job posting templates</p>
               </div>
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Category</Label>
-                <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="technical">Technical</SelectItem>
-                    <SelectItem value="non-technical">Non-Technical</SelectItem>
-                    <SelectItem value="management">Management</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button variant="outline" className="w-full" onClick={handleSearch}>
-                  <Filter className="w-4 h-4 mr-2" />
-                  Search
-                </Button>
-              </div>
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Template
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+                  <DialogHeader>
+                    <DialogTitle>Create New Template</DialogTitle>
+                    <DialogDescription>
+                      Create a reusable template for job postings
+                    </DialogDescription>
+                  </DialogHeader>
+                  <CreateTemplateForm onSubmit={handleCreateTemplate} loading={creating} />
+                </DialogContent>
+              </Dialog>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Templates Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.map((template) => (
-            <Card key={template.id} className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
-                    {getCategoryIcon(template.category)}
-                    <Badge className={getCategoryColor(template.category)}>
-                      {template.category}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {/* Ownership indicator */}
-                    {template.createdBy === user?.id ? (
-                      <Badge variant="outline" className="text-xs flex items-center bg-blue-50 text-blue-700 border-blue-200">
-                        <User className="w-3 h-3 mr-1" />
-                        My Template
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs flex items-center bg-gray-50 text-gray-600 border-gray-200">
-                        <Users className="w-3 h-3 mr-1" />
-                        Shared
-                      </Badge>
-                    )}
-                    {template.isPublic ? (
-                      <Badge variant="outline" className="text-xs flex items-center">
-                        <Globe className="w-3 h-3 mr-1" />
-                        Public
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs flex items-center">
-                        <Lock className="w-3 h-3 mr-1" />
-                        Private
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <CardTitle className="text-lg">{template.name}</CardTitle>
-                <CardDescription>{template.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm text-slate-600">
-                    <span>Used {template.usageCount} times</span>
-                    <span>Last used: {template.lastUsedAt ? new Date(template.lastUsedAt).toLocaleDateString() : 'Never'}</span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    {template.tags.slice(0, 3).map((tag, index) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    {template.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{template.tags.length - 3} more
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* Primary Action - Create Job */}
-                    <Button
-                      className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
-                      onClick={() => handleCreateJobFromTemplate(template.id)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Job from Template
-                    </Button>
-
-                    {/* Secondary Actions */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex space-x-1">
-                        {/* Only show edit button for user's own templates */}
-                        {template.createdBy === user?.id && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditTemplate(template)}
-                            title="Edit Template"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUseTemplate(template.id)}
-                          title="Copy Template"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        {/* Only show toggle public/private button for user's own templates */}
-                        {template.createdBy === user?.id && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleTogglePublic(template.id)}
-                            title={template.isPublic ? "Make Private" : "Make Public"}
-                          >
-                            {template.isPublic ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
-                          </Button>
-                        )}
-                      </div>
-                      {/* Only show delete button for user's own templates */}
-                      {template.createdBy === user?.id && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteTemplate(template.id)}
-                          title="Delete Template"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+            {/* Filters */}
+            <Card className="mb-6 rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)]">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Search Templates</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <Input
+                        placeholder="Search templates..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                        className="pl-10"
+                      />
                     </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Category</Label>
+                    <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="technical">Technical</SelectItem>
+                        <SelectItem value="non-technical">Non-Technical</SelectItem>
+                        <SelectItem value="management">Management</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button variant="outline" className="w-full" onClick={handleSearch}>
+                      <Filter className="w-4 h-4 mr-2" />
+                      Search
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
 
-        {/* Empty State */}
-        {filteredTemplates.length === 0 && !loading && (
-          <Card className="text-center py-12 rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)]">
-            <CardContent>
-              <BookOpen className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No templates found</h3>
-              <p className="text-slate-600 mb-4">
-                {searchQuery || selectedCategory !== 'all'
-                  ? 'Try adjusting your search criteria'
-                  : 'Create your first job template to get started'
-                }
-              </p>
-              {!searchQuery && selectedCategory === 'all' && (
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Template
-                </Button>
+            {/* Templates Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTemplates.map((template) => (
+                <Card key={template.id} className="rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getCategoryIcon(template.category)}
+                        <Badge className={getCategoryColor(template.category)}>
+                          {template.category}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {/* Ownership indicator */}
+                        {template.createdBy === user?.id ? (
+                          <Badge variant="outline" className="text-xs flex items-center bg-blue-50 text-blue-700 border-blue-200">
+                            <User className="w-3 h-3 mr-1" />
+                            My Template
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs flex items-center bg-gray-50 text-gray-600 border-gray-200">
+                            <Users className="w-3 h-3 mr-1" />
+                            Shared
+                          </Badge>
+                        )}
+                        {template.isPublic ? (
+                          <Badge variant="outline" className="text-xs flex items-center">
+                            <Globe className="w-3 h-3 mr-1" />
+                            Public
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs flex items-center">
+                            <Lock className="w-3 h-3 mr-1" />
+                            Private
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <CardDescription>{template.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span>Used {template.usageCount} times</span>
+                        <span>Last used: {template.lastUsedAt ? new Date(template.lastUsedAt).toLocaleDateString() : 'Never'}</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1">
+                        {template.tags.slice(0, 3).map((tag, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {template.tags.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{template.tags.length - 3} more
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Primary Action - Create Job */}
+                        <Button
+                          className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                          onClick={() => handleCreateJobFromTemplate(template.id)}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Job from Template
+                        </Button>
+
+                        {/* Secondary Actions */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex space-x-1">
+                            {/* Only show edit button for user's own templates */}
+                            {template.createdBy === user?.id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditTemplate(template)}
+                                title="Edit Template"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUseTemplate(template.id)}
+                              title="Copy Template"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                            {/* Only show toggle public/private button for user's own templates */}
+                            {template.createdBy === user?.id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleTogglePublic(template.id)}
+                                title={template.isPublic ? "Make Private" : "Make Public"}
+                              >
+                                {template.isPublic ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                              </Button>
+                            )}
+                          </div>
+                          {/* Only show delete button for user's own templates */}
+                          {template.createdBy === user?.id && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteTemplate(template.id)}
+                              title="Delete Template"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Empty State */}
+            {filteredTemplates.length === 0 && !loading && (
+              <Card className="text-center py-12 rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)]">
+                <CardContent>
+                  <BookOpen className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No templates found</h3>
+                  <p className="text-slate-600 mb-4">
+                    {searchQuery || selectedCategory !== 'all'
+                      ? 'Try adjusting your search criteria'
+                      : 'Create your first job template to get started'
+                    }
+                  </p>
+                  {!searchQuery && selectedCategory === 'all' && (
+                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Template
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Edit Template Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit Template</DialogTitle>
+                <DialogDescription>
+                  Update your job template
+                </DialogDescription>
+              </DialogHeader>
+              {editingTemplate && (
+                <EditTemplateForm
+                  template={editingTemplate}
+                  onSubmit={(data) => handleUpdateTemplate(editingTemplate.id, data)}
+                  loading={updating}
+                />
               )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </DialogContent>
+          </Dialog>
 
-      {/* Edit Template Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Template</DialogTitle>
-            <DialogDescription>
-              Update your job template
-            </DialogDescription>
-          </DialogHeader>
-          {editingTemplate && (
-            <EditTemplateForm
-              template={editingTemplate}
-              onSubmit={(data) => handleUpdateTemplate(editingTemplate.id, data)}
-              loading={updating}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <EmployerDashboardFooter />
-    </div>
+          <EmployerDashboardFooter />
+        </div>
+      </PermissionGuard>
+    </EmployerAuthGuard>
   )
 }
 

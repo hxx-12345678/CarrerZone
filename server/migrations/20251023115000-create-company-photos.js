@@ -11,7 +11,12 @@ module.exports = {
     const exists = tableExists?.[0]?.[0]?.exists === true || tableExists?.[0]?.[0]?.exists === 't';
     if (exists) return;
 
-    await queryInterface.createTable(tableName, {
+    
+      try {
+        const tables = await queryInterface.showAllTables();
+        const normalized = Array.isArray(tables) ? tables.map(t => typeof t === 'string' ? t : t.tableName || t).map(n => String(n).toLowerCase()) : [];
+        if (!normalized.includes('tablename')) {
+          await queryInterface.createTable('tableName', {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.literal('gen_random_uuid()'),
@@ -38,6 +43,18 @@ module.exports = {
       created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
       updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') }
     });
+          console.log('✅ Created table tableName');
+        } else {
+          console.log('ℹ️ Table tableName already exists, skipping...');
+        }
+      } catch (err) {
+        if (err.message.includes('already exists')) {
+            console.log('ℹ️ Table tableName already exists, skipping...');
+        } else {
+            console.warn('⚠️ Could not check/create table tableName:', err.message);
+        }
+      }
+
 
     // Helpful indexes (ignore if duplicates)
     const idx = async (name, sql) => {

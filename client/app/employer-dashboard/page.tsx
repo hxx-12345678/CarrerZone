@@ -624,6 +624,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             icon: Briefcase,
             color: "from-blue-500 to-blue-600",
             link: "/employer-dashboard/manage-jobs",
+            permission: "jobPosting"
           },
           {
             title: "Total Applications",
@@ -632,6 +633,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             icon: Users,
             color: "from-green-500 to-green-600",
             link: "/employer-dashboard/applications",
+            permission: "applications"
           },
           {
             title: "Under Review",
@@ -640,6 +642,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             icon: Clock,
             color: "from-yellow-500 to-yellow-600",
             link: "/employer-dashboard/applications?status=reviewing",
+            permission: "applications"
           },
           {
             title: "Shortlisted",
@@ -648,6 +651,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             icon: Star,
             color: "from-indigo-500 to-indigo-600",
             link: "/employer-dashboard/applications?status=shortlisted",
+            permission: "applications"
           },
           {
             title: "Interviews Scheduled",
@@ -656,6 +660,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             icon: Calendar,
             color: "from-pink-500 to-pink-600",
             link: "/employer-dashboard/applications?status=interview_scheduled",
+            permission: "applications"
           },
           {
             title: "Profile Views",
@@ -663,6 +668,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             change: (statsResponse.data.profileViews || 0) > 0 ? `${statsResponse.data.profileViews} views` : "No profile views",
             icon: Eye,
             color: "from-purple-500 to-purple-600",
+            permission: "analytics"
           },
           {
             title: "Hired Candidates",
@@ -671,8 +677,15 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
             icon: Award,
             color: "from-orange-500 to-orange-600",
             link: "/employer-dashboard/applications?status=hired",
+            permission: "applications"
           },
-        ]
+        ].filter(stat => {
+          if (user?.userType === 'admin' || user?.userType === 'superadmin') return true;
+          if (stat.permission && user?.permissions) {
+            return user.permissions[stat.permission] === true;
+          }
+          return true;
+        })
         setStats(dashboardStats)
         console.log('✅ Dashboard stats loaded:', dashboardStats)
       }
@@ -858,6 +871,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: Plus,
       href: "/employer-dashboard/post-job",
       color: "from-blue-500 to-blue-600",
+      permission: "jobPosting"
     },
     {
       title: "View Applications",
@@ -865,6 +879,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: Users,
       href: "/employer-dashboard/applications",
       color: "from-purple-500 to-purple-600",
+      permission: "applications"
     },
     {
       title: "Job Templates",
@@ -872,6 +887,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: FileText,
       href: "/employer-dashboard/job-templates",
       color: "from-indigo-500 to-indigo-600",
+      permission: "jobPosting"
     },
     {
       title: "Bulk Import",
@@ -879,6 +895,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: Database,
       href: "/employer-dashboard/bulk-import",
       color: "from-green-500 to-green-600",
+      permission: "jobPosting"
     },
     {
       title: "Featured Jobs",
@@ -886,6 +903,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: TrendingUp,
       href: "/employer-dashboard/featured-jobs",
       color: "from-purple-500 to-purple-600",
+      permission: "featuredJobs"
     },
     {
       title: "Search Database",
@@ -893,6 +911,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: Users,
       href: "/employer-dashboard/create-requirement",
       color: "from-teal-500 to-teal-600",
+      permission: "resumeDatabase"
     },
     {
       title: "Analytics",
@@ -900,6 +919,7 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: BarChart3,
       href: "/employer-dashboard/analytics",
       color: "from-orange-500 to-orange-600",
+      permission: "analytics"
     },
     {
       title: "Messages",
@@ -907,6 +927,14 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
       icon: MessageCircle,
       href: "/messages",
       color: "from-sky-500 to-sky-600",
+    },
+    {
+      title: "Hot Vacancies",
+      description: "Post premium hot vacancies",
+      icon: Flame,
+      href: "/employer-dashboard/hot-vacancies",
+      color: "from-red-500 to-red-600",
+      permission: "hotVacancies"
     },
     {
       title: "Usage Pulse",
@@ -919,11 +947,18 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
   ]
 
   // Filter quick actions based on user type, or use mock data
+  // Filter quick actions based on user type and permissions, or use mock data
   const quickActions = isMockMode ? mockQuickActions : allQuickActions.filter(action => {
+    // 1. Check adminOnly actions
     if (action.adminOnly) {
-      // Show Usage Pulse for admin users (both system admins and company admins)
       return user?.userType === 'admin' || user?.userType === 'superadmin'
     }
+
+    // 2. Check granular permissions for non-admin/non-superadmin users
+    if (user?.userType !== 'admin' && user?.userType !== 'superadmin' && action.permission && user?.permissions) {
+      return user.permissions[action.permission] === true
+    }
+
     return true
   })
 
@@ -1482,16 +1517,16 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
         !user.preferences?.profileCompleted &&
         !((user as any).profile_completion >= 100) &&
         user.email !== 'hxx@gmail.com' && (
-        <EmployerProfileCompletionDialog
-          isOpen={showProfileCompletion}
-          onClose={() => {
-            console.log('🚫 Dialog closed by user');
-            setShowProfileCompletion(false)
-          }}
-          user={user}
-          onProfileUpdated={handleProfileUpdated}
-        />
-      )}
+          <EmployerProfileCompletionDialog
+            isOpen={showProfileCompletion}
+            onClose={() => {
+              console.log('🚫 Dialog closed by user');
+              setShowProfileCompletion(false)
+            }}
+            user={user}
+            onProfileUpdated={handleProfileUpdated}
+          />
+        )}
 
     </div>
   )
