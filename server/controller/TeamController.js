@@ -516,18 +516,43 @@ exports.removeTeamMember = async (req, res) => {
       });
     }
 
-    // Remove user from company (using companyId, Sequelize maps to company_id)
+    const originalEmail = userToRemove.email;
+
+    // GDPR-aligned soft delete:
+    // - Free up the original email so the admin can re-invite the same address later
+    // - Remove personal identifiers
+    // - Disable the account from logging in
+    // - Detach from company
+    const deletedEmail = `deleted_${Date.now()}_${originalEmail}`;
+
     await userToRemove.update({
+      account_status: 'deleted',
+      is_active: false,
+      email: deletedEmail,
+      phone: null,
+      first_name: 'Deleted',
+      last_name: 'User',
+      avatar: null,
+      password: null,
       companyId: null,
-      user_type: 'jobseeker' // Revert to jobseeker
+      user_type: 'jobseeker',
+      designation: null,
+      permissions: {},
+      preferences: {
+        ...(userToRemove.preferences || {}),
+        deletedAt: new Date().toISOString(),
+        deletedBy: req.user.id,
+        deletedByCompanyId: companyId,
+        gdpr: true
+      }
     });
 
-    // Cancel any pending invitations for this user's email
+    // Cancel any pending invitations for this user's original email
     await TeamInvitation.update(
       { status: 'cancelled' },
       {
         where: {
-          email: userToRemove.email,
+          email: originalEmail,
           companyId: companyId,
           status: 'pending'
         }

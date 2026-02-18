@@ -34,8 +34,8 @@ router.get('/:id/similar', getSimilarJobs);
 router.get('/:id', getJobById);
 
 // Protected routes (require authentication)
-router.get('/employer/manage-jobs', authenticateToken, getJobsByEmployer);
-router.get('/edit/:id', authenticateToken, getJobForEdit);
+router.get('/employer/manage-jobs', authenticateToken, checkPermission('jobPosting'), getJobsByEmployer);
+router.get('/edit/:id', authenticateToken, checkPermission('jobPosting'), getJobForEdit);
 router.post('/create', authenticateToken, checkPermission('jobPosting'), createJob);
 router.put('/:id', authenticateToken, checkPermission('jobPosting'), updateJob);
 router.delete('/:id', authenticateToken, checkPermission('jobPosting'), deleteJob);
@@ -93,7 +93,7 @@ router.patch('/:id/status', authenticateToken, checkPermission('jobPosting'), as
 });
 
 // Update job expiry (validTill)
-router.patch('/:id/expiry', authenticateToken, async (req, res) => {
+router.patch('/:id/expiry', authenticateToken, checkPermission('jobPosting'), async (req, res) => {
   try {
     const { id } = req.params;
     const { validTill } = req.body || {};
