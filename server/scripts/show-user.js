@@ -16,10 +16,10 @@ async function show(identifier) {
     console.log(`User: ${user.id} | ${user.email}`);
     console.log('first_name:', user.first_name);
     console.log('last_name:', user.last_name);
+    console.log('user_type:', user.user_type);
+    console.log('company_id:', user.companyId || user.company_id);
     console.log('experience_years:', user.experience_years);
     console.log('current_salary:', user.current_salary);
-    console.log('key_skills:', JSON.stringify(user.key_skills || user.skills || []));
-    console.log('preferred_locations:', JSON.stringify(user.preferred_locations));
     console.log('profile_completion:', user.profile_completion);
 
     process.exit(0);

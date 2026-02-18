@@ -282,114 +282,22 @@ async function streamATSScores(
 
 /**
  * Get all candidate IDs for a requirement (for "Stream ATS (All)")
- * Uses the same matching logic as the main candidates endpoint
+ * Uses the SAME unified matching logic as the main candidates endpoint
  */
-async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit = 100, fetchAll = false) {
+async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit = 100, fetchAll = false, queryParams = {}) {
   const { Requirement, User } = require('../config/index');
-  const { Op } = require('sequelize');
-  const sequelizeDB = require('../config/sequelize').sequelize;
+  const requirementSearchService = require('./requirementSearchService');
 
-  const requirement = await Requirement.findByPk(requirementId, {
-    attributes: [
-      'id',
-      'title',
-      'description',
-      'experienceMin',
-      'experienceMax',
-      'salaryMin',
-      'salaryMax',
-      'skills',
-      'keySkills',
-      'remoteWork',
-      'metadata'
-    ]
-  });
-
+  const requirement = await Requirement.findByPk(requirementId);
   if (!requirement) {
     throw new Error('Requirement not found');
   }
 
-  // Parse metadata if it's a string
-  let metadata = {};
-  if (requirement.metadata) {
-    try {
-      metadata = typeof requirement.metadata === 'string'
-        ? JSON.parse(requirement.metadata)
-        : requirement.metadata;
-    } catch (e) {
-      console.warn('⚠️ Could not parse requirement metadata:', e);
-    }
-  }
+  // Use the unified criteria extraction with optional query parameters/filters
+  const criteria = requirementSearchService.extractCriteria(requirement, queryParams);
 
-  // Get experience range - use the actual property names from model
-  let workExperienceMin = requirement.experienceMin;
-  let workExperienceMax = requirement.experienceMax;
-
-  // Build base where clause
-  const whereClause = {
-    user_type: 'jobseeker',
-    account_status: 'active',
-    is_active: true
-  };
-
-  // Experience range matching - Only enforce minimum experience
-  if (workExperienceMin !== null && workExperienceMin !== undefined) {
-    const minExp = Number(workExperienceMin);
-
-    whereClause.experience_years = {
-      [Op.gte]: minExp
-    };
-  }
-
-  // Build matching conditions (same logic as main endpoint)
-  const matchingConditions = [];
-
-  // Skills matching - use skills and keySkills
-  const allSkills = [];
-  if (requirement.skills && Array.isArray(requirement.skills)) {
-    allSkills.push(...requirement.skills);
-  }
-  if (requirement.keySkills && Array.isArray(requirement.keySkills)) {
-    allSkills.push(...requirement.keySkills);
-  }
-
-  if (allSkills.length > 0) {
-    const skillsArray = [...new Set(allSkills)];
-    matchingConditions.push({
-      [Op.or]: [
-        sequelizeDB.where(
-          sequelizeDB.cast(sequelizeDB.col('skills'), 'text'),
-          { [Op.iLike]: { [Op.any]: skillsArray.map(skill => `%${skill}%`) } }
-        ),
-        sequelizeDB.where(
-          sequelizeDB.cast(sequelizeDB.col('key_skills'), 'text'),
-          { [Op.iLike]: { [Op.any]: skillsArray.map(skill => `%${skill}%`) } }
-        )
-      ]
-    });
-  }
-
-  // Location matching
-  const requirementLocations = (requirement.metadata?.candidateLocations) || (requirement.metadata?.candidate_locations) || [];
-  if (requirementLocations && Array.isArray(requirementLocations) && requirementLocations.length > 0) {
-    const locationsArray = requirementLocations;
-    matchingConditions.push({
-      [Op.or]: [
-        { current_location: { [Op.iLike]: { [Op.any]: locationsArray.map(loc => `%${loc}%`) } } },
-        { willing_to_relocate: true },
-        sequelizeDB.where(
-          sequelizeDB.cast(sequelizeDB.col('preferred_locations'), 'text'),
-          { [Op.iLike]: { [Op.any]: locationsArray.map(loc => `%${loc}%`) } }
-        )
-      ]
-    });
-  }
-
-  // Combine matching conditions with AND logic
-  if (matchingConditions.length > 0) {
-    whereClause[Op.and] = whereClause[Op.and] || [];
-    whereClause[Op.and].push(...matchingConditions);
-  }
+  // Build the unified where clause
+  const whereClause = requirementSearchService.buildWhereClause(criteria, requirement.title);
 
   // Get total count
   const totalCandidates = await User.count({ where: whereClause });
@@ -408,6 +316,8 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
 
   const candidates = await User.findAll(findOptions);
 
+  console.log(`🔍 ATS Pooling Service: Found ${totalCandidates} candidates matching unified criteria`);
+
   return {
     candidateIds: candidates.map(c => c.id),
     totalCandidates,
@@ -416,6 +326,7 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
     limit: fetchAll ? totalCandidates : parseInt(limit)
   };
 }
+
 
 module.exports = {
   streamATSScores,
