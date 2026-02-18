@@ -137,7 +137,10 @@ exports.getTeamMembers = async (req, res) => {
  */
 exports.inviteTeamMember = async (req, res) => {
   try {
-    const companyId = req.user.company_id;
+    const companyId = req.user.companyId || req.user.company_id;
+    const userType = req.user.user_type || req.user.userType;
+
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
 
     if (!companyId) {
       return res.status(400).json({
@@ -146,8 +149,16 @@ exports.inviteTeamMember = async (req, res) => {
       });
     }
 
+    // Prevent opaque Sequelize validation errors if token carries wrong shape
+    if (!isUuid(String(companyId))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid companyId on authenticated user'
+      });
+    }
+
     // Verify user is admin or has settings permission
-    if (req.user.user_type !== 'admin' && req.user.user_type !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
+    if (userType !== 'admin' && userType !== 'superadmin' && (!req.user.permissions || req.user.permissions.settings !== true)) {
       return res.status(403).json({
         success: false,
         message: 'Only admins or users with settings permission can invite team members'
@@ -333,6 +344,21 @@ exports.inviteTeamMember = async (req, res) => {
       }
     };
 
+    if (!invitationData.invitedBy) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid authenticated user id'
+      });
+    }
+
+    // If your DB uses UUID user ids, fail early with clear error
+    if (typeof invitationData.invitedBy === 'string' && !isUuid(invitationData.invitedBy)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid inviter user id'
+      });
+    }
+
     // Store default password in permissions metadata (temporary storage)
     if (!invitationData.permissions) {
       invitationData.permissions = {};
@@ -413,11 +439,22 @@ exports.inviteTeamMember = async (req, res) => {
       }
     });
   } catch (error) {
+    // Convert Sequelize validation errors into proper 400 responses
+    if (error && (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: Array.isArray(error.errors)
+          ? error.errors.map(e => ({ message: e.message, path: e.path, value: e.value, type: e.type }))
+          : undefined
+      });
+    }
+
     console.error('❌ Invite team member error:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to invite team member',
-      error: error.message
+      error: error?.message || 'Internal server error'
     });
   }
 };
