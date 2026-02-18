@@ -5570,8 +5570,7 @@ router.post('/:id/calculate-ats', authenticateToken, async (req, res) => {
       const allCandidatesData = await atsPoolingService.getAllCandidateIdsForRequirement(
         requirementId,
         page,
-        limit,
-        processAll
+        limit
       );
 
       targetCandidateIds = allCandidatesData.candidateIds;

@@ -284,7 +284,7 @@ async function streamATSScores(
  * Get all candidate IDs for a requirement (for "Stream ATS (All)")
  * Uses the same matching logic as the main candidates endpoint
  */
-async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit = 100, fetchAll = false) {
+async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit = 100) {
   const { Requirement, User } = require('../config/index');
   const { Op } = require('sequelize');
   const sequelizeDB = require('../config/sequelize').sequelize;
@@ -395,25 +395,20 @@ async function getAllCandidateIdsForRequirement(requirementId, page = 1, limit =
   const totalCandidates = await User.count({ where: whereClause });
 
   // Get candidate IDs with pagination
-  const findOptions = {
+  const candidates = await User.findAll({
     where: whereClause,
     attributes: ['id'],
+    limit: parseInt(limit),
+    offset: (page - 1) * parseInt(limit),
     order: [['created_at', 'DESC']]
-  };
-
-  if (!fetchAll) {
-    findOptions.limit = parseInt(limit);
-    findOptions.offset = (page - 1) * parseInt(limit);
-  }
-
-  const candidates = await User.findAll(findOptions);
+  });
 
   return {
     candidateIds: candidates.map(c => c.id),
     totalCandidates,
-    hasMorePages: fetchAll ? false : (page * parseInt(limit)) < totalCandidates,
+    hasMorePages: (page * parseInt(limit)) < totalCandidates,
     currentPage: page,
-    limit: fetchAll ? totalCandidates : parseInt(limit)
+    limit: parseInt(limit)
   };
 }
 
