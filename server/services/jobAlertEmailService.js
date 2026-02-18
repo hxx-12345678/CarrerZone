@@ -183,9 +183,39 @@ class JobAlertEmailService {
       
       // Job type filter
       if (alert.jobType && Array.isArray(alert.jobType) && alert.jobType.length > 0) {
-        whereClause.jobType = {
-          [Op.in]: alert.jobType
-        };
+        const validJobTypes = ['full-time', 'part-time', 'contract', 'internship', 'freelance']
+
+        const normalizeJobType = (t) => {
+          const raw = String(t || '').trim()
+          if (!raw) return null
+
+          const lower = raw.toLowerCase()
+          const cleaned = lower.replace(/\s+/g, '-').replace(/_/g, '-')
+
+          const aliasMap = {
+            'fulltime': 'full-time',
+            'full-time': 'full-time',
+            'parttime': 'part-time',
+            'part-time': 'part-time',
+            'contract': 'contract',
+            'intern': 'internship',
+            'internship': 'internship',
+            'freelance': 'freelance',
+            'freelancer': 'freelance'
+          }
+
+          return aliasMap[cleaned] || aliasMap[cleaned.replace(/-/g, '')] || cleaned
+        }
+
+        const normalizedTypes = alert.jobType
+          .map(normalizeJobType)
+          .filter((t) => t && validJobTypes.includes(t))
+
+        if (normalizedTypes.length > 0) {
+          whereClause.jobType = {
+            [Op.in]: normalizedTypes
+          };
+        }
       }
       
       // Experience level filter

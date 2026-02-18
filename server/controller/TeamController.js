@@ -50,7 +50,7 @@ exports.getTeamMembers = async (req, res) => {
       attributes: [
         'id', 'email', 'first_name', 'last_name', 'phone',
         'user_type', 'designation', 'is_active', 'is_email_verified',
-        'is_phone_verified', 'preferences', 'created_at', 'last_login_at'
+        'is_phone_verified', 'preferences', 'permissions', 'created_at', 'last_login_at'
       ],
       order: [['created_at', 'DESC']]
     });

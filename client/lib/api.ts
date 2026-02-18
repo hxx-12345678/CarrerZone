@@ -3341,6 +3341,7 @@ class ApiService {
   async getTeamMembers(): Promise<ApiResponse<any>> {
     try {
       const response = await fetch(`${API_BASE_URL}/team/members`, {
+        cache: 'no-store',
         headers: this.getAuthHeaders(),
       });
       return await this.handleResponse<any>(response);
