@@ -946,8 +946,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
     const { User } = require('../config/index');
     const { sequelize } = require('../config/sequelize');
 
-    console.log(`📊 Fetching stats for requirement: ${requirement.id} (${requirement.title})`);
-
     // ========== EXTRACT ALL FIELDS FROM METADATA (SAME AS CANDIDATES ENDPOINT) ==========
     // Many fields are stored in metadata JSONB, extract them first
     const metadata = typeof requirement.metadata === 'string'
@@ -987,7 +985,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
         if (expMatch[2]) {
           workExperienceMax = parseInt(expMatch[2]);
         }
-        console.log(`📊 Parsed experience from metadata.experience (stats): ${workExperienceMin}${workExperienceMax ? '-' + workExperienceMax : '+'} years`);
       }
     }
 
@@ -1008,7 +1005,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
         if (salMatch[2]) {
           currentSalaryMax = parseFloat(salMatch[2]);
         }
-        console.log(`📊 Parsed salary from metadata.salary (stats): ${currentSalaryMin}${currentSalaryMax ? '-' + currentSalaryMax : '+'} LPA`);
       }
     }
 
@@ -1056,7 +1052,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
           ]
         }
       });
-      console.log(`✅ Added experience filter in stats: ${minExp}-${maxExp} years`);
     }
 
     // 2. SALARY RANGE MATCHING (add to allAndConditions, same as candidates endpoint)
@@ -1088,7 +1083,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
       } else {
         allAndConditions.push(salaryRangeMatch);
       }
-      console.log(`✅ Added salary filter in stats: ${minSalary}-${maxSalary} LPA (includeNotMentioned: ${includeNotMentioned})`);
     } else if (includeNotMentioned) {
       // If includeNotMentioned is true, also include candidates with no salary specified
       // This is handled by not adding salary filter, so all candidates pass
@@ -1123,7 +1117,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
       appliedFilters.push(`Location (Include): ${candidateLocations.join(', ')}${includeWillingToRelocate ? ' (including willing to relocate)' : ''}`);
     } else {
       // No location filter specified - allow any location candidate
-      console.log('✅ No location include filter specified - allowing candidates from any location');
     }
 
     // 3.2. LOCATION EXCLUDE (excludeLocations)
@@ -1626,8 +1619,6 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
             relaxedCandidateIds = relaxedMatches.map(m => m.id);
             fallbackApplied = true;
           }
-        } else {
-          console.log(`⚠️ Fallback skipped for Req ${id}: No relaxed criteria available (would match all candidates)`);
         }
       } catch (fallbackErr) {
         // Silently handle fallback errors
@@ -1635,83 +1626,154 @@ router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async 
     }
 
     // Use relaxed candidates if fallback was applied, otherwise use strict matches
-    const finalCandidateIdsForCount = fallbackApplied ? relaxedCandidateIds : finalCandidateIds;
+    let finalCandidateIdsForCount = fallbackApplied ? relaxedCandidateIds : finalCandidateIds;
 
-    // Final total after post-query validations (including relaxed fallback)
-    const totalCandidates = finalCandidateIdsForCount.length;
+    // ===== Apply the SAME post-filters as /requirements/:id/candidates (to keep totals consistent) =====
+    // 1) Lenient title filter (only when strict criteria applies and NO skills are specified)
+    try {
+      const statsIncludeSkillsForTitle = metadata.includeSkills || requirement.includeSkills || [];
+      const statsKeySkillsForTitle = requirement.keySkills || [];
+      const allStatsIncludeSkillsForTitle = [...new Set([
+        ...(Array.isArray(statsIncludeSkillsForTitle) ? statsIncludeSkillsForTitle : []),
+        ...(Array.isArray(statsKeySkillsForTitle) ? statsKeySkillsForTitle : [])
+      ])].filter(Boolean);
 
-    console.log(`📊 Stats calculation for Req ${id}: Strict=${finalCandidateIds.length}, Relaxed=${relaxedCandidateIds.length}, Fallback=${fallbackApplied}, Final=${totalCandidates}`);
+      const statsRequiredSkillsForTitle = [
+        ...(Array.isArray(requirement.skills) ? requirement.skills : []),
+        ...allStatsIncludeSkillsForTitle
+      ].filter(Boolean);
 
-    // Get accessed candidates count - only count UNIQUE candidates that match this requirement
-    const { ViewTracking } = require('../config/index');
+      const hasStatsSkillsForTitleCheck = statsRequiredSkillsForTitle.length > 0;
+      const hasMultipleStatsCriteriaForTitle = (
+        (statsRequiredSkillsForTitle.length > 0 ? 1 : 0) +
+        (candidateLocations.length > 0 ? 1 : 0) +
+        (candidateDesignations.length > 0 ? 1 : 0) +
+        (workExperienceMin !== null ? 1 : 0) +
+        (currentSalaryMin !== null ? 1 : 0)
+      ) > 1;
 
-    // Initialize to 0 - will only increment if valid views are found
-    let accessedCandidates = 0;
+      if (
+        hasStrictCriteriaForStats &&
+        !hasStatsSkillsForTitleCheck &&
+        hasMultipleStatsCriteriaForTitle &&
+        requirement.title &&
+        requirement.title.trim().length > 3 &&
+        Array.isArray(finalCandidateIdsForCount) &&
+        finalCandidateIdsForCount.length > 0
+      ) {
+        const titleWords = requirement.title
+          .split(/\s+/)
+          .filter(w => w.length > 2)
+          .map(w => w.toLowerCase());
 
-    // CRITICAL: Only count if there are matching candidates (use finalCandidateIdsForCount which includes relaxed fallback)
-    if (finalCandidateIdsForCount.length === 0) {
-      accessedCandidates = 0;
-    } else {
-      try {
-        // Count DISTINCT profile views where:
-        // 1. The viewed candidate matches this requirement (in finalCandidateIdsForCount - includes relaxed fallback)
-        // 2. The viewer is this employer
-        // 3. View type is profile_view
-        // IMPORTANT: Only count views of candidates that actually match this requirement
-
-        // Convert finalCandidateIdsForCount to strings for consistent comparison
-        const matchingIdsStr = finalCandidateIdsForCount.map(id => String(id).trim()).filter(Boolean);
-
-        if (matchingIdsStr.length === 0) {
-          accessedCandidates = 0;
-        } else {
-          // PRIMARY METHOD: Count distinct accessed candidates
-          // CRITICAL: Only count views that happened AFTER requirement was created
-          // This prevents counting views from before the requirement existed
-          const requirementCreatedDate = new Date(requirement.created_at);
-          const minViewDate = new Date(requirementCreatedDate.getTime() + 1000); // Add 1 second buffer to exclude redirect views
-
-          const verifyViews = await ViewTracking.findAll({
+        if (titleWords.length > 0) {
+          const titleMatchedCandidates = await User.findAll({
             where: {
-              viewerId: req.user.id,
-              viewedUserId: { [Op.in]: finalCandidateIdsForCount },
-              viewType: 'profile_view',
+              id: { [Op.in]: finalCandidateIdsForCount },
               [Op.or]: [
-                sequelize.where(
-                  sequelize.cast(sequelize.col('metadata'), 'text'),
-                  { [Op.iLike]: `%"requirementId":"${requirement.id}"%` }
-                ),
-                sequelize.where(
-                  sequelize.cast(sequelize.col('metadata'), 'text'),
-                  { [Op.iLike]: `%"requirementId": "${requirement.id}"%` }
-                )
+                ...titleWords.map(keyword => ({ headline: { [Op.iLike]: `%${keyword}%` } })),
+                ...titleWords.map(keyword => ({ designation: { [Op.iLike]: `%${keyword}%` } })),
+                ...titleWords.map(keyword => ({ current_role: { [Op.iLike]: `%${keyword}%` } }))
               ]
             },
-            attributes: [
-              [sequelize.literal('"ViewTracking"."viewed_user_id"'), 'viewed_user_id'],
-              [sequelize.literal('"ViewTracking"."created_at"'), 'created_at']
-            ],
-            raw: true,
-            order: [[sequelize.literal('"ViewTracking"."created_at"'), 'DESC']]
+            attributes: ['id'],
+            raw: true
           });
 
-          // Count unique candidates viewed
-          const viewedCandidateIds = new Set();
-          const finalCandidateIdsStr = finalCandidateIdsForCount.map(id => String(id).trim());
-
-          if (Array.isArray(verifyViews) && verifyViews.length > 0) {
-            verifyViews.forEach((view) => {
-              const viewedId = String(view.viewed_user_id || '').trim();
-              if (viewedId && finalCandidateIdsStr.includes(viewedId)) {
-                viewedCandidateIds.add(viewedId);
-              }
-            });
+          if (Array.isArray(titleMatchedCandidates) && titleMatchedCandidates.length > 0) {
+            finalCandidateIdsForCount = titleMatchedCandidates.map(c => c.id);
           }
-
-          accessedCandidates = viewedCandidateIds.size;
         }
+      }
+    } catch (_) {
+      // Keep original candidate ids if title filtering fails
+    }
 
-      } catch (queryError) {
+    // 2) Exclude skills final safety filter (apply to the FINAL candidate set)
+    const statsExcludeSkillsForValidation = metadata.excludeSkills || requirement.excludeSkills || [];
+    if (
+      Array.isArray(statsExcludeSkillsForValidation) &&
+      statsExcludeSkillsForValidation.length > 0 &&
+      statsExcludeSkillsForValidation.filter(s => s).length > 0 &&
+      Array.isArray(finalCandidateIdsForCount) &&
+      finalCandidateIdsForCount.length > 0
+    ) {
+      try {
+        const candidateRows = await User.findAll({
+          where: { id: { [Op.in]: finalCandidateIdsForCount } },
+          attributes: ['id', 'skills', 'key_skills', 'headline', 'summary'],
+          raw: true
+        });
+
+        const excludeSet = new Set();
+        candidateRows.forEach((c) => {
+          const combined = `${c.skills ? JSON.stringify(c.skills) : ''} ${c.key_skills ? JSON.stringify(c.key_skills) : ''} ${c.headline || ''} ${c.summary || ''}`.toLowerCase();
+          for (const skill of statsExcludeSkillsForValidation.filter(s => s)) {
+            if (skill && combined.includes(String(skill).toLowerCase())) {
+              excludeSet.add(String(c.id));
+              break;
+            }
+          }
+        });
+
+        if (excludeSet.size > 0) {
+          finalCandidateIdsForCount = finalCandidateIdsForCount.filter(idVal => !excludeSet.has(String(idVal)));
+        }
+      } catch (_) {
+        // Keep original candidate ids if excludeSkills filter fails
+      }
+    }
+
+    // 3) Current designation filter using work_experiences (apply to FINAL candidate set)
+    const currentDesignationForStatsFinal = metadata.currentDesignation || requirement.currentDesignation || null;
+    if (currentDesignationForStatsFinal && Array.isArray(finalCandidateIdsForCount) && finalCandidateIdsForCount.length > 0) {
+      try {
+        const workExpRows = await sequelize.query(`
+          SELECT user_id, title, is_current
+          FROM work_experiences
+          WHERE user_id = ANY(:userIds)
+        `, {
+          replacements: { userIds: finalCandidateIdsForCount },
+          type: QueryTypes.SELECT
+        });
+
+        const designationLower = String(currentDesignationForStatsFinal).toLowerCase().trim();
+        const matchSet = new Set();
+
+        // Prefer current roles, but allow any title if none marked current
+        (workExpRows || []).forEach((row) => {
+          const title = String(row.title || '').toLowerCase();
+          if (title && designationLower && title.includes(designationLower)) {
+            matchSet.add(String(row.user_id));
+          }
+        });
+
+        if (matchSet.size > 0) {
+          finalCandidateIdsForCount = finalCandidateIdsForCount.filter(idVal => matchSet.has(String(idVal)));
+        }
+      } catch (_) {
+        // Keep original ids if work experience filter fails
+      }
+    }
+
+    // Final total after post-query validations (including relaxed fallback)
+    const totalCandidates = Array.isArray(finalCandidateIdsForCount) ? finalCandidateIdsForCount.length : 0;
+
+    // Get accessed candidates count - should match /requirements/:id/candidates (distinct views on final set)
+    const { ViewTracking } = require('../config/index');
+    let accessedCandidates = 0;
+    if (Array.isArray(finalCandidateIdsForCount) && finalCandidateIdsForCount.length > 0) {
+      try {
+        accessedCandidates = await ViewTracking.count({
+          where: {
+            viewerId: req.user.id,
+            viewedUserId: { [Op.in]: finalCandidateIdsForCount },
+            viewType: 'profile_view'
+          },
+          distinct: true,
+          col: 'viewedUserId'
+        });
+      } catch (_) {
         accessedCandidates = 0;
       }
     }
