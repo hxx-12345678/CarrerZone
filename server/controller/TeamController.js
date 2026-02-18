@@ -98,7 +98,6 @@ exports.getTeamMembers = async (req, res) => {
               featuredJobs: false,
               hotVacancies: false,
               applications: true,
-              requirements: true,
               settings: false
             }
           };
@@ -174,9 +173,15 @@ exports.inviteTeamMember = async (req, res) => {
       });
     }
 
-    // Check if user already exists with this email
+    // Check if user already exists with this email (case-insensitive)
+    // This avoids duplicate emails with different casing and prevents Sequelize unique violations.
+    const normalizedEmail = String(email || '').trim().toLowerCase();
     const existingUser = await User.findOne({
-      where: { email: email.toLowerCase() }
+      where: {
+        email: {
+          [Op.iLike]: normalizedEmail
+        }
+      }
     });
 
     if (existingUser) {
@@ -269,7 +274,7 @@ exports.inviteTeamMember = async (req, res) => {
     // This avoids the requirement to accept an invitation link before login.
     if (defaultPassword) {
       const createdUser = await User.create({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         password: defaultPassword,
         first_name: firstName || '',
         last_name: lastName || '',
@@ -286,7 +291,6 @@ exports.inviteTeamMember = async (req, res) => {
           featuredJobs: false,
           hotVacancies: false,
           applications: true,
-          requirements: true,
           settings: false
         },
         preferences: {
@@ -324,7 +328,7 @@ exports.inviteTeamMember = async (req, res) => {
     const invitationData = {
       companyId: companyId,
       invitedBy: req.user.id,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       firstName: firstName,
       lastName: lastName,
       phone: phone,
@@ -339,7 +343,6 @@ exports.inviteTeamMember = async (req, res) => {
         featuredJobs: false,
         hotVacancies: false,
         applications: true,
-        requirements: true,
         settings: false
       }
     };
@@ -373,7 +376,7 @@ exports.inviteTeamMember = async (req, res) => {
 
     // Generate email content with password
     const emailContent = {
-      to: email.toLowerCase(),
+      to: normalizedEmail,
       subject: `Team Invitation - Join ${(await Company.findByPk(companyId)).name}`,
       html: `
         <h2>You've been invited to join the team!</h2>
@@ -384,7 +387,7 @@ exports.inviteTeamMember = async (req, res) => {
         <p><a href="${invitationLink}">${invitationLink}</a></p>
         <p><strong>Important:</strong> After accepting, you can login with:</p>
         <ul>
-          <li>Email: ${email.toLowerCase()}</li>
+          <li>Email: ${normalizedEmail}</li>
           <li>Password: ${userDefaultPassword}</li>
         </ul>
         <p>This invitation expires on ${expiresAt.toLocaleDateString()}.</p>

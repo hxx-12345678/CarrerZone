@@ -20,7 +20,7 @@ const { authenticateToken } = require('../middlewares/auth');
 const checkPermission = require('../middlewares/checkPermission');
 
 // Create Requirement
-router.post('/', authenticateToken, checkPermission('requirements'), async (req, res) => {
+router.post('/', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     const body = req.body || {};
     console.log('📝 Create Requirement request by user:', req.user?.id, 'companyId:', req.user?.companyId);
@@ -585,7 +585,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Update requirement
-router.put('/:id', authenticateToken, checkPermission('requirements'), async (req, res) => {
+router.put('/:id', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
@@ -842,7 +842,7 @@ router.put('/:id', authenticateToken, checkPermission('requirements'), async (re
 });
 
 // Delete requirement
-router.delete('/:id', authenticateToken, checkPermission('requirements'), async (req, res) => {
+router.delete('/:id', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -911,7 +911,7 @@ router.delete('/:id', authenticateToken, checkPermission('requirements'), async 
 });
 
 // Get requirement statistics
-router.get('/:id/stats', authenticateToken, checkPermission('analytics'), async (req, res) => {
+router.get('/:id/stats', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     const { id } = req.params;
 

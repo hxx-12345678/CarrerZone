@@ -75,7 +75,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       featuredJobs: false,
       hotVacancies: false,
       applications: true,
-      requirements: true,
       settings: false
     },
     oauthProvider: u.oauth_provider ?? u.oauthProvider,

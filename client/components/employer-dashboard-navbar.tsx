@@ -27,7 +27,7 @@ export function EmployerDashboardNavbar() {
   const canViewAnalytics = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.analytics
   const canManageFeatured = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.featuredJobs
   const canManageHotVacancies = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.hotVacancies
-  const canManageRequirements = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.requirements
+  const canManageRequirements = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.resumeDatabase
   const canManageSettings = user?.userType === 'admin' || user?.userType === 'superadmin' || user?.permissions?.settings
 
   const isAdmin = user?.userType === 'admin' || user?.userType === 'superadmin' || canManageSettings

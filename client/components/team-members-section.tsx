@@ -31,6 +31,19 @@ export function TeamMembersSection() {
   const [pendingInvitations, setPendingInvitations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [memberToEdit, setMemberToEdit] = useState<any>(null)
+  const [editDesignation, setEditDesignation] = useState<string>("Recruiter")
+  const [editPermissions, setEditPermissions] = useState<any>({
+    jobPosting: true,
+    resumeDatabase: true,
+    analytics: true,
+    featuredJobs: false,
+    hotVacancies: false,
+    applications: true,
+    settings: false
+  })
+  const [editSaving, setEditSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<any>(null)
   const [cancelInvitationDialogOpen, setCancelInvitationDialogOpen] = useState(false)
@@ -44,6 +57,46 @@ export function TeamMembersSection() {
       fetchTeamMembers()
     }
   }, [isAdmin])
+
+  const openEditMember = (member: any) => {
+    if (!member || member.isAdmin) return
+    setMemberToEdit(member)
+    setEditDesignation(member.designation || "Recruiter")
+    setEditPermissions({
+      jobPosting: member.permissions?.jobPosting === true,
+      resumeDatabase: member.permissions?.resumeDatabase === true,
+      analytics: member.permissions?.analytics === true,
+      featuredJobs: member.permissions?.featuredJobs === true,
+      hotVacancies: member.permissions?.hotVacancies === true,
+      applications: member.permissions?.applications === true,
+      settings: member.permissions?.settings === true
+    })
+    setEditDialogOpen(true)
+  }
+
+  const handleSaveMemberPermissions = async () => {
+    if (!memberToEdit) return
+    try {
+      setEditSaving(true)
+      const response = await apiService.updateTeamMemberPermissions(memberToEdit.id, {
+        permissions: editPermissions,
+        designation: editDesignation
+      })
+
+      if (response.success) {
+        toast.success('Permissions updated successfully')
+        setEditDialogOpen(false)
+        setMemberToEdit(null)
+        fetchTeamMembers()
+      } else {
+        toast.error(response.message || 'Failed to update permissions')
+      }
+    } catch (error) {
+      toast.error('Failed to update permissions')
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   const fetchTeamMembers = async () => {
     try {
@@ -198,9 +251,13 @@ export function TeamMembersSection() {
                         </Avatar>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <p className="font-medium text-slate-900">
+                            <button
+                              type="button"
+                              onClick={() => openEditMember(member)}
+                              className="font-medium text-slate-900 text-left"
+                            >
                               {member.firstName} {member.lastName}
-                            </p>
+                            </button>
                             {member.isAdmin && (
                               <Badge variant="outline" className="text-xs">
                                 <Shield className="w-3 h-3 mr-1" />
@@ -361,6 +418,139 @@ export function TeamMembersSection() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Permissions Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        setEditDialogOpen(open)
+        if (!open) {
+          setMemberToEdit(null)
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Team Member Permissions</DialogTitle>
+            <DialogDescription>
+              Update permissions for {memberToEdit?.firstName} {memberToEdit?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editDesignation">Designation</Label>
+              <Input
+                id="editDesignation"
+                value={editDesignation}
+                onChange={(e) => setEditDesignation(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label className="mb-3 block">Permissions</Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editJobPosting"
+                    checked={editPermissions.jobPosting}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, jobPosting: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editJobPosting" className="font-normal cursor-pointer">
+                    Job Posting
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editResumeDatabase"
+                    checked={editPermissions.resumeDatabase}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, resumeDatabase: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editResumeDatabase" className="font-normal cursor-pointer">
+                    Resume Database Access (includes Requirements)
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editAnalytics"
+                    checked={editPermissions.analytics}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, analytics: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editAnalytics" className="font-normal cursor-pointer">
+                    Analytics & Reports
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editApplications"
+                    checked={editPermissions.applications}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, applications: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editApplications" className="font-normal cursor-pointer">
+                    View Applications
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editFeaturedJobs"
+                    checked={editPermissions.featuredJobs}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, featuredJobs: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editFeaturedJobs" className="font-normal cursor-pointer">
+                    Featured Jobs
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editHotVacancies"
+                    checked={editPermissions.hotVacancies}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, hotVacancies: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editHotVacancies" className="font-normal cursor-pointer">
+                    Hot Vacancies
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editSettings"
+                    checked={editPermissions.settings}
+                    onCheckedChange={(checked) =>
+                      setEditPermissions({ ...editPermissions, settings: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="editSettings" className="font-normal cursor-pointer">
+                    Settings Access
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-2">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveMemberPermissions} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
@@ -379,7 +569,6 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
     featuredJobs: false,
     hotVacancies: false,
     applications: true,
-    requirements: true,
     settings: false
   })
   const [loading, setLoading] = useState(false)
@@ -540,18 +729,6 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
             />
             <Label htmlFor="applications" className="font-normal cursor-pointer">
               View Applications
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="requirements"
-              checked={permissions.requirements}
-              onCheckedChange={(checked) =>
-                setPermissions({ ...permissions, requirements: checked as boolean })
-              }
-            />
-            <Label htmlFor="requirements" className="font-normal cursor-pointer">
-              Requirements Management
             </Label>
           </div>
           <div className="flex items-center space-x-2">
