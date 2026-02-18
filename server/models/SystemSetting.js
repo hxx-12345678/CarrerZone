@@ -10,35 +10,34 @@ const SystemSetting = sequelize.define('SystemSetting', {
   key: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true
+    unique: true,
+    comment: 'Setting key identifier'
   },
   value: {
-    type: DataTypes.JSONB, // Changed from TEXT to JSONB to match Render and support complex settings
-    allowNull: false
+    type: DataTypes.TEXT,
+    allowNull: false,
+    comment: 'Setting value (stored as text, can be JSON)'
   },
   type: {
-    type: DataTypes.STRING, // Use string for more flexibility
+    type: DataTypes.ENUM('string', 'number', 'boolean', 'json'),
     allowNull: false,
-    defaultValue: 'string'
+    defaultValue: 'string',
+    comment: 'Type of the setting value'
   },
   description: {
     type: DataTypes.TEXT,
-    allowNull: true
+    allowNull: true,
+    comment: 'Human-readable description of the setting'
   },
   category: {
     type: DataTypes.STRING,
     allowNull: true,
-    defaultValue: 'general'
-  },
-  isPublic: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
-    field: 'is_public'
+    comment: 'Category for grouping settings'
   },
   updatedBy: {
     type: DataTypes.UUID,
     allowNull: true,
-    field: 'updated_by'
+    comment: 'User ID who last updated this setting'
   }
 }, {
   tableName: 'system_settings',

@@ -1893,52 +1893,774 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
 
     console.log('🔍 Searching candidates for requirement:', requirement.title);
 
-    // ========== UNIFIED SEARCH LOGIC ==========
-    const requirementSearchService = require('../services/requirementSearchService');
-    const criteria = requirementSearchService.extractCriteria(requirement, req.query);
-    const whereClause = requirementSearchService.buildWhereClause(criteria, requirement.title);
+    // ========== EXTRACT ALL FIELDS FROM METADATA ==========
+    // Many fields are stored in metadata JSONB, extract them first
+    const metadata = typeof requirement.metadata === 'string'
+      ? JSON.parse(requirement.metadata)
+      : (requirement.metadata || {});
 
-    // Re-extract for backward compatibility
-    const {
-      workExperienceMin, workExperienceMax, currentSalaryMin, currentSalaryMax,
-      includeSkills, candidateLocations, candidateDesignations, education,
-      institute, noticePeriod, remoteWork, includeWillingToRelocate, includeNotMentioned,
-      currentDesignation, currentCompany
-    } = criteria;
-    const allRequiredSkills = includeSkills;
+    // Extract all metadata fields that might be used for matching
+    // CRITICAL: These are VIRTUAL fields, so they MUST come from metadata
+    const currentCompany = metadata.currentCompany || requirement.currentCompany || null;
+    const institute = metadata.institute || requirement.institute || null;
+    const resumeFreshness = metadata.resumeFreshness ? new Date(metadata.resumeFreshness) : (requirement.resumeFreshness ? new Date(requirement.resumeFreshness) : null);
+    const diversityPreference = metadata.diversityPreference || requirement.diversityPreference || null;
+    const lastActive = metadata.lastActive !== undefined && metadata.lastActive !== null
+      ? metadata.lastActive
+      : (requirement.lastActive !== undefined && requirement.lastActive !== null ? requirement.lastActive : null);
+    const includeWillingToRelocate = metadata.includeWillingToRelocate !== undefined
+      ? metadata.includeWillingToRelocate
+      : (requirement.includeWillingToRelocate !== undefined ? requirement.includeWillingToRelocate : false);
+    const includeNotMentioned = metadata.includeNotMentioned !== undefined
+      ? metadata.includeNotMentioned
+      : (requirement.includeNotMentioned !== undefined ? requirement.includeNotMentioned : false);
 
-    // Track applied filters and show criteria
-    const appliedFiltersLog = [];
-    if (criteria.workExperienceMin !== null) appliedFiltersLog.push(`Exp: ${criteria.workExperienceMin}-${criteria.workExperienceMax || '+'}`);
-    if (criteria.currentSalaryMin !== null) appliedFiltersLog.push(`Salary: ${criteria.currentSalaryMin}-${criteria.currentSalaryMax || '+'}`);
-    if (criteria.candidateLocations.length > 0) appliedFiltersLog.push(`Loc: ${criteria.candidateLocations.join(',')}`);
-    if (criteria.includeSkills.length > 0) appliedFiltersLog.push(`Skills: ${criteria.includeSkills.length}`);
+    // Extract experience from metadata - CRITICAL: Check multiple formats
+    // Format 1: workExperienceMin/workExperienceMax (numeric)
+    // Format 2: experienceMin/experienceMax (numeric)
+    // Format 3: experience (string like "1", "3-5", "3 years", etc.)
+    let workExperienceMin = metadata.workExperienceMin || metadata.experienceMin || requirement.workExperienceMin || requirement.experienceMin || null;
+    let workExperienceMax = metadata.workExperienceMax || metadata.experienceMax || requirement.workExperienceMax || requirement.experienceMax || null;
 
-    const hasStrictCriteria = (criteria.includeSkills && criteria.includeSkills.length > 0) ||
-      (criteria.candidateLocations && criteria.candidateLocations.length > 0) ||
-      (criteria.candidateDesignations && criteria.candidateDesignations.length > 0) ||
-      criteria.workExperienceMin !== null ||
-      criteria.currentSalaryMin !== null;
+    // If not found, try parsing from experience string (CRITICAL: This is how old requirements store it)
+    if ((workExperienceMin === null || workExperienceMin === undefined) && metadata.experience) {
+      const expStr = String(metadata.experience).trim();
+      // Parse formats like "1", "3-5", "3 years", etc.
+      const expMatch = expStr.match(/(\d+)(?:\s*-\s*(\d+))?/);
+      if (expMatch) {
+        workExperienceMin = parseInt(expMatch[1]);
+        if (expMatch[2]) {
+          workExperienceMax = parseInt(expMatch[2]);
+        }
+        console.log(`📊 Parsed experience from metadata.experience: ${workExperienceMin}${workExperienceMax ? '-' + workExperienceMax : '+'} years`);
+      }
+    }
 
-    const metadata = typeof requirement.metadata === 'string' ? JSON.parse(requirement.metadata) : (requirement.metadata || {});
-    const appliedFilters = appliedFiltersLog;
+    // Extract salary from metadata - CRITICAL: Check multiple formats
+    // Format 1: currentSalaryMin/currentSalaryMax (numeric)
+    // Format 2: salaryMin/salaryMax (numeric)
+    // Format 3: salary (string like "10-12", "10 LPA", etc.)
+    let currentSalaryMin = metadata.currentSalaryMin || metadata.salaryMin || requirement.currentSalaryMin || requirement.salaryMin || null;
+    let currentSalaryMax = metadata.currentSalaryMax || metadata.salaryMax || requirement.currentSalaryMax || requirement.salaryMax || null;
 
-    console.log('🔍 Applied Filters (Unified):', appliedFilters.join(' | '));
+    // If not found, try parsing from salary string (CRITICAL: This is how old requirements store it)
+    if ((currentSalaryMin === null || currentSalaryMin === undefined) && metadata.salary) {
+      const salStr = String(metadata.salary).trim();
+      // Parse formats like "10-12", "10-12 LPA", "10 LPA", etc.
+      const salMatch = salStr.match(/(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?))?/);
+      if (salMatch) {
+        currentSalaryMin = parseFloat(salMatch[1]);
+        if (salMatch[2]) {
+          currentSalaryMax = parseFloat(salMatch[2]);
+        }
+        console.log(`📊 Parsed salary from metadata.salary: ${currentSalaryMin}${currentSalaryMax ? '-' + currentSalaryMax : '+'} LPA`);
+      }
+    }
+
+    // ========== INITIALIZE SEARCH ARRAYS ==========
+    const allRequiredSkills = [
+      ...(requirement.skills || []),
+      ...(requirement.keySkills || [])
+    ].filter(Boolean);
+    const excludeSkills = metadata.excludeSkills || requirement.excludeSkills || [];
+    const candidateLocations = (metadata.candidateLocations && metadata.candidateLocations.length > 0)
+      ? [...metadata.candidateLocations]
+      : ((requirement.candidateLocations && requirement.candidateLocations.length > 0) ? [...requirement.candidateLocations] : []);
+    const excludeLocations = Array.isArray(metadata.excludeLocations) ? [...metadata.excludeLocations] : (metadata.excludeLocations ? [metadata.excludeLocations] : (metadata.exclude_locations ? (Array.isArray(metadata.exclude_locations) ? [...metadata.exclude_locations] : [metadata.exclude_locations]) : []));
+
+    const candidateDesignations = (metadata.candidateDesignations && metadata.candidateDesignations.length > 0)
+      ? [...metadata.candidateDesignations]
+      : ((requirement.candidateDesignations && requirement.candidateDesignations.length > 0) ? [...requirement.candidateDesignations] : []);
+
+    const education = metadata.education || requirement.education || null;
+    const noticePeriod = metadata.noticePeriod || requirement.noticePeriod || null;
+    const remoteWork = metadata.remoteWork || requirement.remoteWork || null;
+
+    console.log('🔍 Requirement criteria:', {
+      skills: requirement.skills,
+      keySkills: requirement.keySkills,
+      experienceMin: workExperienceMin,
+      experienceMax: workExperienceMax,
+      currentSalaryMin,
+      currentSalaryMax,
+      education,
+      jobType: requirement.jobType,
+      candidateLocations,
+      candidateDesignations,
+      currentCompany,
+      institute,
+      resumeFreshness,
+      diversityPreference,
+      lastActive,
+      noticePeriod,
+      remoteWork,
+      includeWillingToRelocate,
+      includeNotMentioned
+    });
+
+    // ========== APPLY ADDITIONAL FILTERS FROM QUERY PARAMETERS ==========
+    // These filters override or supplement the requirement-based filters
+
+    // Override experience range if provided in query
+    if (filterExperienceMin !== undefined && filterExperienceMax !== undefined) {
+      workExperienceMin = Number(filterExperienceMin);
+      workExperienceMax = Number(filterExperienceMax);
+      console.log(`🔍 Applying experience filter: ${workExperienceMin}-${workExperienceMax} years`);
+    }
+
+    // Override salary range if provided in query
+    if (filterSalaryMin !== undefined && filterSalaryMax !== undefined) {
+      currentSalaryMin = Number(filterSalaryMin);
+      currentSalaryMax = Number(filterSalaryMax);
+      console.log(`🔍 Applying salary filter: ${currentSalaryMin}-${currentSalaryMax} LPA`);
+    }
+
+    // Override location filters if provided in query
+    if (filterLocationInclude) {
+      const includeLocations = filterLocationInclude.split(',').map(loc => loc.trim()).filter(Boolean);
+      if (includeLocations.length > 0) {
+        candidateLocations.length = 0; // Clear requirement locations
+        candidateLocations.push(...includeLocations);
+        console.log(`🔍 Applying location include filter: ${includeLocations.join(', ')}`);
+      }
+    }
+
+    if (filterLocationExclude) {
+      const eLocations = filterLocationExclude.split(',').map(loc => loc.trim()).filter(Boolean);
+      if (eLocations.length > 0) {
+        excludeLocations.length = 0; // Clear requirement exclude locations
+        excludeLocations.push(...eLocations);
+        console.log(`🔍 Applying location exclude filter: ${eLocations.join(', ')}`);
+      }
+    }
+
+    // Override skills filters if provided in query
+    if (filterSkillsInclude) {
+      const includeSkills = filterSkillsInclude.split(',').map(skill => skill.trim()).filter(Boolean);
+      if (includeSkills.length > 0) {
+        allRequiredSkills.length = 0; // Clear requirement skills
+        allRequiredSkills.push(...includeSkills);
+        console.log(`🔍 Applying skills include filter: ${includeSkills.join(', ')}`);
+      }
+    }
+
+    if (filterSkillsExclude) {
+      const eSkillsList = filterSkillsExclude.split(',').map(skill => skill.trim()).filter(Boolean);
+      if (eSkillsList.length > 0) {
+        excludeSkills.length = 0; // Clear requirement exclude skills
+        excludeSkills.push(...eSkillsList);
+        console.log(`🔍 Applying skills exclude filter: ${eSkillsList.join(', ')}`);
+      }
+    }
+
+    // Apply keyword filter
+    if (filterKeyword) {
+      console.log(`🔍 Applying keyword filter: ${filterKeyword}`);
+      // This will be added to search conditions
+    }
+
+    // Apply education filter
+    if (filterEducation && Array.isArray(filterEducation)) {
+      console.log(`🔍 Applying education filter: ${filterEducation.join(', ')}`);
+      // This will be added to education conditions
+    }
+
+    // Apply availability filter (notice period)
+    if (filterAvailability && Array.isArray(filterAvailability)) {
+      console.log(`🔍 Applying availability filter: ${filterAvailability.join(', ')}`);
+      // This will override notice period
+    }
+
+    // Apply verification filter
+    if (filterVerification && Array.isArray(filterVerification)) {
+      console.log(`🔍 Applying verification filter: ${filterVerification.join(', ')}`);
+      // This will be added to where clause
+    }
+
+    // Apply last active filter
+    if (filterLastActive && Array.isArray(filterLastActive)) {
+      console.log(`🔍 Applying last active filter: ${filterLastActive.join(', ')}`);
+      // This will be added to where clause
+    }
+
+    // ========== IMPROVED CANDIDATE MATCHING AL ==========
+    // Build comprehensive search criteria based on ALL requirement fields
+
+    const whereClause = {
+      user_type: 'jobseeker',
+      is_active: true,
+      account_status: 'active'
+    };
+
+    // Track which filters are applied for better logging
+    const appliedFilters = [];
+
+    // Build matching conditions - use OR for flexibility (candidates matching ANY criteria)
+    const matchingConditions = [];
+    // CRITICAL: Declare allAndConditions early - it's used for combining all AND conditions
+    const allAndConditions = [];
+
+    // 1. EXPERIENCE RANGE MATCHING (workExperienceMin/Max)
+    if (workExperienceMin !== null && workExperienceMin !== undefined) {
+      const minExp = Number(workExperienceMin);
+      const maxExp = workExperienceMax !== null && workExperienceMax !== undefined
+        ? Number(workExperienceMax) : 50;
+
+      whereClause.experience_years = {
+        [Op.and]: [
+          { [Op.gte]: minExp },
+          { [Op.lte]: maxExp }
+        ]
+      };
+      appliedFilters.push(`Experience: ${minExp}-${maxExp} years`);
+    }
+
+    // 2. SALARY RANGE MATCHING (currentSalaryMin/Max)
+    // CRITICAL: Allow NULL salaries - candidates may not have salary info
+    if (currentSalaryMin !== null && currentSalaryMin !== undefined) {
+      const minSalary = Number(currentSalaryMin);
+      const maxSalary = currentSalaryMax !== null && currentSalaryMax !== undefined
+        ? Number(currentSalaryMax) : 200; // Max 200 LPA
+
+      // Build salary match based on range
+      const salaryRangeMatch = {
+        current_salary: {
+          [Op.and]: [
+            { [Op.gte]: minSalary },
+            { [Op.lte]: maxSalary }
+          ]
+        }
+      };
+
+      if (includeNotMentioned) {
+        matchingConditions.push({
+          [Op.or]: [
+            salaryRangeMatch,
+            { current_salary: null },
+            { current_salary: { [Op.is]: null } }
+          ]
+        });
+      } else {
+        matchingConditions.push(salaryRangeMatch);
+      }
+      appliedFilters.push(`Salary: ${minSalary}-${maxSalary} LPA (includeNotMentioned: ${includeNotMentioned})`);
+    } else if (includeNotMentioned) {
+      // If includeNotMentioned is true, also include candidates with no salary specified
+      // This is handled by not adding salary filter, so all candidates pass
+      appliedFilters.push(`Salary: Any (including not mentioned)`);
+    }
+
+    // 3. LOCATION MATCHING (candidateLocations + excludeLocations + willing to relocate)
+    // CRITICAL: If no candidateLocations specified, allow ANY location (don't filter)
+    // Only filter by location if candidateLocations array has values
+    // IMPORTANT: Exclude locations are applied AFTER include locations (they filter out candidates)
+
+    // 3.1. LOCATION INCLUDE (candidateLocations)
+    if (candidateLocations && candidateLocations.length > 0) {
+      const locationConditions = candidateLocations.flatMap(location => ([
+        // Match current location
+        { current_location: { [Op.iLike]: `%${location}%` } },
+        // Match preferred locations (JSONB array)
+        sequelize.where(
+          sequelize.cast(sequelize.col('preferred_locations'), 'text'),
+          { [Op.iLike]: `%${location}%` }
+        )
+      ]));
+
+      // Include candidates willing to relocate if requirement allows
+      if (includeWillingToRelocate) {
+        locationConditions.push({ willing_to_relocate: true });
+      }
+
+      matchingConditions.push({ [Op.or]: locationConditions });
+      appliedFilters.push(`Location (Include): ${candidateLocations.join(', ')}${includeWillingToRelocate ? ' (including willing to relocate)' : ''}`);
+    } else {
+      // No location filter specified - allow any location candidate
+      console.log('✅ No location include filter specified - allowing candidates from any location');
+    }
+
+    // 3.2. LOCATION EXCLUDE (excludeLocations)
+    // CRITICAL: Exclude candidates from these locations (applied as NOT conditions)
+    if (excludeLocations && excludeLocations.length > 0) {
+      const excludeLocationConditions = excludeLocations.flatMap(location => ([
+        // Exclude if current location matches
+        { current_location: { [Op.not]: { [Op.iLike]: `%${location}%` } } },
+        // Exclude if preferred locations match
+        sequelize.where(
+          sequelize.cast(sequelize.col('preferred_locations'), 'text'),
+          { [Op.not]: { [Op.iLike]: `%${location}%` } }
+        )
+      ]));
+
+      // For exclude, we need ALL conditions to be true (candidate must NOT be in ANY excluded location)
+      // So we add them as AND conditions
+      allAndConditions.push({
+        [Op.and]: excludeLocationConditions
+      });
+      appliedFilters.push(`Location (Exclude): ${excludeLocations.join(', ')}`);
+      console.log(`✅ Added location exclude filter: ${excludeLocations.join(', ')}`);
+    }
+
+    // 4. SKILLS & KEY SKILLS MATCHING (comprehensive)
+    // CRITICAL: Include includeSkills from metadata (frontend sends this as "must have" skills)
+    // IMPORTANT: keySkills (Additional Skills) are automatically merged into includeSkills during create/update
+    const includeSkills = metadata.includeSkills || requirement.includeSkills || [];
+    // Get keySkills separately for backward compatibility, but prioritize includeSkills
+    const keySkillsFromRequirement = requirement.keySkills || [];
+    // Merge includeSkills with keySkills (in case keySkills weren't merged yet in old requirements)
+    const allIncludeSkills = [...new Set([
+      ...(Array.isArray(includeSkills) ? includeSkills : []),
+      ...(Array.isArray(keySkillsFromRequirement) ? keySkillsFromRequirement : [])
+    ])].filter(Boolean);
+
+    // Check if requirement title strongly matches candidate title/headline
+    // If title matches strongly, skills become optional (title is more important)
+    // Consolidate skills from requirement and includeSkills
+    const mergedSkills = [...new Set([
+      ...allRequiredSkills,
+      ...allIncludeSkills
+    ])];
+    allRequiredSkills.length = 0;
+    allRequiredSkills.push(...mergedSkills);
+
+    // Update excludeSkills with metadata if not already merged
+    const mergedExclude = [...new Set([
+      ...excludeSkills,
+      ...(metadata.excludeSkills || requirement.excludeSkills || [])
+    ])].filter(Boolean);
+    excludeSkills.length = 0;
+    excludeSkills.push(...mergedExclude);
+
+    const reqTitleCand = (requirement.title || '').trim();
+    const hasStrongTitleMatch = reqTitleCand.length > 2;
+    let titleMatchConditions = [];
+
+
+    if (hasStrongTitleMatch) {
+      const titleWords = requirement.title
+        .split(/\s+/)
+        .filter(word => word.length > 2)
+        .map(word => word.toLowerCase());
+
+      if (titleWords.length > 0) {
+        // Create title matching conditions (used as alternative to skills)
+        titleMatchConditions = titleWords.flatMap(word => [
+          { headline: { [Op.iLike]: `%${word}%` } },
+          { designation: { [Op.iLike]: `%${word}%` } },
+          { current_role: { [Op.iLike]: `%${word}%` } }
+        ]);
+      }
+    }
+
+    if (allRequiredSkills.length > 0) {
+      const skillConditions = allRequiredSkills.flatMap(skill => ([
+        // Match in skills array (exact and case-insensitive)
+        { skills: { [Op.contains]: [skill] } },
+        sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${skill}%` }),
+        // Match in key_skills array
+        { key_skills: { [Op.contains]: [skill] } },
+        sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${skill}%` }),
+        // Match in headline (job title often mentions key skills)
+        { headline: { [Op.iLike]: `%${skill}%` } },
+        // Match in summary
+        { summary: { [Op.iLike]: `%${skill}%` } }
+      ]));
+
+      // If we have title matching conditions, make skills OR title match (title can override skills)
+      if (titleMatchConditions.length > 0) {
+        matchingConditions.push({
+          [Op.or]: [
+            { [Op.or]: skillConditions }, // Skills match
+            { [Op.or]: titleMatchConditions } // OR strong title match
+          ]
+        });
+        appliedFilters.push(`Skills (Must Have) OR Title Match: ${allRequiredSkills.slice(0, 3).join(', ')}${allRequiredSkills.length > 3 ? '...' : ''} OR "${requirement.title}"`);
+      } else {
+        matchingConditions.push({ [Op.or]: skillConditions });
+        appliedFilters.push(`Skills (Must Have): ${allRequiredSkills.slice(0, 3).join(', ')}${allRequiredSkills.length > 3 ? '...' : ''}`);
+      }
+    } else if (titleMatchConditions.length > 0) {
+      // No skills but have title - use title matching
+      matchingConditions.push({ [Op.or]: titleMatchConditions });
+      appliedFilters.push(`Title Match: "${requirement.title}"`);
+    }
+
+    // CRITICAL: Exclude skills - candidates MUST NOT have these skills in ANY field
+    // Fixed: Use simpler syntax to avoid Sequelize Symbol serialization issues
+    if (Array.isArray(excludeSkills) && excludeSkills.length > 0 && excludeSkills.filter(s => s).length > 0) {
+      // For each exclude skill, candidate must NOT have it in ANY field
+      // Using raw SQL to avoid complex operator nesting issues
+      const excludeConditions = excludeSkills.filter(s => s).map((excludeSkill, index) => {
+        const paramName = `excludeSkill${index}`;
+        return sequelize.where(
+          sequelize.literal(`
+            (
+              (skills IS NULL OR NOT CAST(skills AS TEXT) ILIKE '%${excludeSkill}%') AND
+              (key_skills IS NULL OR NOT CAST(key_skills AS TEXT) ILIKE '%${excludeSkill}%') AND
+              (headline IS NULL OR headline NOT ILIKE '%${excludeSkill}%') AND
+              (summary IS NULL OR summary NOT ILIKE '%${excludeSkill}%')
+            )
+          `),
+          {}
+        );
+      });
+
+      // Add all exclude conditions with AND logic
+      if (excludeConditions.length > 0) {
+        allAndConditions.push({ [Op.and]: excludeConditions });
+      }
+      appliedFilters.push(`Skills (Must NOT Have): ${excludeSkills.filter(s => s).slice(0, 3).join(', ')}${excludeSkills.filter(s => s).length > 3 ? '...' : ''}`);
+      console.log(`✅ Added exclude skills filter: ${excludeSkills.filter(s => s).join(', ')}`);
+    }
+
+    // 4.5. CURRENT DESIGNATION MATCHING (from metadata) - LENIENT MATCHING
+    // Match against user table fields AND work experience titles (most accurate)
+    const currentDesignation = metadata.currentDesignation || requirement.currentDesignation || null;
+    if (currentDesignation) {
+      // Lenient matching: check user table fields (designation, headline, current_role)
+      // Work experience matching will be done in post-query filtering for accuracy
+      matchingConditions.push({
+        [Op.or]: [
+          { designation: { [Op.iLike]: `%${currentDesignation}%` } },
+          { headline: { [Op.iLike]: `%${currentDesignation}%` } },
+          { current_role: { [Op.iLike]: `%${currentDesignation}%` } }
+        ]
+      });
+      appliedFilters.push(`Current Designation (lenient): ${currentDesignation}`);
+    }
+
+    // 5. REQUIREMENT TITLE MATCHING (OPTIONAL - only if no skills specified)
+    // CRITICAL: If skills are specified, title is optional (skills are more important than title)
+    // Only add title matching to query if no skills are specified
+    // Title matching is still applied in post-query filtering, but it's lenient (skills override title)
+    // DO NOT add title to query-level matchingConditions - this makes it too strict
+    // Title filtering happens later in post-query filtering and is lenient
+    // Removed: Title matching from query-level conditions (was too strict)
+
+    // 5. DESIGNATION MATCHING (candidateDesignations)
+    if (candidateDesignations && candidateDesignations.length > 0) {
+      const designationConditions = candidateDesignations.flatMap(designation => ([
+        { designation: { [Op.iLike]: `%${designation}%` } },
+        { headline: { [Op.iLike]: `%${designation}%` } },
+        { summary: { [Op.iLike]: `%${designation}%` } },
+        { current_role: { [Op.iLike]: `%${designation}%` } }
+      ]));
+
+      matchingConditions.push({ [Op.or]: designationConditions });
+      appliedFilters.push(`Designation: ${candidateDesignations.join(', ')}`);
+    }
+
+    // 6. EDUCATION MATCHING (OPTIONAL - only if no skills specified)
+    // CRITICAL: Education is a nice-to-have, not a must-have
+    // If skills are specified, education is optional (skills are more important)
+    // Only filter by education if NO skills are specified
+    // Education will still be used for relevance scoring
+    if ((education || institute) && allRequiredSkills.length === 0) {
+      const educationConditions = [];
+
+      if (education) {
+        educationConditions.push(
+          // Search in education JSONB array
+          sequelize.where(
+            sequelize.cast(sequelize.col('education'), 'text'),
+            { [Op.iLike]: `%${education}%` }
+          ),
+          // Search in highest_education field
+          { highest_education: { [Op.iLike]: `%${education}%` } },
+          // Search in field_of_study
+          { field_of_study: { [Op.iLike]: `%${education}%` } },
+          // Search in headline and summary
+          { headline: { [Op.iLike]: `%${education}%` } },
+          { summary: { [Op.iLike]: `%${education}%` } }
+        );
+      }
+
+      if (institute) {
+        educationConditions.push(
+          // Search for institute name in education JSONB
+          sequelize.where(
+            sequelize.cast(sequelize.col('education'), 'text'),
+            { [Op.iLike]: `%${institute}%` }
+          ),
+          // Search in summary (people often mention their university)
+          { summary: { [Op.iLike]: `%${institute}%` } }
+        );
+      }
+
+      if (educationConditions.length > 0) {
+        matchingConditions.push({ [Op.or]: educationConditions });
+        appliedFilters.push(`Education: ${education || ''} ${institute || ''}`);
+      }
+    } else if (education || institute) {
+      // Education specified but skills also specified - mark as optional for scoring
+      appliedFilters.push(`Education (optional): ${education || ''} ${institute || ''}`);
+    }
+
+    // 7. CURRENT COMPANY MATCHING
+    if (currentCompany) {
+      matchingConditions.push({
+        [Op.or]: [
+          // Search in current_company field
+          { current_company: { [Op.iLike]: `%${currentCompany}%` } },
+          { headline: { [Op.iLike]: `%${currentCompany}%` } },
+          { summary: { [Op.iLike]: `%${currentCompany}%` } }
+        ]
+      });
+      appliedFilters.push(`Company: ${currentCompany}`);
+    }
+
+    // 8. NOTICE PERIOD MATCHING
+    // CRITICAL: Notice period is OPTIONAL - should not exclude candidates
+    // If skills match, notice period is secondary to skills
+    // Only filter if NO skills are specified, otherwise make it optional for scoring
+    if (noticePeriod && noticePeriod !== 'Any' && noticePeriod !== 'any') {
+      // Convert notice period to days for comparison
+      const noticePeriodMap = {
+        'Immediately': 0,
+        'Immediate': 0,
+        '15 days': 15,
+        '30 days': 30,
+        '60 days': 60,
+        '90 days': 90
+      };
+
+      const maxNoticeDays = noticePeriodMap[noticePeriod];
+      if (maxNoticeDays !== undefined) {
+        // CRITICAL FIX: Don't add to whereClause - notice period should NOT exclude candidates
+        // Instead, apply as an optional matching condition that can be overridden by skills
+        // This ensures candidates with matching skills are not excluded just because of notice period
+        matchingConditions.push({
+          [Op.or]: [
+            { notice_period: { [Op.lte]: maxNoticeDays } },
+            { notice_period: null } // Include candidates who haven't specified notice period
+          ]
+        });
+        appliedFilters.push(`Notice Period (Optional): ≤${noticePeriod}`);
+      }
+    }
+
+    // 10. RESUME FRESHNESS (if specified)
+    if (resumeFreshness) {
+      const freshnessDate = new Date(resumeFreshness);
+      whereClause.last_profile_update = {
+        [Op.gte]: freshnessDate
+      };
+      appliedFilters.push(`Resume Updated After: ${freshnessDate.toLocaleDateString()}`);
+    }
+
+    // 11. REMOTE WORK PREFERENCE (OPTIONAL - only if no skills specified)
+    // CRITICAL: Remote work is a nice-to-have, not a must-have
+    // If skills are specified, remote work is optional (skills are more important)
+    // Only filter by remote work if NO skills are specified
+    // Remote work will still be used for relevance scoring
+    if (remoteWork && remoteWork !== 'Any' && remoteWork !== 'any' && allRequiredSkills.length === 0) {
+      matchingConditions.push({
+        [Op.or]: [
+          sequelize.where(
+            sequelize.cast(sequelize.col('preferences'), 'text'),
+            { [Op.iLike]: `%${remoteWork}%` }
+          ),
+          { headline: { [Op.iLike]: `%${remoteWork}%` } }
+        ]
+      });
+      appliedFilters.push(`Remote Work: ${remoteWork}`);
+    } else if (remoteWork && remoteWork !== 'Any' && remoteWork !== 'any') {
+      // Remote work specified but skills also specified - mark as optional for scoring
+      appliedFilters.push(`Remote Work (optional): ${remoteWork}`);
+    }
+
+    // 11. DIVERSITY PREFERENCE (Gender) - CRITICAL
+    if (diversityPreference && Array.isArray(diversityPreference) && diversityPreference.length > 0) {
+      // Filter out 'all' - if 'all' is selected, don't filter by gender
+      const validPreferences = diversityPreference.filter(p => p && p !== 'all' && ['male', 'female', 'other'].includes(p));
+      if (validPreferences.length > 0 && !diversityPreference.includes('all')) {
+        allAndConditions.push({
+          gender: { [Op.in]: validPreferences }
+        });
+        appliedFilters.push(`Gender: ${validPreferences.join(', ')}`);
+        console.log(`✅ Added gender filter: ${validPreferences.join(', ')}`);
+      } else {
+        console.log('ℹ️ Gender filter: All selected (no gender filter applied)');
+      }
+    }
+
+    // 13. LAST ACTIVE (if specified) - candidates who were active within last X days
+    if (lastActive !== null && lastActive !== undefined) {
+      const daysAgo = Number(lastActive);
+      if (!isNaN(daysAgo) && daysAgo > 0) {
+        const activeDate = new Date();
+        activeDate.setDate(activeDate.getDate() - daysAgo);
+        whereClause.last_login_at = {
+          [Op.gte]: activeDate
+        };
+        appliedFilters.push(`Last Active: Within ${daysAgo} days`);
+      }
+    }
+
+    console.log('🎯 Applied Filters:', appliedFilters.join(' | '));
+
+    // CRITICAL FIX: Use AND logic to combine ALL conditions including experience/salary
+    // This ensures candidates must match ALL specified criteria
+    // If skills are specified, candidate MUST have at least one of those skills
+    // If locations are specified, candidate MUST match at least one location
+    // Experience and salary filters are also part of the AND logic
+    // NOTE: allAndConditions is already declared earlier (line 1754)
+
+    // Add experience filter if present
+    if (whereClause.experience_years) {
+      allAndConditions.push({ experience_years: whereClause.experience_years });
+      delete whereClause.experience_years; // Remove from top level
+    }
+
+    // Add salary filter if present
+    if (whereClause.current_salary) {
+      allAndConditions.push({ current_salary: whereClause.current_salary });
+      delete whereClause.current_salary; // Remove from top level
+    }
+
+    // Add notice period filter if present
+    if (whereClause.notice_period) {
+      allAndConditions.push({ notice_period: whereClause.notice_period });
+      delete whereClause.notice_period; // Remove from top level
+    }
+
+    // Add resume freshness filter if present
+    if (whereClause.last_profile_update) {
+      allAndConditions.push({ last_profile_update: whereClause.last_profile_update });
+      delete whereClause.last_profile_update; // Remove from top level
+    }
+
+    // Add last active filter if present
+    if (whereClause.last_login_at) {
+      allAndConditions.push({ last_login_at: whereClause.last_login_at });
+      delete whereClause.last_login_at; // Remove from top level
+    }
+
+    // Add gender filter if present (diversity preference)
+    if (whereClause.gender) {
+      allAndConditions.push({ gender: whereClause.gender });
+      delete whereClause.gender; // Remove from top level
+    }
+
+    // Add matching conditions (skills, locations, designations, etc.)
+    // CRITICAL FIX: Wrap matchingConditions in Op.and to combine them properly
+    // matchingConditions contains objects like { [Op.or]: [...] } for skills, locations, etc.
+    // We need to combine them with AND logic: (skills match) AND (locations match) AND ...
+    if (matchingConditions.length > 0) {
+      allAndConditions.push({ [Op.and]: matchingConditions });
+    }
+
+    // Apply ALL conditions with AND logic
+    if (allAndConditions.length > 0) {
+      whereClause[Op.and] = allAndConditions;
+      console.log(`✅ Applied ${allAndConditions.length} AND conditions (experience, salary, skills, locations, designations, etc.)`);
+      console.log(`   This ensures candidates must match ALL specified criteria - NO irrelevant candidates`);
+    }
+
+    // Add search query if provided (narrows down results further)
+    // Search should be combined with AND logic to further filter results
+    const searchQuery = search || filterKeyword; // Use either search or keyword filter
+    if (searchQuery) {
+      const searchConditions = [
+        { first_name: { [Op.iLike]: `%${searchQuery}%` } },
+        { last_name: { [Op.iLike]: `%${searchQuery}%` } },
+        { headline: { [Op.iLike]: `%${searchQuery}%` } },
+        { designation: { [Op.iLike]: `%${searchQuery}%` } },
+        { summary: { [Op.iLike]: `%${searchQuery}%` } },
+        sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${searchQuery}%` }),
+        sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${searchQuery}%` })
+      ];
+
+      // Add search as an AND condition
+      whereClause[Op.and] = whereClause[Op.and] || [];
+      whereClause[Op.and].push({ [Op.or]: searchConditions });
+      appliedFilters.push(`Search: "${searchQuery}"`);
+    }
+
     console.log('🔍 Final where clause (simplified):', {
-      baseFilters: { user_type: whereClause.user_type, is_active: whereClause.is_active, account_status: whereClause.account_status },
+      baseFilters: {
+        user_type: whereClause.user_type,
+        is_active: whereClause.is_active,
+        account_status: whereClause.account_status
+      },
       experienceRange: whereClause.experience_years,
       salaryRange: whereClause.current_salary,
+      noticePeriodMax: whereClause.notice_period,
+      resumeUpdatedAfter: whereClause.last_profile_update,
+      matchingConditionsCount: whereClause[Op.or] ? whereClause[Op.or].length : 0,
+      searchApplied: whereClause[Op.and] ? true : false,
       allAndConditionsCount: whereClause[Op.and] ? whereClause[Op.and].length : 0
     });
 
-    // Simplified sort order - prioritize recent profiles
-    let orderClause = [['last_profile_update', 'DESC']];
+    // DEBUG: Log the actual query being executed
+    console.log('🔍 DEBUG: Extracted values for this query:');
+    console.log(`   workExperienceMin: ${workExperienceMin}, workExperienceMax: ${workExperienceMax}`);
+    console.log(`   currentSalaryMin: ${currentSalaryMin}, currentSalaryMax: ${currentSalaryMax}`);
+    console.log(`   allRequiredSkills:`, allRequiredSkills);
+    console.log(`   candidateLocations:`, candidateLocations);
+    console.log(`   noticePeriod: ${noticePeriod}`);
+    console.log(`   whereClause keys:`, Object.keys(whereClause));
+    console.log(`   whereClause[Op.and] length:`, whereClause[Op.and] ? whereClause[Op.and].length : 0);
+
+    // Determine sort order - simplified
+    let orderClause = [['last_profile_update', 'DESC']]; // Prioritize recent profiles
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (isNaN(pageNum) ? 0 : (pageNum - 1)) * (isNaN(limitNum) ? 50 : limitNum);
 
-    console.log(`🔍 Fetching candidates with pagination: page=${pageNum}, limit=${limitNum}, offset=${offset}`);
+    // DEBUG: Test query without pagination first to see total count
+    console.log('\n🔍 ========== DEBUG: QUERY CONSTRUCTION ==========');
+    console.log('📊 Extracted Values:');
+    console.log(`   workExperienceMin: ${workExperienceMin}, workExperienceMax: ${workExperienceMax}`);
+    console.log(`   currentSalaryMin: ${currentSalaryMin}, currentSalaryMax: ${currentSalaryMax}`);
+    console.log(`   allRequiredSkills:`, allRequiredSkills);
+    console.log(`   candidateLocations:`, candidateLocations);
+    console.log(`   noticePeriod: ${noticePeriod}`);
+    console.log(`   whereClause structure:`, JSON.stringify(whereClause, null, 2).substring(0, 1000));
+    console.log(`   allAndConditions count:`, allAndConditions.length);
+    console.log(`   matchingConditions count:`, matchingConditions.length);
+
+    const testCount = await User.count({ where: whereClause });
+    console.log(`🔍 DEBUG: Total count before pagination: ${testCount}`);
+
+    if (testCount === 0) {
+      console.log('❌ PROBLEM: Query returns 0 candidates!');
+      console.log('   Checking individual filters...');
+
+      // Test each filter individually
+      const baseWhere = {
+        user_type: 'jobseeker',
+        is_active: true,
+        account_status: 'active'
+      };
+
+      const baseCount = await User.count({ where: baseWhere });
+      console.log(`   Base count (no filters): ${baseCount}`);
+
+      if (workExperienceMin !== null) {
+        const expWhere = { ...baseWhere, experience_years: { [Op.gte]: Number(workExperienceMin), [Op.lte]: Number(workExperienceMax || 50) } };
+        const expCount = await User.count({ where: expWhere });
+        console.log(`   With experience filter: ${expCount}`);
+      }
+
+      if (currentSalaryMin !== null) {
+        const salWhere = { ...baseWhere, current_salary: { [Op.gte]: Number(currentSalaryMin), [Op.lte]: Number(currentSalaryMax || 200) } };
+        const salCount = await User.count({ where: salWhere });
+        console.log(`   With salary filter: ${salCount}`);
+      }
+
+      if (allRequiredSkills.length > 0) {
+        const skillConditions = allRequiredSkills.flatMap(skill => [
+          sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${skill}%` }),
+          sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${skill}%` }),
+          { headline: { [Op.iLike]: `%${skill}%` } }
+        ]);
+        const skillWhere = { ...baseWhere, [Op.or]: skillConditions };
+        const skillCount = await User.count({ where: skillWhere });
+        console.log(`   With skills filter (any skill): ${skillCount}`);
+      }
+    }
 
     // Fetch candidates with comprehensive attributes
     const { count, rows: candidates } = await User.findAndCountAll({
@@ -1961,8 +2683,9 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
     console.log(`✅ Found ${count} total candidates matching requirement criteria (page has ${candidates.length} candidates)`);
     console.log('🔍 ========== END DEBUG ==========\n');
 
-    if (count === 0) {
-      console.log('⚠️  INFO: No candidates found for this requirement with current filters.');
+    if (count === 0 && testCount === 0) {
+      console.log('⚠️  WARNING: Query returned 0 candidates. Checking if this is correct...');
+      console.log('   If the database test found candidates, there might be a query construction issue.');
     }
 
     // Send notification to employer if new candidates are found
@@ -2018,10 +2741,97 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
       }
     }
 
-    // Use direct results from the unified query
+    // CRITICAL: NO FALLBACK - Only show candidates that match ALL strict criteria
+    // This ensures we NEVER show irrelevant candidates
     let finalCandidates = candidates;
     let finalCount = count;
     let fallbackApplied = false;
+
+    // Check if we have strict criteria
+    const hasStrictCriteria = (
+      (allRequiredSkills.length > 0) ||
+      (candidateLocations.length > 0) ||
+      (candidateDesignations.length > 0) ||
+      (workExperienceMin !== null) ||
+      (currentSalaryMin !== null) ||
+      (education !== null) ||
+      (currentCompany !== null) ||
+      (institute !== null)
+    );
+
+    // If strict criteria produced zero matches, attempt a controlled fallback
+    if (finalCount === 0 && hasStrictCriteria) {
+      console.log(`⚠️ No candidates matched strict criteria. Attempting controlled relaxed fallback (remove experience/salary constraints).`);
+
+      try {
+        // Build relaxed matching: keep skills, locations, designations but remove experience and salary constraints
+        const baseWhere = {
+          user_type: 'jobseeker',
+          is_active: true,
+          account_status: 'active'
+        };
+
+        const relaxedAnds = [];
+
+        // Skills (includeSkills from metadata or requirement fields)
+        const relaxedSkillConds = [];
+        const reqSkills = (metadata && metadata.includeSkills && metadata.includeSkills.length > 0) ? metadata.includeSkills : (requirement.skills || []);
+        (reqSkills || []).forEach(s => {
+          if (!s) return;
+          relaxedSkillConds.push({
+            [Op.or]: [
+              sequelize.where(sequelize.cast(sequelize.col('key_skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+              sequelize.where(sequelize.cast(sequelize.col('skills'), 'text'), { [Op.iLike]: `%${s}%` }),
+              { summary: { [Op.iLike]: `%${s}%` } }
+            ]
+          });
+        });
+        if (relaxedSkillConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedSkillConds });
+
+        // Locations (candidateLocations)
+        const relaxedLocationConds = [];
+        (candidateLocations || []).forEach(loc => {
+          if (!loc) return;
+          relaxedLocationConds.push({ current_location: { [Op.iLike]: `%${loc}%` } });
+          relaxedLocationConds.push(sequelize.where(sequelize.cast(sequelize.col('preferred_locations'), 'text'), { [Op.iLike]: `%${loc}%` }));
+        });
+        if (relaxedLocationConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedLocationConds });
+
+        // Designations (candidateDesignations)
+        const relaxedDesignationConds = [];
+        (candidateDesignations || []).forEach(d => {
+          if (!d) return;
+          relaxedDesignationConds.push({ designation: { [Op.iLike]: `%${d}%` } });
+        });
+        if (relaxedDesignationConds.length > 0) relaxedAnds.push({ [Op.or]: relaxedDesignationConds });
+
+        // Build final relaxed where
+        const relaxedWhere = { ...baseWhere };
+        if (relaxedAnds.length > 0) {
+          relaxedWhere[Op.and] = relaxedAnds;
+
+          const relaxedMatches = await User.findAll({ where: relaxedWhere, attributes: ['id'], limit: 10000 });
+          if (Array.isArray(relaxedMatches) && relaxedMatches.length > 0) {
+            finalCandidates = await User.findAll({ where: { id: { [Op.in]: relaxedMatches.map(m => m.id) } }, limit: 100, order: [['profile_completion', 'DESC']] });
+            finalCount = relaxedMatches.length;
+            fallbackApplied = true;
+            console.log(`✅ Relaxed fallback succeeded: ${finalCount} candidates found after removing experience/salary filters.`);
+          } else {
+            console.log(`⚠️ Relaxed fallback returned no candidates. Keeping strict-empty result.`);
+            finalCandidates = [];
+            finalCount = 0;
+          }
+        } else {
+          console.log(`⚠️ Fallback skipped for Req ${id}: No relaxed criteria available (would match all candidates)`);
+          finalCandidates = [];
+          finalCount = 0;
+        }
+      } catch (fallbackErr) {
+        console.error('❌ Error while performing relaxed fallback:', fallbackErr);
+        finalCandidates = [];
+        finalCount = 0;
+      }
+    }
 
     // ========== IMPROVED RELEVANCE SCORING ALGORITHM ==========
     // Calculate comprehensive relevance score for each candidate (max 100 points)
@@ -2315,7 +3125,7 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
 
     // CRITICAL FIX: Don't double-validate - database query already filtered correctly
     // Only check exclude skills as a final safety net (database query might miss edge cases)
-    const excludeSkillsForValidation = criteria.excludeSkills || metadata.excludeSkills || requirement.excludeSkills || [];
+    const excludeSkillsForValidation = metadata.excludeSkills || requirement.excludeSkills || [];
     if (filteredFinalCandidates.length > 0 && Array.isArray(excludeSkillsForValidation) && excludeSkillsForValidation.length > 0 && excludeSkillsForValidation.filter(s => s).length > 0) {
       const beforeCount = filteredFinalCandidates.length;
       filteredFinalCandidates = filteredFinalCandidates.filter(candidate => {
@@ -2546,12 +3356,7 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
       }
     }
 
-    // CRITICAL: Preserve the original count from Sequelize as the primary source of truth
-    // This prevents flickering issues where the total count changes between pages or calls.
-    // Manual filtering below is only for display/ranking on the current page.
-    let totalMatchingCount = count;
-
-    // Prepare requirement data for relevance scoring
+    // Helper function to format education
     const formatEducation = (candidate) => {
       const educations = educationMap.get(candidate.id) || [];
       if (educations.length > 0) {
@@ -2862,7 +3667,7 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
       // Default to 0 on error
     }
 
-    // Use the totalMatchingCount already calculated from Sequelize 'count'
+    const finalCountForResponse = filteredFinalCandidates.length;
     return res.status(200).json({
       success: true,
       data: {
@@ -2870,22 +3675,22 @@ router.get('/:id/candidates', authenticateToken, checkPermission('resumeDatabase
         requirement: {
           id: requirement.id,
           title: requirement.title,
-          totalCandidates: totalMatchingCount, // Total count of all matching candidates
+          totalCandidates: finalCountForResponse, // Total count of all matching candidates
           appliedFilters: appliedFilters,
           fallbackApplied: fallbackApplied,
           accessedCandidates: accessedCount
         },
         pagination: {
-          page: parseInt(page) || 1,
-          limit: parseInt(limit) || 20,
-          total: totalMatchingCount, // Total count of all matching candidates
-          pages: Math.ceil(totalMatchingCount / limitNum),
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: finalCountForResponse, // Total count of all matching candidates (not just this page)
+          pages: Math.ceil(finalCountForResponse / limitNum),
           showing: transformedCandidates.length // Count of candidates on this page
         },
         metadata: {
           sortBy: sortByOption,
           filtersApplied: appliedFilters.length,
-          strictMatches: totalMatchingCount,
+          strictMatches: finalCountForResponse,
           relaxedMatches: fallbackApplied ? (finalCandidates.length - candidates.length) : 0
         }
       }
@@ -4766,8 +5571,7 @@ router.post('/:id/calculate-ats', authenticateToken, async (req, res) => {
         requirementId,
         page,
         limit,
-        processAll,
-        req.body // Pass all filters from request body
+        processAll
       );
 
       targetCandidateIds = allCandidatesData.candidateIds;
@@ -4782,9 +5586,7 @@ router.post('/:id/calculate-ats', authenticateToken, async (req, res) => {
         const allCandidatesData = await atsPoolingService.getAllCandidateIdsForRequirement(
           requirementId,
           page,
-          limit,
-          false, // Not processing all
-          req.body // Pass all filters from request body
+          limit
         );
 
         targetCandidateIds = allCandidatesData.candidateIds;

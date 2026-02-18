@@ -137,13 +137,7 @@ exports.getTeamMembers = async (req, res) => {
  */
 exports.inviteTeamMember = async (req, res) => {
   try {
-    const companyId = req.user.company_id || req.user.companyId;
-    console.log('🔍 Invitation Request:', {
-      body: req.body,
-      userId: req.user.id,
-      companyId: companyId,
-      userType: req.user.user_type
-    });
+    const companyId = req.user.company_id;
 
     if (!companyId) {
       return res.status(400).json({
@@ -175,13 +169,12 @@ exports.inviteTeamMember = async (req, res) => {
     });
 
     if (existingUser) {
-      const userCompanyId = existingUser.companyId || existingUser.company_id;
-      if (String(userCompanyId) === String(companyId)) {
+      if (existingUser.companyId === companyId) {
         return res.status(400).json({
           success: false,
           message: 'User is already a member of this company'
         });
-      } else if (userCompanyId) {
+      } else if (existingUser.companyId) {
         return res.status(400).json({
           success: false,
           message: 'User is already associated with another company'
@@ -421,23 +414,6 @@ exports.inviteTeamMember = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Invite team member error:', error);
-
-    // Provide more detail for validation errors
-    if (error.name === 'SequelizeValidationError') {
-      const details = error.errors.map(e => ({
-        field: e.path,
-        message: e.message,
-        value: e.value
-      }));
-      console.error('📊 Validation details:', JSON.stringify(details, null, 2));
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        error: error.message,
-        details: details
-      });
-    }
-
     return res.status(500).json({
       success: false,
       message: 'Failed to invite team member',
