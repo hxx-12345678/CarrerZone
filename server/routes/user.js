@@ -13,6 +13,7 @@ const { sequelize } = require('../config/sequelize');
 const { uploadBufferToCloudinary, isConfigured: isCloudinaryConfigured, deleteFromCloudinary } = require('../config/cloudinary');
 const { authenticateToken } = require('../middlewares/auth');
 const checkPermission = require('../middlewares/checkPermission');
+const { normalizePermissions } = require('../utils/permissions');
 
 const router = express.Router();
 
@@ -448,7 +449,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
       passwordSkipped: Boolean(req.user.password_skipped),
       requiresPasswordSetup: !(req.user.password && String(req.user.password).trim().length > 0) && req.user.oauth_provider && req.user.oauth_provider !== 'local' && !req.user.password_skipped,
       createdAt: req.user.created_at,
-      updatedAt: req.user.updatedAt
+      updatedAt: req.user.updatedAt,
+      permissions: normalizePermissions(req.user)
     };
 
     res.status(200).json({
@@ -1086,7 +1088,7 @@ router.put('/change-phone', authenticateToken, [
 // Get user notifications
 router.get('/notifications', authenticateToken, async (req, res) => {
   try {
-    const { Notification, JobApplication, User, Company, Job } = require('../config/index');
+    const { Notification, JobApplication, User: ConfigUser, Company: ConfigCompany, Job: ConfigJob } = require('../config');
 
     // Build where clause
     const whereClause = { userId: req.user.id };
@@ -3299,7 +3301,8 @@ router.get('/employer/dashboard-stats', authenticateToken, async (req, res) => {
 });
 
 // Employer Analytics endpoint
-router.get('/employer/analytics', authenticateToken, async (req, res) => {
+// Re-order router.get to avoid conflict with parameterized routes
+router.get('/employer/analytics', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const DashboardService = require('../services/dashboardService');
     const range = (req.query.range || '30d').toString();
@@ -3317,7 +3320,7 @@ router.get('/employer/analytics', authenticateToken, async (req, res) => {
 });
 
 // Employer Analytics Export endpoint
-router.get('/employer/analytics/export', authenticateToken, async (req, res) => {
+router.get('/employer/analytics/export', authenticateToken, checkPermission('analytics'), async (req, res) => {
   try {
     const DashboardService = require('../services/dashboardService');
     const range = (req.query.range || '30d').toString();

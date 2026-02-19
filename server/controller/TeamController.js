@@ -1,8 +1,10 @@
 'use strict';
 
-const { TeamInvitation, User, Company, Notification, Subscription, SubscriptionPlan } = require('../config');
+const { User, Company, Job, Requirement, TeamInvitation, Subscription, SubscriptionPlan, JobApplication } = require('../config');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
+const bcrypt = require('bcryptjs');
+const { normalizePermissions } = require('../utils/permissions');
 
 /**
  * Generate a default password for invited users
@@ -91,15 +93,7 @@ exports.getTeamMembers = async (req, res) => {
             isEmailVerified: isEmailVerified,
             isPhoneVerified: member.is_phone_verified,
             isAdmin: member.user_type === 'admin' || member.user_type === 'superadmin',
-            permissions: member.permissions || member.preferences?.permissions || {
-              jobPosting: true,
-              resumeDatabase: true,
-              analytics: true,
-              featuredJobs: false,
-              hotVacancies: false,
-              applications: true,
-              settings: false
-            }
+            permissions: normalizePermissions(member)
           };
         }),
         pendingInvitations: pendingInvitations.map(inv => ({
@@ -285,13 +279,14 @@ exports.inviteTeamMember = async (req, res) => {
         is_email_verified: true,
         account_status: 'active',
         permissions: permissions || {
-          jobPosting: true,
-          resumeDatabase: true,
-          analytics: true,
+          jobPosting: false,
+          resumeDatabase: false,
+          analytics: false,
           featuredJobs: false,
           hotVacancies: false,
-          applications: true,
-          settings: false
+          applications: false,
+          settings: false,
+          agencyClients: false
         },
         preferences: {
           ...req.user?.preferences,
@@ -362,11 +357,14 @@ exports.inviteTeamMember = async (req, res) => {
       });
     }
 
-    // Store default password in permissions metadata (temporary storage)
+    // Store default password hash in permissions metadata (secure storage)
     if (!invitationData.permissions) {
       invitationData.permissions = {};
     }
-    invitationData.permissions._defaultPassword = userDefaultPassword;
+    // Hash it before storing in DB for security
+    invitationData.permissions._defaultPasswordHash = await bcrypt.hash(userDefaultPassword, 10);
+    // Remove the plain password if it was accidentally there
+    delete invitationData.permissions._defaultPassword;
 
     // Create invitation
     const invitation = await TeamInvitation.create(invitationData);
@@ -741,12 +739,11 @@ exports.acceptInvitation = async (req, res) => {
       });
     }
 
-    // Use provided password or default password from invitation
+    // Use provided password (required in frontend)
     let userPassword = password;
-    if (!userPassword && invitation.permissions?._defaultPassword) {
-      userPassword = invitation.permissions._defaultPassword;
-      console.log(`🔑 Using default password from invitation for ${invitation.email}`);
-    }
+
+    // We no longer automatically use default password from invitation to ensure security
+    // The user must provide it (they can copy-paste from email if they wish)
 
     if (!userPassword) {
       return res.status(400).json({
@@ -804,6 +801,11 @@ exports.acceptInvitation = async (req, res) => {
     });
 
     // Remove password from response metadata
+    // Remove password hash from response metadata
+    if (invitation.permissions?._defaultPasswordHash) {
+      delete invitation.permissions._defaultPasswordHash;
+      await invitation.update({ permissions: invitation.permissions });
+    }
     if (invitation.permissions?._defaultPassword) {
       delete invitation.permissions._defaultPassword;
       await invitation.update({ permissions: invitation.permissions });
@@ -870,11 +872,23 @@ exports.updateTeamMemberPermissions = async (req, res) => {
 
     if (permissions) {
       updateData.permissions = permissions;
+
+      // Clear legacy permissions from preferences to avoid conflicts
+      if (teamMember.preferences && teamMember.preferences.permissions) {
+        const updatedPreferences = { ...teamMember.preferences };
+        delete updatedPreferences.permissions;
+        updateData.preferences = updatedPreferences;
+      }
     }
 
     if (designation) {
       updateData.designation = designation;
     }
+
+    // Increment session version to force fresh fetch/token invalidation if needed
+    updateData.session_version = (teamMember.session_version || 0) + 1;
+
+    console.log(`🔐 Updating permissions for user ${userId}. New session version: ${updateData.session_version}`);
 
     await teamMember.update(updateData);
 

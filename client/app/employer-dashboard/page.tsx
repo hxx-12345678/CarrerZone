@@ -759,17 +759,25 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
         }])
       }
 
-      // Load upcoming interviews
+      // Load upcoming interviews (only if user can view applications)
       try {
-        const interviewsResponse = await apiService.getUpcomingInterviews(5)
-        console.log('🔍 Upcoming interviews API response:', interviewsResponse)
-        if (interviewsResponse.success && interviewsResponse.data && interviewsResponse.data.interviews) {
-          console.log('🔍 Interview data structure:', interviewsResponse.data.interviews[0])
-          setUpcomingInterviews(interviewsResponse.data.interviews)
-          console.log('✅ Upcoming interviews loaded:', interviewsResponse.data.interviews.length)
-        } else {
+        const hasAppPermission = user?.userType === 'admin' || user?.userType === 'superadmin' ||
+          (user?.permissions?.applications === true)
+
+        if (!hasAppPermission) {
           setUpcomingInterviews([])
-          console.log('✅ No upcoming interviews found - response:', interviewsResponse)
+          console.log('⏭ Skipping upcoming interviews load - user lacks applications permission')
+        } else {
+          const interviewsResponse = await apiService.getUpcomingInterviews(5)
+          console.log('🔍 Upcoming interviews API response:', interviewsResponse)
+          if (interviewsResponse.success && interviewsResponse.data && interviewsResponse.data.interviews) {
+            console.log('🔍 Interview data structure:', interviewsResponse.data.interviews[0])
+            setUpcomingInterviews(interviewsResponse.data.interviews)
+            console.log('✅ Upcoming interviews loaded:', interviewsResponse.data.interviews.length)
+          } else {
+            setUpcomingInterviews([])
+            console.log('✅ No upcoming interviews found - response:', interviewsResponse)
+          }
         }
       } catch (error) {
         console.error('❌ Error loading upcoming interviews:', error)

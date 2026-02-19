@@ -541,7 +541,7 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
               )
 
               return (
-                <Card key={application.id} className={`rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] ${isPremium ? 'ring-2 ring-yellow-200' : ''}`}>
+                <Card key={application.id} className={`rounded-3xl bg-white/50 backdrop-blur-2xl border-white/40 shadow-[0_8px_28px_rgba(59,130,246,0.08)] hover:shadow-[0_18px_60px_rgba(59,130,246,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] ${isPremium ? 'ring-2 ring-yellow-200' : ''} ${application.status === 'hired' ? 'border-green-500/50 border-2 bg-green-50/10' : ''}`}>
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4 flex-1">
@@ -639,6 +639,69 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                             <Calendar className="w-3 h-3 mr-1" />
                             Applied {new Date(application.appliedAt).toLocaleDateString()}
                           </div>
+
+                          {/* Quick Action Buttons */}
+                          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100">
+                            {application.status === 'applied' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[11px] text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 px-2"
+                                onClick={() => handleStatusUpdate(application.id, 'reviewing')}
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1" />
+                                Reviewing
+                              </Button>
+                            )}
+
+                            {application.status !== 'shortlisted' && application.status !== 'rejected' && application.status !== 'hired' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[11px] text-green-600 hover:text-green-700 hover:bg-green-50 px-2"
+                                onClick={() => handleStatusUpdate(application.id, 'shortlisted')}
+                              >
+                                <Star className="w-3.5 h-3.5 mr-1" />
+                                Shortlist
+                              </Button>
+                            )}
+
+                            {application.status !== 'rejected' && application.status !== 'hired' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[11px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-2"
+                                onClick={() => handleScheduleInterview(application)}
+                              >
+                                <Calendar className="w-3.5 h-3.5 mr-1" />
+                                Schedule
+                              </Button>
+                            )}
+
+                            {application.status !== 'hired' && application.status !== 'rejected' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[11px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 font-bold"
+                                onClick={() => handleStatusUpdate(application.id, 'hired')}
+                              >
+                                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                                Hire Candidate
+                              </Button>
+                            )}
+
+                            {application.status !== 'rejected' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+                                onClick={() => handleStatusUpdate(application.id, 'rejected')}
+                              >
+                                <XCircle className="w-3.5 h-3.5 mr-1" />
+                                Reject
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -660,15 +723,26 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleStatusUpdate(application.id, 'reviewing')}>
+                              <Eye className="w-4 h-4 mr-2" />
                               Mark as Reviewing
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleStatusUpdate(application.id, 'shortlisted')}>
+                              <Star className="w-4 h-4 mr-2" />
                               {application.status === 'shortlisted' ? 'Remove from Shortlist' : 'Shortlist'}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleScheduleInterview(application)}>
+                              <Calendar className="w-4 h-4 mr-2" />
                               Schedule Interview
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(application.id, 'rejected')}>
+                            <DropdownMenuItem
+                              onClick={() => handleStatusUpdate(application.id, 'hired')}
+                              className="text-green-600 font-semibold"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Hire Candidate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(application.id, 'rejected')} className="text-red-600">
+                              <XCircle className="w-4 h-4 mr-2" />
                               Reject
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -693,6 +767,8 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
               <ApplicationDetailView
                 application={selectedApplication}
                 onDownloadCoverLetter={handleDownloadCoverLetter}
+                onStatusUpdate={(status) => handleStatusUpdate(selectedApplication.id, status)}
+                onScheduleInterview={() => handleScheduleInterview(selectedApplication)}
               />
             )}
           </DialogContent>
@@ -714,7 +790,17 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
   )
 }
 
-function ApplicationDetailView({ application, onDownloadCoverLetter }: { application: any; onDownloadCoverLetter: (coverLetter: any) => void }) {
+function ApplicationDetailView({
+  application,
+  onDownloadCoverLetter,
+  onStatusUpdate,
+  onScheduleInterview
+}: {
+  application: any;
+  onDownloadCoverLetter: (coverLetter: any) => void;
+  onStatusUpdate: (status: string) => void;
+  onScheduleInterview: () => void;
+}) {
   const applicant = application.applicant
   const job = application.job
   const jobResume = application.jobResume
@@ -1166,6 +1252,54 @@ function ApplicationDetailView({ application, onDownloadCoverLetter }: { applica
           </CardContent>
         </Card>
       )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-blue-200">
+        <Button
+          variant="outline"
+          className="bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100"
+          onClick={() => onStatusUpdate('reviewing')}
+          disabled={application.status === 'reviewing'}
+        >
+          <Eye className="w-4 h-4 mr-2" />
+          Mark as Reviewing
+        </Button>
+        <Button
+          variant="outline"
+          className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+          onClick={() => onStatusUpdate('shortlisted')}
+          disabled={application.status === 'shortlisted'}
+        >
+          <Star className="w-4 h-4 mr-2" />
+          Shortlist Candidate
+        </Button>
+        <Button
+          variant="outline"
+          className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+          onClick={onScheduleInterview}
+        >
+          <Calendar className="w-4 h-4 mr-2" />
+          Schedule Interview
+        </Button>
+        <Button
+          variant="default"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+          onClick={() => onStatusUpdate('hired')}
+          disabled={application.status === 'hired'}
+        >
+          <CheckCircle className="w-4 h-4 mr-2" />
+          HIRE CANDIDATE
+        </Button>
+        <Button
+          variant="outline"
+          className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100 ml-auto"
+          onClick={() => onStatusUpdate('rejected')}
+          disabled={application.status === 'rejected'}
+        >
+          <XCircle className="w-4 h-4 mr-2" />
+          Reject Application
+        </Button>
+      </div>
     </div>
   )
 }

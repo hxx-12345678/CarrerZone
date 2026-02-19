@@ -369,7 +369,7 @@ router.post('/', authenticateToken, checkPermission('resumeDatabase'), async (re
 });
 
 // List Requirements for authenticated employer's company
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     console.log('🔍 Requirements API - User:', {
       id: req.user?.id,
@@ -422,7 +422,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get single requirement by ID
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateToken, checkPermission('resumeDatabase'), async (req, res) => {
   try {
     const { id } = req.params;
 

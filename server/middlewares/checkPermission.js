@@ -1,5 +1,7 @@
 'use strict';
 
+const { normalizePermissions } = require('../utils/permissions');
+
 /**
  * Middleware to check if a user has a specific permission.
  * Admins and Superadmins bypass all permission checks.
@@ -21,9 +23,8 @@ const checkPermission = (permission) => {
             return next();
         }
 
-        // 3. Check for specific permission in the user's permissions object
-        // Handle both dedicated column and legacy preferences location
-        const userPermissions = req.user.permissions || req.user.preferences?.permissions || {};
+        // 3. Use unified normalization logic
+        const userPermissions = normalizePermissions(req.user);
 
         // If the permission is explicitly true, allow access
         if (userPermissions[permission] === true) {

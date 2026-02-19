@@ -727,22 +727,29 @@ class ApiService {
 
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const url = response.url;
-    console.log('🔍 handleResponse - Starting with URL:', url, 'Status:', response.status);
+    const is403 = response.status === 403;
+
+    // For 403 permission denials, use debug-level logging (or skip) to avoid noisy console
+    if (!is403) {
+      console.log('🔍 handleResponse - Starting with URL:', url, 'Status:', response.status);
+    }
 
     // Basic error check
-    if (!response.ok) {
+    if (!response.ok && !is403) {
       console.log('❌ Response not OK:', response.status, response.statusText);
     }
 
     // Simple fallback logging in case the main logging fails
     try {
-      console.log('🔍 handleResponse - Processing response:', {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
+      if (!is403) {
+        console.log('🔍 handleResponse - Processing response:', {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
     } catch (logError) {
       console.log('🔍 handleResponse - Basic info:', url, response.status, response.statusText);
     }
@@ -792,7 +799,9 @@ class ApiService {
         } as ApiResponse<T>
       }
 
-      console.log('🔍 handleResponse - Parsed data:', data);
+      if (!is403) {
+        console.log('🔍 handleResponse - Parsed data:', data);
+      }
 
       if (!response.ok) {
         // If parsed body is empty object, try to capture raw text for better diagnostics
@@ -876,6 +885,22 @@ class ApiService {
             success: false,
             message: `Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`,
             errors: ['RATE_LIMIT']
+          } as ApiResponse<T>;
+        }
+
+        // Handle 401 Unauthorized - Force logout if session version mismatch or token expired
+        if (response.status === 401) {
+          console.warn('⚠️ [AUTH] 401 Unauthorized received. Clearing session...');
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
+            // Immediate redirect to force re-login
+            window.location.href = '/employer-login?session=expired';
+          }
+          return {
+            success: false,
+            message: 'Session expired. Please log in again.',
+            errors: ['UNAUTHORIZED']
           } as ApiResponse<T>;
         }
 
@@ -4233,10 +4258,19 @@ class ApiService {
   }
 
   async getUpcomingInterviews(limit: number = 5): Promise<ApiResponse<any>> {
-    const response = await fetch(`${API_BASE_URL}/interviews/employer?status=scheduled&limit=${limit}`, {
-      headers: this.getAuthHeaders(),
-    });
-    return this.handleResponse<any>(response);
+    try {
+      const response = await fetch(`${API_BASE_URL}/interviews/employer?status=scheduled&limit=${limit}`, {
+        headers: this.getAuthHeaders(),
+      });
+      // If server returns 403, return empty success response instead of error
+      if (response.status === 403) {
+        return { success: true, data: { interviews: [] } } as ApiResponse<any>;
+      }
+      return this.handleResponse<any>(response);
+    } catch (error) {
+      // Network or other error — return empty data gracefully
+      return { success: true, data: { interviews: [] } } as ApiResponse<any>;
+    }
   }
 
   // Gulf-specific API methods

@@ -153,14 +153,16 @@ export function EmployerDashboardNavbar() {
           <div className="hidden lg:flex items-center space-x-8">
             {/* Jobs & Responses Dropdown */}
             <div className="relative">
-              <button
-                onMouseEnter={() => setShowJobsDropdown(true)}
-                onMouseLeave={() => setShowJobsDropdown(false)}
-                className="flex items-center space-x-1 text-slate-700 hover:text-blue-600 font-medium transition-colors"
-              >
-                <span>Jobs and Responses</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
+              {(canManageJobs || canViewApplications || canManageHotVacancies) && (
+                <button
+                  onMouseEnter={() => setShowJobsDropdown(true)}
+                  onMouseLeave={() => setShowJobsDropdown(false)}
+                  className="flex items-center space-x-1 text-slate-700 hover:text-blue-600 font-medium transition-colors"
+                >
+                  <span>Jobs and Responses</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              )}
 
               <AnimatePresence>
                 {showJobsDropdown && (
@@ -268,15 +270,17 @@ export function EmployerDashboardNavbar() {
 
             {/* Database Dropdown */}
             <div className="relative">
-              <button
-                onMouseEnter={() => setShowDatabaseDropdown(true)}
-                onMouseLeave={() => setShowDatabaseDropdown(false)}
-                className="flex items-center space-x-1 text-slate-700 hover:text-blue-600 font-medium transition-colors"
-              >
-                <Database className="w-4 h-4" />
-                <span>Database</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
+              {(canViewDatabase || canManageRequirements || isAdmin) && (
+                <button
+                  onMouseEnter={() => setShowDatabaseDropdown(true)}
+                  onMouseLeave={() => setShowDatabaseDropdown(false)}
+                  className="flex items-center space-x-1 text-slate-700 hover:text-blue-600 font-medium transition-colors"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Database</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              )}
 
               <AnimatePresence>
                 {showDatabaseDropdown && (
@@ -416,38 +420,46 @@ export function EmployerDashboardNavbar() {
                       <div className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Jobs and Responses
                       </div>
-                      <Link
-                        href="/employer-dashboard/post-job"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Plus className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Post Job</span>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/post-internship"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Users className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Post Internship</span>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/hot-vacancies"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Briefcase className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Hot Vacancies</span>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/manage-jobs"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Briefcase className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Manage Jobs and Responses</span>
-                      </Link>
+                      {canManageJobs && (
+                        <Link
+                          href="/employer-dashboard/post-job"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <Plus className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Post Job</span>
+                        </Link>
+                      )}
+                      {canManageJobs && (
+                        <Link
+                          href="/employer-dashboard/post-internship"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Post Internship</span>
+                        </Link>
+                      )}
+                      {canManageHotVacancies && (
+                        <Link
+                          href="/employer-dashboard/hot-vacancies"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <Briefcase className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Hot Vacancies</span>
+                        </Link>
+                      )}
+                      {canManageJobs && (
+                        <Link
+                          href="/employer-dashboard/manage-jobs"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <Briefcase className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Manage Jobs and Responses</span>
+                        </Link>
+                      )}
                       <Link
                         href="/employer-dashboard/job-templates"
                         className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
@@ -456,30 +468,36 @@ export function EmployerDashboardNavbar() {
                         <FileText className="w-4 h-4 flex-shrink-0" />
                         <span className="text-sm">Job Templates</span>
                       </Link>
-                      <Link
-                        href="/employer-dashboard/applications"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Users className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">View Applications</span>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/featured-jobs"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <BarChart3 className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Featured Jobs</span>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/analytics"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <BarChart3 className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Analytics</span>
-                      </Link>
+                      {canViewApplications && (
+                        <Link
+                          href="/employer-dashboard/applications"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">View Applications</span>
+                        </Link>
+                      )}
+                      {canManageJobs && canManageFeatured && (
+                        <Link
+                          href="/employer-dashboard/featured-jobs"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Featured Jobs</span>
+                        </Link>
+                      )}
+                      {canViewAnalytics && (
+                        <Link
+                          href="/employer-dashboard/analytics"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Analytics</span>
+                        </Link>
+                      )}
                     </div>
 
                     {/* Database Section */}
@@ -487,22 +505,26 @@ export function EmployerDashboardNavbar() {
                       <div className="px-3 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Database
                       </div>
-                      <Link
-                        href="/employer-dashboard/create-requirement"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FileText className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Create Requirement</span>
-                      </Link>
-                      <Link
-                        href="/employer-dashboard/requirements"
-                        className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <Users className="w-4 h-4 flex-shrink-0" />
-                        <span className="text-sm">Manage Requirements</span>
-                      </Link>
+                      {canViewDatabase && (
+                        <Link
+                          href="/employer-dashboard/create-requirement"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <FileText className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Create Requirement</span>
+                        </Link>
+                      )}
+                      {canManageRequirements && (
+                        <Link
+                          href="/employer-dashboard/requirements"
+                          className="flex items-center space-x-2 px-3 py-2.5 text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                          <span className="text-sm">Manage Requirements</span>
+                        </Link>
+                      )}
                       {isAdmin && (
                         <Link
                           href="/employer-dashboard/bulk-import"

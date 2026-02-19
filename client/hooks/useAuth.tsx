@@ -68,15 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     certifications: u.certifications,
     socialLinks: u.social_links ?? u.socialLinks,
     preferences: u.preferences,
-    permissions: u.permissions ?? u.preferences?.permissions ?? {
-      jobPosting: true,
-      resumeDatabase: true,
-      analytics: true,
-      featuredJobs: false,
-      hotVacancies: false,
-      applications: true,
-      settings: false
-    },
+    permissions: u.permissions ?? u.preferences?.permissions,
     oauthProvider: u.oauth_provider ?? u.oauthProvider,
     oauthId: u.oauth_id ?? u.oauthId,
     createdAt: u.createdAt,
@@ -117,68 +109,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
         });
 
-        // If we have both token and stored user, set user immediately to avoid race conditions
-        if (token && storedUser) {
+        // If a token exists, always fetch authoritative user info from the API.
+        // Do not rely on localStorage user for permissions.
+        if (token) {
+          console.log('🔍 AuthProvider - Token found, fetching user from API...');
           try {
-            const userData = JSON.parse(storedUser);
-            console.log('🔍 AuthProvider - Setting user from localStorage immediately:', {
-              id: userData.id,
-              userType: userData.userType,
-              email: userData.email
-            });
-            setUser(userData);
-            sampleJobManager.setCurrentUser(userData.id);
-
-            // Verify token in background without blocking UI
-            setTimeout(async () => {
-              try {
-                const response = await apiService.getCurrentUser();
-                if (response.success && response.data?.user) {
-                  const normalized = mapUserFromApi(response.data.user as any);
-                  console.log('🔍 AuthProvider - Token verified, updating user:', {
-                    id: normalized.id,
-                    userType: normalized.userType
-                  });
-                  setUser(normalized);
-                  sampleJobManager.setCurrentUser(normalized.id);
-                  if (typeof window !== 'undefined') {
-                    localStorage.setItem('user', JSON.stringify(normalized));
-                  }
-                } else {
-                  console.log('❌ AuthProvider - Token invalid, clearing auth');
-                  apiService.clearAuth();
-                  setUser(null);
-                  sampleJobManager.setCurrentUser(null);
-                }
-              } catch (error) {
-                console.error('❌ AuthProvider - Token verification failed:', error);
-                // Don't clear auth on network errors, just log
+            const response = await apiService.getCurrentUser();
+            if (response.success && response.data?.user) {
+              const normalized = mapUserFromApi(response.data.user as any);
+              console.log('🔍 AuthProvider - User fetched from API:', {
+                id: normalized.id,
+                userType: normalized.userType
+              });
+              setUser(normalized);
+              sampleJobManager.setCurrentUser(normalized.id);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('user', JSON.stringify(normalized));
               }
-            }, 100);
-
-          } catch (error) {
-            console.error('Error parsing stored user data:', error);
-            apiService.clearAuth();
-            setUser(null);
-            sampleJobManager.setCurrentUser(null);
-          }
-        } else if (token && !storedUser) {
-          // We have a token but no stored user, fetch user data
-          console.log('🔍 AuthProvider - Token found but no stored user, fetching...');
-          const response = await apiService.getCurrentUser();
-          if (response.success && response.data?.user) {
-            const normalized = mapUserFromApi(response.data.user as any);
-            console.log('🔍 AuthProvider - User fetched from API:', {
-              id: normalized.id,
-              userType: normalized.userType
-            });
-            setUser(normalized);
-            sampleJobManager.setCurrentUser(normalized.id);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('user', JSON.stringify(normalized));
+            } else {
+              console.log('❌ AuthProvider - Token invalid, clearing auth');
+              apiService.clearAuth();
+              setUser(null);
+              sampleJobManager.setCurrentUser(null);
             }
-          } else {
-            console.log('❌ AuthProvider - Token invalid, clearing auth');
+          } catch (error) {
+            console.error('❌ AuthProvider - Failed to fetch /me, clearing auth:', error);
             apiService.clearAuth();
             setUser(null);
             sampleJobManager.setCurrentUser(null);

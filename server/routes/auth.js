@@ -10,6 +10,7 @@ const { Op } = require('sequelize');
 const emailService = require('../services/emailService');
 const AdminNotificationService = require('../services/adminNotificationService');
 const { trackLogin, trackLogout } = require('../middlewares/activityTracker');
+const { normalizePermissions } = require('../utils/permissions');
 
 const { authenticateToken } = require('../middlewares/auth');
 
@@ -949,7 +950,7 @@ router.post('/login', validateLogin, async (req, res) => {
         regions: userRegions, // Include regions array for multi-portal access
         currentLocation: user.current_location,
         profileCompletion: user.profile_completion,
-        permissions: user.permissions || {}
+        permissions: normalizePermissions(user)
       },
       token,
       redirectTo: getRedirectUrl(user.user_type, user.region, company)
@@ -1074,7 +1075,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       designation: user.designation,
       region: user.region,
       regions: userRegions, // Include regions array for multi-portal access
-      permissions: user.permissions || {}
+      permissions: normalizePermissions(user)
     };
 
     res.status(200).json({

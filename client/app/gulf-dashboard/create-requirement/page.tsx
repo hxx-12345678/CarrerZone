@@ -19,6 +19,7 @@ import IndustryDropdown from "@/components/ui/industry-dropdown"
 import DepartmentDropdown from "@/components/ui/department-dropdown"
 import { EmployerAuthGuard } from "@/components/employer-auth-guard"
 import { GulfEmployerAuthGuard } from "@/components/gulf-employer-auth-guard"
+import { PermissionGuard } from "@/components/permission-guard"
 
 const commonSkills = [
   "React", "Node.js", "JavaScript", "TypeScript", "Python", "Java", "C++", "C#", "PHP", "Ruby", "Go", "Swift", "Kotlin",
@@ -340,17 +341,18 @@ export default function GulfCreateRequirementPage() {
   return (
     <EmployerAuthGuard>
       <GulfEmployerAuthGuard>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/40 to-teal-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
-          <GulfEmployerNavbar />
-          
-          {/* Background decorative elements */}
-          <div className="absolute inset-0 -z-10 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-200/45 via-teal-200/35 to-cyan-200/45"></div>
-            <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-emerald-300/10 to-teal-300/10 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-teal-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-          </div>
+        <PermissionGuard permission="resumeDatabase">
+          <div className="min-h-screen bg-gradient-to-br from-amber-50 via-emerald-50/40 to-teal-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-auto">
+            <GulfEmployerNavbar />
 
-          <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+            {/* Background decorative elements */}
+            <div className="absolute inset-0 -z-10 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-200/45 via-teal-200/35 to-cyan-200/45"></div>
+              <div className="absolute top-20 left-20 w-40 h-40 bg-gradient-to-br from-emerald-300/10 to-teal-300/10 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute bottom-20 right-20 w-36 h-36 bg-gradient-to-br from-teal-300/10 to-cyan-300/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+            </div>
+
+            <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -1148,7 +1150,8 @@ export default function GulfCreateRequirementPage() {
 
         <EmployerFooter />
       </div>
-      </GulfEmployerAuthGuard>
-    </EmployerAuthGuard>
-  )
+    </PermissionGuard>
+  </GulfEmployerAuthGuard>
+</EmployerAuthGuard>
+)
 }

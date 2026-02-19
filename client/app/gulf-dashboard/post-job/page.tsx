@@ -23,6 +23,7 @@ import DepartmentDropdown from "@/components/ui/department-dropdown"
 import IndustryDropdown from "@/components/ui/industry-dropdown"
 import RoleCategoryDropdown from "@/components/ui/role-category-dropdown"
 import { EmployerAuthGuard } from "@/components/employer-auth-guard"
+import { PermissionGuard } from "@/components/permission-guard"
 
 export default function PostJobPage() {
   const router = useRouter()
@@ -3609,8 +3610,9 @@ export default function PostJobPage() {
 
   return (
     <EmployerAuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-emerald-50/40 to-teal-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
-      <GulfEmployerNavbar />
+      <PermissionGuard permission="jobPosting">
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-emerald-50/40 to-teal-50/40 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900 relative overflow-hidden">
+        <GulfEmployerNavbar />
 
       {/* Background Effects - Gulf theme */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -4096,7 +4098,8 @@ export default function PostJobPage() {
           hideSelectAllButtons={true}
         />
       )}
-      </div>
+        </div>
+      </PermissionGuard>
     </EmployerAuthGuard>
   )
 }

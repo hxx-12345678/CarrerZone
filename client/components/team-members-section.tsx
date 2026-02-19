@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Users, Plus, Mail, Phone, Trash2, X, Shield, User, CheckCircle, Clock, Copy, Edit2, Save, AlertCircle } from "lucide-react"
+import { Users, Plus, Mail, Phone, Trash2, X, Shield, User, CheckCircle, Clock, Copy, Edit2, Save, AlertCircle, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -38,10 +38,10 @@ export function TeamMembersSection() {
     jobPosting: true,
     resumeDatabase: true,
     analytics: true,
-    featuredJobs: false,
-    hotVacancies: false,
+    featuredJobs: true,
+    hotVacancies: true,
     applications: true,
-    settings: false
+    settings: true
   })
   const [editSaving, setEditSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -62,16 +62,31 @@ export function TeamMembersSection() {
     if (!member || member.isAdmin) return
     setMemberToEdit(member)
     setEditDesignation(member.designation || "Recruiter")
+
+    // Default to all true if no permissions object exists (as per admin preference)
+    const hasPerms = !!member.permissions
     setEditPermissions({
-      jobPosting: member.permissions?.jobPosting === true,
-      resumeDatabase: member.permissions?.resumeDatabase === true,
-      analytics: member.permissions?.analytics === true,
-      featuredJobs: member.permissions?.featuredJobs === true,
-      hotVacancies: member.permissions?.hotVacancies === true,
-      applications: member.permissions?.applications === true,
-      settings: member.permissions?.settings === true
+      jobPosting: hasPerms ? member.permissions.jobPosting === true : true,
+      resumeDatabase: hasPerms ? member.permissions.resumeDatabase === true : true,
+      analytics: hasPerms ? member.permissions.analytics === true : true,
+      featuredJobs: hasPerms ? member.permissions.featuredJobs === true : true,
+      hotVacancies: hasPerms ? member.permissions.hotVacancies === true : true,
+      applications: hasPerms ? member.permissions.applications === true : true,
+      settings: hasPerms ? member.permissions.settings === true : true
     })
     setEditDialogOpen(true)
+  }
+
+  const toggleAllPermissions = (checked: boolean) => {
+    setEditPermissions({
+      jobPosting: checked,
+      resumeDatabase: checked,
+      analytics: checked,
+      featuredJobs: checked,
+      hotVacancies: checked,
+      applications: checked,
+      settings: checked
+    })
   }
 
   const handleSaveMemberPermissions = async () => {
@@ -445,8 +460,30 @@ export function TeamMembersSection() {
             </div>
 
             <div>
-              <Label className="mb-3 block">Permissions</Label>
-              <div className="space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="block">Permissions</Label>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2"
+                    onClick={() => toggleAllPermissions(true)}
+                  >
+                    Grant All
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+                    onClick={() => toggleAllPermissions(false)}
+                  >
+                    Revoke All
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-3 border rounded-xl p-4 bg-slate-50/50">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="editJobPosting"
@@ -566,12 +603,25 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
     jobPosting: true,
     resumeDatabase: true,
     analytics: true,
-    featuredJobs: false,
-    hotVacancies: false,
+    featuredJobs: true,
+    hotVacancies: true,
     applications: true,
-    settings: false
+    settings: true
   })
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  const toggleAllPermissions = (checked: boolean) => {
+    setPermissions({
+      jobPosting: checked,
+      resumeDatabase: checked,
+      analytics: checked,
+      featuredJobs: checked,
+      hotVacancies: checked,
+      applications: checked,
+      settings: checked
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -671,18 +721,54 @@ function InviteTeamMemberForm({ onInvite, onClose }: { onInvite: (data: any) => 
 
       <div>
         <Label htmlFor="defaultPassword">Default Password</Label>
-        <Input
-          id="defaultPassword"
-          type="password"
-          placeholder="Set a password for this team member"
-          value={defaultPassword}
-          onChange={(e) => setDefaultPassword(e.target.value)}
-        />
+        <div className="relative">
+          <Input
+            id="defaultPassword"
+            type={showPassword ? "text" : "password"}
+            placeholder="Set a password for this team member"
+            value={defaultPassword}
+            onChange={(e) => setDefaultPassword(e.target.value)}
+            className="pr-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div>
-        <Label className="mb-3 block">Permissions</Label>
-        <div className="space-y-2">
+        <div className="flex items-center justify-between mb-3">
+          <Label className="block">Permissions</Label>
+          <div className="flex space-x-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2"
+              onClick={() => toggleAllPermissions(true)}
+            >
+              Grant All
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 px-2"
+              onClick={() => toggleAllPermissions(false)}
+            >
+              Revoke All
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-3 border rounded-xl p-4 bg-slate-50/50">
           <div className="flex items-center space-x-2">
             <Checkbox
               id="jobPosting"
