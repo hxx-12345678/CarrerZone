@@ -130,13 +130,10 @@ export default function ManageJobsPage() {
   }
 
   const handleTabChange = (tab: string) => {
+    // Only change the active tab; do not touch statusFilter here.
+    // Tabs filter the already-fetched jobs client-side to avoid
+    // unnecessary API calls on each tab switch.
     setActiveTab(tab)
-    if (tab === 'all-jobs') {
-      setStatusFilter('all')
-    } else {
-      setStatusFilter(tab)
-    }
-    setPagination(prev => ({ ...prev, page: 1 })) // Reset to first page
   }
 
   const handlePageChange = (newPage: number) => {

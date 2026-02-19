@@ -888,12 +888,25 @@ class ApiService {
           } as ApiResponse<T>;
         }
 
-        // Handle 401 Unauthorized - Force logout if session version mismatch or token expired
+        // Handle 401 Unauthorized
+        // IMPORTANT: Do NOT hard-redirect on admin login failures (wrong credentials) because those are also 401.
         if (response.status === 401) {
+          const isAdminAuthRequest = url.includes('/admin-auth/');
+          if (isAdminAuthRequest) {
+            return {
+              success: false,
+              message: (data as any)?.message || 'Unauthorized',
+              errors: ['UNAUTHORIZED']
+            } as ApiResponse<T>;
+          }
+
           console.warn('⚠️ [AUTH] 401 Unauthorized received. Clearing session...');
           if (typeof window !== 'undefined') {
+            // Clear both legacy and current keys
             localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             // Immediate redirect to force re-login
             window.location.href = '/employer-login?session=expired';
           }

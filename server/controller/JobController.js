@@ -135,7 +135,7 @@ exports.createJob = async (req, res, next) => {
 
     // Basic validation - only require fields for active jobs, not drafts
     const errors = [];
-    
+
     // Validate education field type (must not be array or object) - FIX THIS FIRST
     if (education !== undefined && education !== null) {
       if (Array.isArray(education)) {
@@ -145,7 +145,7 @@ exports.createJob = async (req, res, next) => {
         errors.push('education cannot be an array or an object');
       }
     }
-    
+
     if (status === 'active') {
       // For active jobs, require all essential fields
       if (!title || String(title).trim() === '') errors.push('Job title is required');
@@ -159,7 +159,7 @@ exports.createJob = async (req, res, next) => {
       if (!type && !jobType) errors.push('Job type is required');
       if (!experience && !experienceLevel) errors.push('Experience level is required');
       if (!salary && !salaryMin && !salaryMax) errors.push('Salary information is required');
-      
+
       // Hot vacancy specific validation
       if (isHotVacancy === true) {
         console.log('🔥 Validating hot vacancy requirements...');
@@ -182,13 +182,13 @@ exports.createJob = async (req, res, next) => {
         title = 'Untitled Job'; // Set default title for drafts
       }
     }
-    
+
     if (errors.length) {
       console.error('❌ Validation errors:', errors);
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Validation failed', 
-        errors 
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
       });
     }
 
@@ -196,9 +196,9 @@ exports.createJob = async (req, res, next) => {
     // Validate agency job posting permissions and limits
     if (isAgencyPosted === true && hiringCompanyId) {
       console.log('🔒 Validating agency job posting authorization...');
-      
+
       const { AgencyClientAuthorization } = require('../models');
-      
+
       // Get the authorization record
       const authorization = await AgencyClientAuthorization.findOne({
         where: {
@@ -213,7 +213,7 @@ exports.createJob = async (req, res, next) => {
           }
         ]
       });
-      
+
       if (!authorization) {
         console.error('❌ No authorization found for client company');
         return res.status(403).json({
@@ -221,7 +221,7 @@ exports.createJob = async (req, res, next) => {
           message: 'You are not authorized to post jobs for this company. Please add the client first.'
         });
       }
-      
+
       // Check 1: Authorization must be active
       if (authorization.status !== 'active') {
         console.error(`❌ Authorization status is '${authorization.status}', not 'active'`);
@@ -230,7 +230,7 @@ exports.createJob = async (req, res, next) => {
           message: `Client authorization is ${authorization.status}. Only active authorizations can post jobs.`
         });
       }
-      
+
       // Check 2: Must have posting permission
       if (!authorization.canPostJobs) {
         console.error('❌ canPostJobs is false');
@@ -239,14 +239,14 @@ exports.createJob = async (req, res, next) => {
           message: 'You do not have permission to post jobs for this client.'
         });
       }
-      
+
       // Check 3: Contract must be valid (not expired)
       if (authorization.contractEndDate) {
         const contractEndDate = new Date(authorization.contractEndDate);
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Compare dates only
         contractEndDate.setHours(0, 0, 0, 0);
-        
+
         if (contractEndDate < today) {
           console.error(`❌ Contract expired on ${authorization.contractEndDate}`);
           return res.status(403).json({
@@ -255,7 +255,7 @@ exports.createJob = async (req, res, next) => {
           });
         }
       }
-      
+
       // Check 4: Job limit (if set)
       if (authorization.maxActiveJobs && authorization.maxActiveJobs > 0) {
         const activeJobsCount = await Job.count({
@@ -265,9 +265,9 @@ exports.createJob = async (req, res, next) => {
             status: 'active'
           }
         });
-        
+
         console.log(`📊 Active jobs for this client: ${activeJobsCount}/${authorization.maxActiveJobs}`);
-        
+
         if (activeJobsCount >= authorization.maxActiveJobs) {
           console.error(`❌ Job limit reached: ${activeJobsCount}/${authorization.maxActiveJobs}`);
           return res.status(403).json({
@@ -276,17 +276,17 @@ exports.createJob = async (req, res, next) => {
           });
         }
       }
-      
+
       // Check 5: Category restrictions (if set)
       if (authorization.jobCategories && authorization.jobCategories.length > 0) {
         const jobCategoryToCheck = category || roleCategory || department;
-        
+
         if (jobCategoryToCheck) {
-          const isAllowed = authorization.jobCategories.some(allowedCat => 
+          const isAllowed = authorization.jobCategories.some(allowedCat =>
             allowedCat.toLowerCase() === jobCategoryToCheck.toLowerCase() ||
             jobCategoryToCheck.toLowerCase().includes(allowedCat.toLowerCase())
           );
-          
+
           if (!isAllowed) {
             console.error(`❌ Category '${jobCategoryToCheck}' not in allowed list: ${authorization.jobCategories.join(', ')}`);
             return res.status(403).json({
@@ -296,11 +296,11 @@ exports.createJob = async (req, res, next) => {
           }
         }
       }
-      
+
       // Check 6: Location restrictions (if set)
       if (authorization.allowedLocations && authorization.allowedLocations.length > 0) {
         const jobLocation = location || city;
-        
+
         if (jobLocation) {
           const isAllowed = authorization.allowedLocations.some(allowedLoc =>
             allowedLoc.toLowerCase() === 'all india' ||
@@ -308,7 +308,7 @@ exports.createJob = async (req, res, next) => {
             jobLocation.toLowerCase().includes(allowedLoc.toLowerCase()) ||
             allowedLoc.toLowerCase().includes(jobLocation.toLowerCase())
           );
-          
+
           if (!isAllowed) {
             console.error(`❌ Location '${jobLocation}' not in allowed list: ${authorization.allowedLocations.join(', ')}`);
             return res.status(403).json({
@@ -318,9 +318,9 @@ exports.createJob = async (req, res, next) => {
           }
         }
       }
-      
+
       console.log('✅ All agency authorization checks passed');
-      
+
       // Store authorizationId for tracking
       authorizationId = authorization.id;
     }
@@ -331,7 +331,7 @@ exports.createJob = async (req, res, next) => {
     try {
       // First try to get company directly from user's company_id
       const user = await User.findByPk(req.user.id);
-      
+
       if (user && user.company_id) {
         userCompany = await Company.findByPk(user.company_id);
         if (userCompany) {
@@ -362,7 +362,7 @@ exports.createJob = async (req, res, next) => {
 
     // Use provided companyId or user's company ID
     const finalCompanyId = companyId || (userCompany ? userCompany.id : null);
-    
+
     if (!finalCompanyId) {
       console.error('❌ No company ID available for job creation');
       return res.status(400).json({
@@ -412,7 +412,7 @@ exports.createJob = async (req, res, next) => {
     if (experience && !experienceLevel) {
       const experienceMap = {
         'fresher': 'entry',
-        'junior': 'junior', 
+        'junior': 'junior',
         'mid': 'mid',
         'senior': 'senior'
       };
@@ -421,10 +421,10 @@ exports.createJob = async (req, res, next) => {
 
     // Use authenticated user's ID as employerId (matching the association)
     const createdBy = req.user.id;
-    
+
     // Set region based on request body or user's region to ensure Gulf employers create Gulf jobs
     const jobRegion = region || req.user.region || 'india'; // Use request body region first, then user region, default to 'india'
-    
+
     // VALIDATION: Prevent India companies from posting Gulf jobs
     // Only Gulf region users can post Gulf jobs
     if (jobRegion === 'gulf' && req.user.region !== 'gulf') {
@@ -434,7 +434,7 @@ exports.createJob = async (req, res, next) => {
         error: 'REGION_MISMATCH'
       });
     }
-    
+
     // Ensure associated company is marked as Gulf region for Gulf job postings
     if (jobRegion === 'gulf' && userCompany && userCompany.region !== 'gulf') {
       try {
@@ -444,14 +444,14 @@ exports.createJob = async (req, res, next) => {
         console.warn('⚠️ Failed to update company region to gulf:', regionUpdateError?.message || regionUpdateError);
       }
     }
-    
+
     // Generate slug from title
     const slug = title.toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .trim('-') + '-' + Date.now();
-    
+
     // Determine publishedAt
     let resolvedPublishedAt = publishedAt;
     if (status === 'active' && !resolvedPublishedAt) {
@@ -580,9 +580,9 @@ exports.createJob = async (req, res, next) => {
       country,
       latitude,
       longitude,
-      requirements: requirements && (Array.isArray(requirements) ? requirements.length > 0 : requirements.trim()) ? 
+      requirements: requirements && (Array.isArray(requirements) ? requirements.length > 0 : requirements.trim()) ?
         (Array.isArray(requirements) ? requirements.join('\n') : requirements) : null,
-      responsibilities: responsibilities && (Array.isArray(responsibilities) ? responsibilities.length > 0 : responsibilities.trim()) ? 
+      responsibilities: responsibilities && (Array.isArray(responsibilities) ? responsibilities.length > 0 : responsibilities.trim()) ?
         (Array.isArray(responsibilities) ? responsibilities.join('\n') : responsibilities) : null,
       region: jobRegion, // Set region based on user's region
       // AGENCY POSTING FIELDS
@@ -603,7 +603,7 @@ exports.createJob = async (req, res, next) => {
       location: jobData.location,
       status: jobData.status
     });
-    
+
     // Debug JSONB fields
     console.log('🔍 JSONB fields debug:', {
       skills: jobData.skills,
@@ -620,7 +620,7 @@ exports.createJob = async (req, res, next) => {
       customBranding: jobData.customBranding,
       keywords: jobData.keywords
     });
-    
+
     console.log('✅ Final jobData before create - department:', jobData.department);
     console.log('✅ Final jobData before create - customBranding:', jobData.customBranding?.brandingMedia ? `${jobData.customBranding.brandingMedia.length} items` : 'empty');
 
@@ -637,7 +637,7 @@ exports.createJob = async (req, res, next) => {
         stack: createError.stack,
         code: createError.code
       });
-      
+
       // Check if it's a JSON validation error
       if (createError.message && createError.message.includes('invalid input syntax for type json')) {
         console.error('🔍 JSON validation error detected. Checking JSONB fields...');
@@ -654,7 +654,7 @@ exports.createJob = async (req, res, next) => {
           });
         });
       }
-      
+
       throw createError;
     }
 
@@ -705,12 +705,12 @@ exports.createJob = async (req, res, next) => {
         const company = await Company.findByPk(finalCompanyId, {
           attributes: ['name']
         });
-        
+
         const hotVacancyData = {
           ...job.toJSON(),
           companyName: company?.name || 'Company'
         };
-        
+
         await HotVacancyAlertService.sendProactiveAlerts(job.id, hotVacancyData);
         console.log('🔥 Proactive alerts sent for hot vacancy job:', job.id);
       } catch (alertError) {
@@ -723,7 +723,7 @@ exports.createJob = async (req, res, next) => {
     if (job.status === 'active') {
       try {
         console.log('🔔 Checking for users with matching job preferences...');
-        
+
         // Prepare job data for matching
         const jobData = {
           title: job.title,
@@ -742,17 +742,17 @@ exports.createJob = async (req, res, next) => {
 
         // Find users with matching preferences
         const matchingUserIds = await JobPreferenceMatchingService.findMatchingUsers(jobData);
-        
+
         if (matchingUserIds.length > 0) {
           console.log(`🎯 Found ${matchingUserIds.length} users with matching preferences`);
-          
+
           // Send notifications to matching users
           const notificationResult = await NotificationService.sendPreferredJobNotification(
             job.id,
             jobData,
             matchingUserIds
           );
-          
+
           if (notificationResult.success) {
             console.log(`✅ Sent ${notificationResult.notificationsSent} preferred job notifications`);
           } else {
@@ -769,7 +769,7 @@ exports.createJob = async (req, res, next) => {
       // Send notification to employer about job creation
       try {
         const Notification = require('../models/Notification');
-        
+
         await Notification.create({
           userId: req.user.id,
           type: 'company_update',
@@ -800,7 +800,7 @@ exports.createJob = async (req, res, next) => {
         console.log('🔔 Checking for company followers...');
         const CompanyFollow = require('../models/CompanyFollow');
         const Notification = require('../models/Notification');
-        
+
         const followers = await CompanyFollow.findAll({
           where: { companyId: userCompany.id },
           attributes: ['userId', 'notificationPreferences']
@@ -808,7 +808,7 @@ exports.createJob = async (req, res, next) => {
 
         if (followers && followers.length > 0) {
           console.log(`📢 Found ${followers.length} followers for company ${userCompany.name}`);
-          
+
           let notificationsSent = 0;
           for (const follower of followers) {
             // Check if user wants job notifications
@@ -840,7 +840,7 @@ exports.createJob = async (req, res, next) => {
               }
             }
           }
-          
+
           console.log(`✅ Sent ${notificationsSent} notifications to company followers`);
         } else {
           console.log('📝 No followers found for this company');
@@ -1221,10 +1221,10 @@ exports.getAllJobs = async (req, res, next) => {
     }
 
     const finalWhere = andGroups.length ? { [And]: [whereClause, ...andGroups] } : whereClause;
-    
+
     // Enhanced sorting to prioritize hot vacancies
     const orderClauses = [];
-    
+
     // ALWAYS prioritize hot vacancies with premium features first
     orderClauses.push(['isHotVacancy', 'DESC']); // Hot vacancies first
     orderClauses.push(['superFeatured', 'DESC']); // Super featured second
@@ -1232,7 +1232,7 @@ exports.getAllJobs = async (req, res, next) => {
     orderClauses.push(['urgentHiring', 'DESC']); // Urgent hiring fourth
     orderClauses.push(['boostedSearch', 'DESC']); // Boosted search fifth
     orderClauses.push(['featuredBadge', 'DESC']); // Featured badge sixth
-    
+
     // Then apply user's requested sort - map camelCase to snake_case
     const sortByMapping = {
       'createdAt': 'created_at',
@@ -1243,9 +1243,9 @@ exports.getAllJobs = async (req, res, next) => {
     };
     const dbSortBy = sortByMapping[sortBy] || 'created_at';
     orderClauses.push([dbSortBy, sortOrder]);
-    
+
     console.log('🔍 Using enhanced sorting for hot vacancy priority:', orderClauses);
-    
+
     const { count, rows: jobs } = await Job.findAndCountAll({
       where: finalWhere,
       include,
@@ -1410,7 +1410,7 @@ exports.getSimilarJobs = async (req, res, next) => {
     // Input validation and sanitization
     const { id } = req.params;
     const { limit = 3, debug = false } = req.query;
-    
+
     // Validate job ID format (UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!id || !uuidRegex.test(id)) {
@@ -1458,25 +1458,25 @@ exports.getSimilarJobs = async (req, res, next) => {
     // Advanced text similarity using multiple algorithms
     const calculateAdvancedTextSimilarity = (text1, text2) => {
       if (!text1 || !text2) return 0;
-      
+
       // Normalize text
       const normalize = (text) => text.toLowerCase()
         .replace(/[^\w\s]/g, ' ')  // Remove special characters
         .replace(/\s+/g, ' ')      // Normalize whitespace
         .trim();
-      
+
       const norm1 = normalize(text1);
       const norm2 = normalize(text2);
-      
+
       if (norm1 === norm2) return 1.0;
-      
+
       // Jaccard similarity
       const words1 = new Set(norm1.split(' ').filter(w => w.length > 2));
       const words2 = new Set(norm2.split(' ').filter(w => w.length > 2));
       const intersection = new Set([...words1].filter(x => words2.has(x)));
       const union = new Set([...words1, ...words2]);
       const jaccard = union.size === 0 ? 0 : intersection.size / union.size;
-      
+
       // Levenshtein distance for fuzzy matching
       const levenshtein = (str1, str2) => {
         const matrix = [];
@@ -1501,11 +1501,11 @@ exports.getSimilarJobs = async (req, res, next) => {
         }
         return matrix[str2.length][str1.length];
       };
-      
+
       const maxLen = Math.max(norm1.length, norm2.length);
       const editDistance = levenshtein(norm1, norm2);
       const levenshteinScore = maxLen === 0 ? 1 : 1 - (editDistance / maxLen);
-      
+
       // Weighted combination
       return (jaccard * 0.7) + (levenshteinScore * 0.3);
     };
@@ -1515,41 +1515,41 @@ exports.getSimilarJobs = async (req, res, next) => {
       if (!arr1 || !arr2 || !Array.isArray(arr1) || !Array.isArray(arr2)) return 0;
       if (arr1.length === 0 && arr2.length === 0) return 1.0;
       if (arr1.length === 0 || arr2.length === 0) return 0;
-      
+
       const normalizeItem = (item) => {
         if (typeof item === 'string') {
           return item.toLowerCase().trim().replace(/[^\w\s]/g, '');
         }
         return String(item).toLowerCase().trim();
       };
-      
+
       const set1 = new Set(arr1.map(normalizeItem).filter(item => item.length > 0));
       const set2 = new Set(arr2.map(normalizeItem).filter(item => item.length > 0));
-      
+
       if (set1.size === 0 && set2.size === 0) return 1.0;
       if (set1.size === 0 || set2.size === 0) return 0;
-      
+
       const intersection = new Set([...set1].filter(x => set2.has(x)));
       const union = new Set([...set1, ...set2]);
-      
+
       let baseScore = intersection.size / union.size;
-      
+
       // Apply importance weighting if provided
       if (weights && typeof weights === 'object') {
         let weightedScore = 0;
         let totalWeight = 0;
-        
+
         for (const item of intersection) {
           const weight = weights[item] || 1;
           weightedScore += weight;
           totalWeight += weight;
         }
-        
+
         if (totalWeight > 0) {
           baseScore = weightedScore / totalWeight;
         }
       }
-      
+
       return Math.min(1, baseScore);
     };
 
@@ -1559,35 +1559,35 @@ exports.getSimilarJobs = async (req, res, next) => {
       const currentMax = parseFloat(currentJob.salaryMax) || Infinity;
       const jobMin = parseFloat(job.salaryMin) || 0;
       const jobMax = parseFloat(job.salaryMax) || Infinity;
-      
+
       // Handle edge cases
       if (currentMin === 0 && currentMax === Infinity && jobMin === 0 && jobMax === Infinity) {
         return 0.5; // Both have no salary info
       }
-      
+
       if (currentMin === 0 && currentMax === Infinity) {
         return 0.3; // Current job has no salary, other does
       }
-      
+
       if (jobMin === 0 && jobMax === Infinity) {
         return 0.3; // Other job has no salary, current does
       }
-      
+
       // Calculate overlap
       const overlapMin = Math.max(currentMin, jobMin);
       const overlapMax = Math.min(currentMax, jobMax);
-      
+
       if (overlapMax < overlapMin) return 0; // No overlap
-      
+
       const overlapRange = overlapMax - overlapMin;
       const currentRange = currentMax - currentMin;
       const jobRange = jobMax - jobMin;
-      
+
       // Multiple scoring factors
       const overlapScore = currentRange > 0 ? overlapRange / currentRange : 0.5;
       const rangeSimilarity = Math.min(currentRange, jobRange) / Math.max(currentRange, jobRange);
       const midpointProximity = 1 - Math.abs((currentMin + currentMax) / 2 - (jobMin + jobMax) / 2) / Math.max((currentMin + currentMax) / 2, (jobMin + jobMax) / 2);
-      
+
       // Weighted combination
       return (overlapScore * 0.5) + (rangeSimilarity * 0.3) + (midpointProximity * 0.2);
     };
@@ -1595,49 +1595,49 @@ exports.getSimilarJobs = async (req, res, next) => {
     // Advanced location proximity with geographic intelligence
     const calculateAdvancedLocationProximity = (job) => {
       if (!currentJob.location || !job.location) return 0;
-      
+
       const normalizeLocation = (location) => {
         return location.toLowerCase()
           .replace(/[^\w\s,]/g, '')
           .replace(/\s+/g, ' ')
           .trim();
       };
-      
+
       const currentLoc = normalizeLocation(currentJob.location);
       const jobLoc = normalizeLocation(job.location);
-      
+
       if (currentLoc === jobLoc) return 1.0;
-      
+
       // Parse location components
       const currentParts = currentLoc.split(',').map(p => p.trim()).filter(p => p.length > 0);
       const jobParts = jobLoc.split(',').map(p => p.trim()).filter(p => p.length > 0);
-      
+
       if (currentParts.length === 0 || jobParts.length === 0) return 0;
-      
+
       // City match (highest priority)
       if (currentParts[0] === jobParts[0]) return 0.95;
-      
+
       // State match
       if (currentParts.length > 1 && jobParts.length > 1 && currentParts[1] === jobParts[1]) {
         return 0.75;
       }
-      
+
       // Country match
       const currentCountry = currentParts[currentParts.length - 1];
       const jobCountry = jobParts[jobParts.length - 1];
       if (currentCountry === jobCountry) {
         return 0.4;
       }
-      
+
       // Partial word matches
       const currentWords = new Set(currentParts.flatMap(p => p.split(' ')));
       const jobWords = new Set(jobParts.flatMap(p => p.split(' ')));
       const commonWords = new Set([...currentWords].filter(x => jobWords.has(x)));
-      
+
       if (commonWords.size > 0) {
         return Math.min(0.3, commonWords.size * 0.1);
       }
-      
+
       return 0;
     };
 
@@ -1651,41 +1651,41 @@ exports.getSimilarJobs = async (req, res, next) => {
         'lead': { 'entry': 0.05, 'junior': 0.1, 'mid': 0.4, 'senior': 0.7, 'lead': 1.0, 'executive': 0.7 },
         'executive': { 'entry': 0.02, 'junior': 0.05, 'mid': 0.1, 'senior': 0.3, 'lead': 0.7, 'executive': 1.0 }
       };
-      
+
       const currentLevel = currentJob.experienceLevel?.toLowerCase();
       const jobLevel = job.experienceLevel?.toLowerCase();
-      
+
       if (!currentLevel && !jobLevel) return 0.5;
       if (!currentLevel || !jobLevel) return 0.3;
-      
+
       return experienceMatrix[currentLevel]?.[jobLevel] || 0.2;
     };
 
     // Fetch candidate jobs with comprehensive filtering
     const candidateJobs = await Job.findAll({
-        where: {
+      where: {
         id: { [Op.ne]: id },
-          status: 'active',
+        status: 'active',
         region: currentJob.region || 'india',
         [Op.or]: [
           { validTill: null },
           { validTill: { [Op.gte]: new Date() } }
         ]
-        },
-        include: [
-          {
-            model: Company,
-            as: 'company',
+      },
+      include: [
+        {
+          model: Company,
+          as: 'company',
           attributes: ['id', 'name', 'industries', 'companySize', 'website', 'isFeatured', 'rating', 'totalReviews'],
-            required: false
-          },
-          {
-            model: User,
-            as: 'employer',
-            attributes: ['id', 'first_name', 'last_name', 'email'],
-            required: false
-          }
-        ],
+          required: false
+        },
+        {
+          model: User,
+          as: 'employer',
+          attributes: ['id', 'first_name', 'last_name', 'email'],
+          required: false
+        }
+      ],
       limit: 200, // Increased for better selection
       order: [['created_at', 'DESC']] // Start with recent jobs (using database column name)
     });
@@ -1712,7 +1712,7 @@ exports.getSimilarJobs = async (req, res, next) => {
     const scoredJobs = candidateJobs.map(job => {
       let score = 0;
       const factorScores = {};
-      
+
       // Define weights for different factors
       const weights = {
         titleSimilarity: 0.18,        // 18% - Job title relevance
@@ -1767,7 +1767,7 @@ exports.getSimilarJobs = async (req, res, next) => {
         const jobIndustry = job.company.industries.length > 0 ? job.company.industries[0] : '';
         if (currentIndustry && jobIndustry) {
           const industryScore = calculateAdvancedTextSimilarity(
-            currentIndustry, 
+            currentIndustry,
             jobIndustry
           );
           score += industryScore * weights.industryMatch;
@@ -1783,7 +1783,7 @@ exports.getSimilarJobs = async (req, res, next) => {
         'internship': { 'full-time': 0.2, 'part-time': 0.5, 'contract': 0.3, 'internship': 1.0, 'freelance': 0.2 },
         'freelance': { 'full-time': 0.4, 'part-time': 0.7, 'contract': 0.6, 'internship': 0.2, 'freelance': 1.0 }
       };
-      
+
       if (currentJob.jobType && job.jobType) {
         const jobTypeScore = jobTypeCompatibility[currentJob.jobType]?.[job.jobType] || 0.2;
         score += jobTypeScore * weights.jobTypeMatch;
@@ -1803,7 +1803,7 @@ exports.getSimilarJobs = async (req, res, next) => {
         'remote': { 'on-site': 0.2, 'remote': 1.0, 'hybrid': 0.8 },
         'hybrid': { 'on-site': 0.7, 'remote': 0.8, 'hybrid': 1.0 }
       };
-      
+
       if (currentJob.remoteWork && job.remoteWork) {
         const workModeScore = workModeCompatibility[currentJob.remoteWork]?.[job.remoteWork] || 0.3;
         score += workModeScore * weights.workModeMatch;
@@ -1827,10 +1827,10 @@ exports.getSimilarJobs = async (req, res, next) => {
 
       // 12. Recency Factor
       const daysSincePosted = (new Date() - new Date(job.createdAt)) / (1000 * 60 * 60 * 24);
-      const recencyScore = daysSincePosted < 1 ? 1.0 : 
-                          daysSincePosted < 7 ? 0.8 : 
-                          daysSincePosted < 30 ? 0.6 : 
-                          daysSincePosted < 90 ? 0.4 : 0.2;
+      const recencyScore = daysSincePosted < 1 ? 1.0 :
+        daysSincePosted < 7 ? 0.8 :
+          daysSincePosted < 30 ? 0.6 :
+            daysSincePosted < 90 ? 0.4 : 0.2;
       score += recencyScore * weights.recencyBoost;
       factorScores.recencyBoost = recencyScore;
 
@@ -1848,7 +1848,7 @@ exports.getSimilarJobs = async (req, res, next) => {
       // 15. Career Progression Factor
       const currentExpIndex = ['entry', 'junior', 'mid', 'senior', 'lead', 'executive'].indexOf(currentJob.experienceLevel);
       const jobExpIndex = ['entry', 'junior', 'mid', 'senior', 'lead', 'executive'].indexOf(job.experienceLevel);
-      
+
       if (currentExpIndex !== -1 && jobExpIndex !== -1) {
         const progressionScore = jobExpIndex > currentExpIndex ? 0.1 : 0; // Slight boost for higher level jobs
         score += progressionScore;
@@ -1871,24 +1871,24 @@ exports.getSimilarJobs = async (req, res, next) => {
 
     // Sort by score and apply diversity filter
     scoredJobs.sort((a, b) => b.score - a.score);
-    
+
     // Apply diversity filter to avoid too many jobs from same company
     const diversifiedJobs = [];
     const companyCounts = {};
     const maxPerCompany = Math.ceil(sanitizedLimit / 2); // Max 2 jobs per company for limit 3
-    
+
     for (const scoredJob of scoredJobs) {
       const companyId = scoredJob.job.companyId;
       const currentCount = companyCounts[companyId] || 0;
-      
+
       if (currentCount < maxPerCompany || diversifiedJobs.length < sanitizedLimit) {
         diversifiedJobs.push(scoredJob);
         companyCounts[companyId] = currentCount + 1;
-        
+
         if (diversifiedJobs.length >= sanitizedLimit) break;
       }
     }
-    
+
     const topJobs = diversifiedJobs.slice(0, sanitizedLimit);
     debugInfo.steps.push(`Selected ${topJobs.length} jobs after diversity filtering`);
 
@@ -1900,8 +1900,8 @@ exports.getSimilarJobs = async (req, res, next) => {
       companyId: job.companyId,
       companyLogo: job.company?.logo,
       location: job.location,
-      salary: job.salary || (job.salaryMin && job.salaryMax ? 
-        `₹${(job.salaryMin / 100000).toFixed(1)}-${(job.salaryMax / 100000).toFixed(1)} LPA` : 
+      salary: job.salary || (job.salaryMin && job.salaryMax ?
+        `₹${(job.salaryMin / 100000).toFixed(1)}-${(job.salaryMax / 100000).toFixed(1)} LPA` :
         'Salary not disclosed'),
       salaryMin: job.salaryMin,
       salaryMax: job.salaryMax,
@@ -1954,10 +1954,10 @@ exports.getSimilarJobs = async (req, res, next) => {
     const processingTime = Date.now() - startTime;
     debugInfo.steps.push(`Error occurred: ${error.message}`);
     debugInfo.processingTime = processingTime;
-    
+
     console.error('Ultra-advanced similar jobs error:', error);
     console.error('Error stack:', error.stack);
-    
+
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve similar jobs',
@@ -2038,7 +2038,7 @@ exports.updateJob = async (req, res, next) => {
     // CRITICAL: Verify that the job belongs to the authenticated employer
     const userCompanyId = req.user.company_id || req.user.companyId;
     const isOwner = job.employerId === req.user.id || (userCompanyId && job.companyId === userCompanyId);
-    
+
     if (!isOwner) {
       return res.status(403).json({
         success: false,
@@ -2089,8 +2089,8 @@ exports.updateJob = async (req, res, next) => {
         industry: hiringCompanyIndustry || (existingMetadata.hiringCompany?.industries && existingMetadata.hiringCompany.industries.length > 0 ? existingMetadata.hiringCompany.industries[0] : null) || null,
         description: hiringCompanyDescription || existingMetadata.hiringCompany?.description || null
       };
-      metadataUpdate.showHiringCompanyDetails = showHiringCompanyDetails !== undefined 
-        ? Boolean(showHiringCompanyDetails) 
+      metadataUpdate.showHiringCompanyDetails = showHiringCompanyDetails !== undefined
+        ? Boolean(showHiringCompanyDetails)
         : existingMetadata.showHiringCompanyDetails || false;
     }
 
@@ -2098,24 +2098,24 @@ exports.updateJob = async (req, res, next) => {
     // 1. Status changes to 'active' and validTill is missing/expired
     // 2. applicationDeadline is being changed
     const newStatus = updateData.status;
-    const applicationDeadlineChanged = updateData.applicationDeadline !== undefined && 
-                                       updateData.applicationDeadline !== job.applicationDeadline;
-    
+    const applicationDeadlineChanged = updateData.applicationDeadline !== undefined &&
+      updateData.applicationDeadline !== job.applicationDeadline;
+
     if ((newStatus === 'active' && job.status !== 'active') || applicationDeadlineChanged) {
       const { calculateJobExpiry } = require('../utils/jobExpiryHelper');
-      
+
       // Job is being activated - set publishedAt if not already set
       if (newStatus === 'active' && job.status !== 'active' && !job.publishedAt) {
         otherUpdateData.publishedAt = new Date();
         console.log('📅 Setting publishedAt for newly activated job');
       }
-      
+
       // Recalculate validTill based on applicationDeadline + super-admin configured days
-      const newApplicationDeadline = updateData.applicationDeadline !== undefined 
-        ? updateData.applicationDeadline 
+      const newApplicationDeadline = updateData.applicationDeadline !== undefined
+        ? updateData.applicationDeadline
         : job.applicationDeadline;
       const publishedAtToUse = otherUpdateData.publishedAt || job.publishedAt || new Date();
-      
+
       otherUpdateData.validTill = await calculateJobExpiry(newApplicationDeadline, publishedAtToUse);
       console.log('📅 Recalculated validTill for job update:', {
         jobId: job.id,
@@ -2131,13 +2131,13 @@ exports.updateJob = async (req, res, next) => {
       ...otherUpdateData,
       metadata: metadataUpdate,
       // For consultancy jobs, use hiringCompanyIndustry if industryType is not provided
-      industryType: (industryType && industryType.trim() ? industryType.trim() : null) || 
-                    (postingType === 'consultancy' && hiringCompanyIndustry && hiringCompanyIndustry.trim() ? hiringCompanyIndustry.trim() : null) ||
-                    job.industryType,
+      industryType: (industryType && industryType.trim() ? industryType.trim() : null) ||
+        (postingType === 'consultancy' && hiringCompanyIndustry && hiringCompanyIndustry.trim() ? hiringCompanyIndustry.trim() : null) ||
+        job.industryType,
       // Ensure department is properly set
       department: updateData.department !== undefined ? (updateData.department && updateData.department.trim() ? updateData.department.trim() : null) : job.department
     };
-    
+
     console.log('🔄 Update job data:', {
       department: finalUpdateData.department,
       hasCustomBranding: !!finalUpdateData.customBranding,
@@ -2146,7 +2146,7 @@ exports.updateJob = async (req, res, next) => {
     });
 
     await job.update(finalUpdateData);
-    
+
     // Reload to get updated values
     await job.reload();
     console.log('✅ Job updated successfully with department:', job.department);
@@ -2184,35 +2184,35 @@ exports.deleteJob = async (req, res, next) => {
 
     // Delete related records first to avoid foreign key constraint violations
     const { JobApplication, JobBookmark, Interview, UserActivityLog, sequelize } = require('../config/index');
-    
+
     console.log('🗑️ Starting job deletion process for job ID:', id);
-    
+
     // First, get all job applications for this job
     const jobApplications = await JobApplication.findAll({ where: { jobId: id } });
     console.log('🔍 Found', jobApplications.length, 'job applications to delete');
-    
+
     // Delete user activity logs that reference these applications
     for (const application of jobApplications) {
       await UserActivityLog.destroy({ where: { applicationId: application.id } });
     }
     console.log('✅ Deleted user activity logs for applications');
-    
+
     // Delete user activity logs that reference this job directly
     await UserActivityLog.destroy({ where: { jobId: id } });
     console.log('✅ Deleted user activity logs for job');
-    
+
     // Now delete job applications
     await JobApplication.destroy({ where: { jobId: id } });
     console.log('✅ Deleted job applications');
-    
+
     // Delete job bookmarks
     await JobBookmark.destroy({ where: { jobId: id } });
     console.log('✅ Deleted job bookmarks');
-    
+
     // Delete interviews related to this job
     await Interview.destroy({ where: { jobId: id } });
     console.log('✅ Deleted interviews');
-    
+
     // Now delete the job
     await job.destroy();
     console.log('✅ Deleted job successfully');
@@ -2239,10 +2239,10 @@ exports.getJobsByEmployer = async (req, res, next) => {
     console.log('🔍 Fetching jobs for employer:', req.user.id, req.user.email);
     console.log('🔍 User companyId:', req.user.companyId);
     console.log('🔍 Query parameters:', req.query);
-    
+
     const { page = 1, limit = 10, status, search, sortBy = 'createdAt', sortOrder = 'DESC' } = req.query;
     const offset = (page - 1) * limit;
-    
+
     // Filter by companyId if user has one (employers/admins), otherwise by employerId
     // CRITICAL: Prioritize company_id (database field) over companyId (model property)
     const userCompanyId = req.user.company_id || req.user.companyId;
@@ -2256,7 +2256,7 @@ exports.getJobsByEmployer = async (req, res, next) => {
       whereClause.employerId = req.user.id;
       console.log('🔍 Filtering by employerId:', req.user.id);
     }
-    
+
     // Add region filtering to ensure Gulf employers only see Gulf jobs
     if (req.user.region === 'gulf') {
       whereClause.region = 'gulf';
@@ -2266,7 +2266,7 @@ exports.getJobsByEmployer = async (req, res, next) => {
       whereClause.region = 'other';
     }
     // If user has no region set, show all jobs (backward compatibility)
-    
+
     // Add filters
     if (status && status !== 'all') {
       if (status === 'draft') {
@@ -2275,16 +2275,39 @@ exports.getJobsByEmployer = async (req, res, next) => {
       } else if (status === 'active') {
         // For active jobs, show active jobs
         whereClause.status = 'active';
+      } else if (status === 'closed') {
+        // Frontend treats "closed" as:
+        // - explicitly closed jobs
+        // - active jobs that are actually expired (validTill has passed)
+        const now = new Date();
+        whereClause[Op.or] = [
+          { status: 'closed' },
+          {
+            [Op.and]: [
+              { status: 'active' },
+              { validTill: { [Op.lt]: now } }
+            ]
+          }
+        ];
       } else {
         // For other statuses, use exact status match
         whereClause.status = status;
       }
       console.log('🔍 Filtering by status:', status);
     }
-    
+
+    // CRITICAL: Exclude internal placeholder jobs (used for requirement shortlisting)
+    // These jobs have metadata.isPlaceholder = true and should never appear in employer listings
+    const Sequelize = require('sequelize');
+    // Use a raw SQL where clause to check JSONB. We negate: metadata->>'isPlaceholder' should NOT be 'true'
+    whereClause[Op.and] = whereClause[Op.and] || [];
+    whereClause[Op.and].push(
+      Sequelize.literal("(metadata->>'isPlaceholder' IS NULL OR metadata->>'isPlaceholder' != 'true')")
+    );
+
     console.log('🔍 Final where clause:', whereClause);
     if (search) {
-      whereClause[Or] = [
+      whereClause[Op.or] = [
         { title: { [Op.iLike]: `%${search}%` } },
         { description: { [Op.iLike]: `%${search}%` } },
         { location: { [Op.iLike]: `%${search}%` } },
@@ -2300,7 +2323,7 @@ exports.getJobsByEmployer = async (req, res, next) => {
       'status': 'status',
       'location': 'location'
     };
-    
+
     const dbSortBy = sortByMapping[sortBy] || 'created_at';
 
     const { count, rows: jobs } = await Job.findAndCountAll({
@@ -2340,7 +2363,7 @@ exports.getJobsByEmployer = async (req, res, next) => {
         total: count,
         pages: Math.ceil(count / limit)
       }
-    }); 
+    });
   } catch (error) {
     console.error('❌ Get employer jobs error:', error);
     console.error('Error details:', {

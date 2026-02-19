@@ -4834,10 +4834,21 @@ router.post('/:requirementId/candidates/:candidateId/shortlist', authenticateTok
       });
     } else {
       // Find or create a placeholder job for requirement-based shortlisting
+      // IMPORTANT: We store isPlaceholder inside the metadata JSONB field
+      // because the Job model doesn't have a dedicated isPlaceholder column.
+      // This allows us to filter placeholder jobs out of normal listings.
+      const Sequelize = require('sequelize');
+      const { Op: SeqOp } = Sequelize;
+      const companyId = req.user.companyId || req.user.company_id;
+
       let placeholderJob = await Job.findOne({
         where: {
-          companyId: req.user.companyId || req.user.companyId,
-          title: 'Requirement Shortlist'
+          companyId,
+          title: 'Requirement Shortlist',
+          [SeqOp.and]: [
+            // JSONB equality checks on objects are too strict here; use a JSON path condition instead.
+            Sequelize.literal("metadata->>'isPlaceholder' = 'true'")
+          ]
         }
       });
 
@@ -4846,8 +4857,8 @@ router.post('/:requirementId/candidates/:candidateId/shortlist', authenticateTok
         placeholderJob = await Job.create({
           title: 'Requirement Shortlist',
           slug: 'requirement-shortlist-' + Date.now(),
-          description: 'Placeholder job for requirement-based candidate shortlisting',
-          companyId: req.user.companyId || req.user.companyId,
+          description: 'Internal placeholder for requirement-based candidate shortlisting. This job is hidden from listings.',
+          companyId,
           employerId: req.user.id,
           location: 'Remote',
           country: 'India',
@@ -4861,8 +4872,10 @@ router.post('/:requirementId/candidates/:candidateId/shortlist', authenticateTok
           experienceMax: 0,
           locationType: 'on-site',
           remoteWork: 'on-site',
-          isPlaceholder: true
+          // CRITICAL: Store isPlaceholder in metadata so it persists to DB
+          metadata: { isPlaceholder: true, purpose: 'requirement_shortlist' }
         });
+        console.log('📌 Created placeholder job for requirement shortlisting:', placeholderJob.id);
       }
 
       // Check if application already exists, if so update it, otherwise create new one

@@ -3195,6 +3195,8 @@ router.get('/employer/dashboard-stats', authenticateToken, async (req, res) => {
 
     // Get employer's jobs - filter by user's region to ensure Gulf employers only see Gulf jobs
     console.log('🔍 Querying jobs for employerId:', req.user.id, 'region:', req.user.region);
+    const { Op: SeqOp } = require('sequelize');
+    const Sequelize = require('sequelize');
     const whereClause = { employerId: req.user.id };
 
     // Add region filtering to ensure Gulf employers only see Gulf jobs in normal dashboard
@@ -3206,6 +3208,13 @@ router.get('/employer/dashboard-stats', authenticateToken, async (req, res) => {
       whereClause.region = 'other';
     }
     // If user has no region set, show all jobs (backward compatibility)
+
+    // CRITICAL: Exclude internal placeholder jobs (used for requirement shortlisting)
+    // These have metadata.isPlaceholder = true and should not inflate dashboard counts
+    whereClause[SeqOp.and] = whereClause[SeqOp.and] || [];
+    whereClause[SeqOp.and].push(
+      Sequelize.literal("(metadata->>'isPlaceholder' IS NULL OR metadata->>'isPlaceholder' != 'true')")
+    );
 
     const jobs = await Job.findAll({
       where: whereClause
@@ -4822,6 +4831,13 @@ router.get('/employer/dashboard', authenticateToken, checkPermission('analytics'
       whereClause.region = 'other';
     }
     // If user has no region set, show all jobs (backward compatibility)
+
+    // CRITICAL: Exclude internal placeholder jobs (used for requirement shortlisting)
+    const SeqLib = require('sequelize');
+    whereClause[SeqLib.Op.and] = whereClause[SeqLib.Op.and] || [];
+    whereClause[SeqLib.Op.and].push(
+      SeqLib.literal("(metadata->>'isPlaceholder' IS NULL OR metadata->>'isPlaceholder' != 'true')")
+    );
 
     const jobs = await Job.findAll({
       where: whereClause,

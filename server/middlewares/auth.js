@@ -33,8 +33,14 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Check session version for token invalidation
-    // If token lacks sessionVersion or it doesn't match DB, it's considered expired/invalidated
-    if (user.session_version !== undefined && String(decoded.sessionVersion) !== String(user.session_version)) {
+    // Backward compatible: only enforce when the token actually carries a sessionVersion claim.
+    if (
+      decoded.sessionVersion !== undefined &&
+      decoded.sessionVersion !== null &&
+      user.session_version !== undefined &&
+      user.session_version !== null &&
+      String(decoded.sessionVersion) !== String(user.session_version)
+    ) {
       console.log(`❌ [AUTH] Session version mismatch (Token: ${decoded.sessionVersion}, DB: ${user.session_version}) - token invalidated`);
       return res.status(401).json({
         success: false,
