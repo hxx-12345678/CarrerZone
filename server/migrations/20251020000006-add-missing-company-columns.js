@@ -7,7 +7,7 @@ module.exports = {
     try {
       // Add missing company columns
       // Check if columns already exist
-      const tableInfo = await queryInterface.describeTable('companies');
+      const tableInfo = await queryInterface.describeTable('companies', { transaction });
 
       if (!tableInfo['created_by_agency_id']) {
         await queryInterface.addColumn('companies', 'created_by_agency_id', {

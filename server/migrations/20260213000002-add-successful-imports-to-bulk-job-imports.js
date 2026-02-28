@@ -13,75 +13,54 @@ module.exports = {
     }
 
     if (!desc.successful_imports) {
-      
       try {
-        const tableInfo = await queryInterface.describeTable('table');
-        if (!tableInfo['successful_imports']) {
-          await queryInterface.addColumn('table', 'successful_imports', {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-        defaultValue: 0
-      });
-          console.log('✅ Added successful_imports to table');
-        } else {
-          console.log('ℹ️ Column successful_imports already exists in table, skipping...');
-        }
+        await queryInterface.addColumn(table, 'successful_imports', {
+          type: Sequelize.INTEGER,
+          allowNull: true,
+          defaultValue: 0
+        });
+        console.log(`✅ Added successful_imports to ${table}`);
       } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Column successful_imports already exists in table, skipping...');
+        if (err?.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+          // ignore
         } else {
-            console.warn('⚠️ Could not check/add successful_imports to table:', err.message);
+          console.warn(`⚠️ Could not add successful_imports to ${table}:`, err?.message || err);
         }
       }
-
     }
 
     if (!desc.failed_imports) {
-      
       try {
-        const tableInfo = await queryInterface.describeTable('table');
-        if (!tableInfo['failed_imports']) {
-          await queryInterface.addColumn('table', 'failed_imports', {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-        defaultValue: 0
-      });
-          console.log('✅ Added failed_imports to table');
-        } else {
-          console.log('ℹ️ Column failed_imports already exists in table, skipping...');
-        }
+        await queryInterface.addColumn(table, 'failed_imports', {
+          type: Sequelize.INTEGER,
+          allowNull: true,
+          defaultValue: 0
+        });
+        console.log(`✅ Added failed_imports to ${table}`);
       } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Column failed_imports already exists in table, skipping...');
+        if (err?.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+          // ignore
         } else {
-            console.warn('⚠️ Could not check/add failed_imports to table:', err.message);
+          console.warn(`⚠️ Could not add failed_imports to ${table}:`, err?.message || err);
         }
       }
-
     }
 
     if (!desc.skipped_records) {
-      
       try {
-        const tableInfo = await queryInterface.describeTable('table');
-        if (!tableInfo['skipped_records']) {
-          await queryInterface.addColumn('table', 'skipped_records', {
-        type: Sequelize.INTEGER,
-        allowNull: true,
-        defaultValue: 0
-      });
-          console.log('✅ Added skipped_records to table');
-        } else {
-          console.log('ℹ️ Column skipped_records already exists in table, skipping...');
-        }
+        await queryInterface.addColumn(table, 'skipped_records', {
+          type: Sequelize.INTEGER,
+          allowNull: true,
+          defaultValue: 0
+        });
+        console.log(`✅ Added skipped_records to ${table}`);
       } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Column skipped_records already exists in table, skipping...');
+        if (err?.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+          // ignore
         } else {
-            console.warn('⚠️ Could not check/add skipped_records to table:', err.message);
+          console.warn(`⚠️ Could not add skipped_records to ${table}:`, err?.message || err);
         }
       }
-
     }
   },
 

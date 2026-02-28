@@ -19,8 +19,16 @@ const emailService = require('./services/emailService');
 // Set default environment variables if not provided
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 process.env.PORT = process.env.PORT || '8000';
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'pL7nX2rQv9aJ4tGd8bE6wYcM5oF1uZsH3kD0jVxN7qR2lC8mT4gP9yK6hW3sA0z';
-process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'your-session-secret-key-make-it-very-long-and-secure-for-production-use';
+
+// Security: never default secrets in code
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET is required but not set');
+  process.exit(1);
+}
+if (!process.env.SESSION_SECRET) {
+  console.error('❌ SESSION_SECRET is required but not set');
+  process.exit(1);
+}
 
 // Database defaults for local development
 process.env.DB_HOST = process.env.DB_HOST || 'localhost';

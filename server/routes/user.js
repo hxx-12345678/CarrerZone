@@ -39,14 +39,11 @@ function findResumeFile(filename, metadata) {
     metadata?.filePath ? metadata.filePath : null
   ].filter(Boolean);
 
-  console.log('🔍 Trying possible file paths:', possiblePaths);
-
   // Find the first existing file
   let filePath = possiblePaths.find(p => fs.existsSync(p));
 
   if (!filePath) {
     console.log('❌ File does not exist in any of the expected locations');
-    console.log('🔍 Checked paths:', possiblePaths);
 
     // Try to find the file by searching common directories
     const searchDirs = [

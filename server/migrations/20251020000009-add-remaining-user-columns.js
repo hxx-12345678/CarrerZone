@@ -6,7 +6,7 @@ module.exports = {
     
     try {
       // Check which columns exist and only add missing ones
-      const tableDescription = await queryInterface.describeTable('users');
+      const tableDescription = await queryInterface.describeTable('users', { transaction });
       
       // Add only the missing columns
       if (!tableDescription.session_version) {

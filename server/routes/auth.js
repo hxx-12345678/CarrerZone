@@ -160,7 +160,9 @@ const validateResetPassword = [
 // Helper function to generate JWT token
 const generateToken = (user) => {
   console.log('🔍 [LOGIN] Generating JWT token for user:', user.email);
-  console.log('🔍 [LOGIN] Using JWT secret:', process.env.JWT_SECRET ? 'Present' : 'Using default');
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is required but not set');
+  }
 
   const token = jwt.sign(
     {
@@ -169,7 +171,7 @@ const generateToken = (user) => {
       userType: user.user_type,
       sessionVersion: user.session_version || 1
     },
-    process.env.JWT_SECRET || 'your-secret-key',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 
@@ -206,7 +208,7 @@ const getRedirectUrl = (userType, region, company = null) => {
 // Signup endpoint
 router.post('/signup', validateSignup, async (req, res) => {
   try {
-    console.log('🔍 Signup request received:', req.body);
+    console.log('🔍 Signup request received');
 
     // Check for validation errors
     const errors = validationResult(req);
@@ -734,7 +736,7 @@ router.post('/employer-signup', validateEmployerSignup, async (req, res) => {
 // Login endpoint
 router.post('/login', validateLogin, async (req, res) => {
   try {
-    console.log('🔍 Login request received:', req.body);
+    console.log('🔍 Login request received');
 
     // Check for validation errors
     const errors = validationResult(req);

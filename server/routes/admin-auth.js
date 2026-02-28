@@ -19,6 +19,9 @@ const validateAdminLogin = [
 
 // Generate JWT token for admin
 const generateAdminToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is required but not set');
+  }
   const payload = {
     id: user.id,
     email: user.email,
@@ -28,7 +31,7 @@ const generateAdminToken = (user) => {
     aud: 'admin-dashboard'
   };
 
-  return jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', {
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: '24h'
   });
 };
@@ -36,7 +39,7 @@ const generateAdminToken = (user) => {
 // Admin login endpoint - ONLY for superadmin
 router.post('/admin-login', validateAdminLogin, async (req, res) => {
   try {
-    console.log('🔍 Admin login request received:', req.body);
+    console.log('🔍 Admin login request received');
     
     // Check for validation errors
     const errors = validationResult(req);
@@ -50,7 +53,6 @@ router.post('/admin-login', validateAdminLogin, async (req, res) => {
     }
 
     const { email, password } = req.body;
-    console.log('🧪 Admin login debug: email=', email);
 
     // Find user by email
     const user = await User.findOne({ where: { email } });
@@ -176,7 +178,10 @@ router.get('/admin-verify', async (req, res) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
 
     if (!user || user.user_type !== 'superadmin') {

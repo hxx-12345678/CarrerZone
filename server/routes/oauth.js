@@ -20,13 +20,16 @@ const generateSlug = (name) => {
 
 // Helper function to generate JWT token
 const generateToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is required but not set');
+  }
   return jwt.sign(
     {
       id: user.id,
       email: user.email,
       userType: user.user_type
     },
-    process.env.JWT_SECRET || 'your-secret-key',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 };
@@ -635,8 +638,11 @@ router.post('/complete-employer-profile', async (req, res) => {
       });
     }
 
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
     // Verify token and get user
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
 
     if (!user) {
@@ -769,7 +775,10 @@ router.post('/setup-password', async (req, res) => {
     }
 
     // Verify token and get user
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
 
     if (!user) {
@@ -799,9 +808,12 @@ router.post('/setup-password', async (req, res) => {
     });
 
     // Issue a fresh JWT so the client session is stable post-setup
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
     const newToken = jwt.sign(
       { id: user.id, email: user.email, userType: user.user_type },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -889,10 +901,6 @@ router.get('/urls', (req, res) => {
     console.log('🔍 Generated Facebook OAuth URL:', urls.facebook);
   }
 
-  // Set CORS headers explicitly
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-
   res.json({
     success: true,
     data: urls,
@@ -912,7 +920,10 @@ router.post('/sync-google-profile', async (req, res) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
 
     if (!user || user.oauth_provider !== 'google') {

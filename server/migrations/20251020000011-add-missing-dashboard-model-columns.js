@@ -8,7 +8,7 @@ module.exports = {
       // Check which columns exist and only add missing ones
       
       // ========== NOTIFICATIONS TABLE ==========
-      const notificationsTable = await queryInterface.describeTable('notifications');
+      const notificationsTable = await queryInterface.describeTable('notifications', { transaction });
       
       if (!notificationsTable.short_message) {
         await queryInterface.addColumn('notifications', 'short_message', {
@@ -104,7 +104,7 @@ module.exports = {
       }
 
       // ========== JOB_ALERTS TABLE ==========
-      const jobAlertsTable = await queryInterface.describeTable('job_alerts');
+      const jobAlertsTable = await queryInterface.describeTable('job_alerts', { transaction });
       
       if (!jobAlertsTable.next_send_at) {
         await queryInterface.addColumn('job_alerts', 'next_send_at', {
@@ -136,7 +136,7 @@ module.exports = {
       }
 
       // ========== JOB_BOOKMARKS TABLE ==========
-      const jobBookmarksTable = await queryInterface.describeTable('job_bookmarks');
+      const jobBookmarksTable = await queryInterface.describeTable('job_bookmarks', { transaction });
       
       if (!jobBookmarksTable.reminder_date) {
         await queryInterface.addColumn('job_bookmarks', 'reminder_date', {
@@ -157,7 +157,7 @@ module.exports = {
       }
 
       // ========== RESUMES TABLE ==========
-      const resumesTable = await queryInterface.describeTable('resumes');
+      const resumesTable = await queryInterface.describeTable('resumes', { transaction });
       
       if (!resumesTable.is_primary) {
         await queryInterface.addColumn('resumes', 'is_primary', {

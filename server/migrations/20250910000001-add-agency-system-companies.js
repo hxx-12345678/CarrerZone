@@ -21,7 +21,7 @@ module.exports = {
       // Add company_account_type column
       
       try {
-        const tableInfo = await queryInterface.describeTable('companies');
+        const tableInfo = await queryInterface.describeTable('companies', { transaction });
         if (!tableInfo['company_account_type']) {
           await queryInterface.addColumn('companies', 'company_account_type', {
         type: Sequelize.STRING(50),
@@ -47,7 +47,7 @@ module.exports = {
       // Add agency-specific fields
       
       try {
-        const tableInfo = await queryInterface.describeTable('companies');
+        const tableInfo = await queryInterface.describeTable('companies', { transaction });
         if (!tableInfo['agency_license']) {
           await queryInterface.addColumn('companies', 'agency_license', {
         type: Sequelize.STRING(255),
@@ -69,7 +69,7 @@ module.exports = {
       
       
       try {
-        const tableInfo = await queryInterface.describeTable('companies');
+        const tableInfo = await queryInterface.describeTable('companies', { transaction });
         if (!tableInfo['agency_specialization']) {
           await queryInterface.addColumn('companies', 'agency_specialization', {
         type: Sequelize.STRING(255),
@@ -91,7 +91,7 @@ module.exports = {
       
       
       try {
-        const tableInfo = await queryInterface.describeTable('companies');
+        const tableInfo = await queryInterface.describeTable('companies', { transaction });
         if (!tableInfo['agency_documents']) {
           await queryInterface.addColumn('companies', 'agency_documents', {
         type: Sequelize.JSONB,
@@ -114,7 +114,7 @@ module.exports = {
       
       
       try {
-        const tableInfo = await queryInterface.describeTable('companies');
+        const tableInfo = await queryInterface.describeTable('companies', { transaction });
         if (!tableInfo['verified_at']) {
           await queryInterface.addColumn('companies', 'verified_at', {
         type: Sequelize.DATE,
@@ -136,7 +136,7 @@ module.exports = {
       
       
       try {
-        const tableInfo = await queryInterface.describeTable('companies');
+        const tableInfo = await queryInterface.describeTable('companies', { transaction });
         if (!tableInfo['verification_method']) {
           await queryInterface.addColumn('companies', 'verification_method', {
         type: Sequelize.STRING(50),

@@ -11,54 +11,54 @@ module.exports = {
     const exists = tableExists?.[0]?.[0]?.exists === true || tableExists?.[0]?.[0]?.exists === 't';
     if (exists) return;
 
-    
-      try {
-        const tables = await queryInterface.showAllTables();
-        const normalized = Array.isArray(tables) ? tables.map(t => typeof t === 'string' ? t : t.tableName || t).map(n => String(n).toLowerCase()) : [];
-        if (!normalized.includes('tablename')) {
-          await queryInterface.createTable('tableName', {
-      id: {
-        type: Sequelize.UUID,
-        defaultValue: Sequelize.literal('gen_random_uuid()'),
-        primaryKey: true
-      },
-      company_id: {
-        type: Sequelize.UUID,
-        allowNull: false,
-        references: { model: 'companies', key: 'id' },
-        onDelete: 'CASCADE'
-      },
-      filename: { type: Sequelize.STRING, allowNull: false },
-      file_path: { type: Sequelize.STRING, allowNull: false },
-      file_url: { type: Sequelize.STRING, allowNull: false },
-      file_size: { type: Sequelize.INTEGER, allowNull: false },
-      mime_type: { type: Sequelize.STRING, allowNull: false },
-      alt_text: { type: Sequelize.STRING },
-      caption: { type: Sequelize.TEXT },
-      display_order: { type: Sequelize.INTEGER, defaultValue: 0, allowNull: false },
-      is_primary: { type: Sequelize.BOOLEAN, defaultValue: false, allowNull: false },
-      is_active: { type: Sequelize.BOOLEAN, defaultValue: true, allowNull: false },
-      uploaded_by: { type: Sequelize.UUID, allowNull: false, references: { model: 'users', key: 'id' } },
-      metadata: { type: Sequelize.JSONB },
-      created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
-      updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') }
-    });
-          console.log('✅ Created table tableName');
-        } else {
-          console.log('ℹ️ Table tableName already exists, skipping...');
-        }
-      } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Table tableName already exists, skipping...');
-        } else {
-            console.warn('⚠️ Could not check/create table tableName:', err.message);
-        }
+
+    try {
+      const tables = await queryInterface.showAllTables();
+      const normalized = Array.isArray(tables) ? tables.map(t => typeof t === 'string' ? t : t.tableName || t).map(n => String(n).toLowerCase()) : [];
+      if (!normalized.includes(tableName.toLowerCase())) {
+        await queryInterface.createTable(tableName, {
+          id: {
+            type: Sequelize.UUID,
+            defaultValue: Sequelize.literal('gen_random_uuid()'),
+            primaryKey: true
+          },
+          company_id: {
+            type: Sequelize.UUID,
+            allowNull: false,
+            references: { model: 'companies', key: 'id' },
+            onDelete: 'CASCADE'
+          },
+          filename: { type: Sequelize.STRING, allowNull: false },
+          file_path: { type: Sequelize.STRING, allowNull: false },
+          file_url: { type: Sequelize.STRING, allowNull: false },
+          file_size: { type: Sequelize.INTEGER, allowNull: false },
+          mime_type: { type: Sequelize.STRING, allowNull: false },
+          alt_text: { type: Sequelize.STRING },
+          caption: { type: Sequelize.TEXT },
+          display_order: { type: Sequelize.INTEGER, defaultValue: 0, allowNull: false },
+          is_primary: { type: Sequelize.BOOLEAN, defaultValue: false, allowNull: false },
+          is_active: { type: Sequelize.BOOLEAN, defaultValue: true, allowNull: false },
+          uploaded_by: { type: Sequelize.UUID, allowNull: false, references: { model: 'users', key: 'id' } },
+          metadata: { type: Sequelize.JSONB },
+          created_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') },
+          updated_at: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.fn('NOW') }
+        });
+        console.log(`✅ Created table ${tableName}`);
+      } else {
+        console.log(`ℹ️ Table ${tableName} already exists, skipping...`);
       }
+    } catch (err) {
+      if (err.message.includes('already exists')) {
+        console.log(`ℹ️ Table ${tableName} already exists, skipping...`);
+      } else {
+        console.warn(`⚠️ Could not check/create table ${tableName}:`, err.message);
+      }
+    }
 
 
     // Helpful indexes (ignore if duplicates)
     const idx = async (name, sql) => {
-      try { await queryInterface.sequelize.query(sql); } catch (_) {}
+      try { await queryInterface.sequelize.query(sql); } catch (_) { }
     };
     await idx('company_photos_company_id', `CREATE INDEX IF NOT EXISTS company_photos_company_id ON ${tableName}(company_id)`);
     await idx('company_photos_company_id_display_order', `CREATE INDEX IF NOT EXISTS company_photos_company_id_display_order ON ${tableName}(company_id, display_order)`);
@@ -69,7 +69,7 @@ module.exports = {
   down: async (queryInterface) => {
     try {
       await queryInterface.dropTable('company_photos');
-    } catch (_) {}
+    } catch (_) { }
   }
 };
 

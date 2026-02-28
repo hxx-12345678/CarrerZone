@@ -7,7 +7,7 @@ module.exports = {
     const normalized = Array.isArray(tables)
       ? tables.map((t) => (typeof t === 'string' ? t : t.tableName || t)).map((n) => String(n).toLowerCase())
       : [];
-    
+
     if (!normalized.includes('users') || !normalized.includes('jobs')) {
       console.log('ℹ️  Skipping migration (users, jobs not created yet)');
       return;
@@ -15,27 +15,45 @@ module.exports = {
 
 
     // Add isSecure field to jobs table
-    await queryInterface.addColumn('jobs', 'isSecure', {
-      type: Sequelize.BOOLEAN,
-      allowNull: true,
-      defaultValue: false,
-      comment: 'Whether this is a secure job that awards premium badges when tapped'
-    });
+    try {
+      const jobsTable = await queryInterface.describeTable('jobs');
+      if (!jobsTable['isSecure']) {
+        await queryInterface.addColumn('jobs', 'isSecure', {
+          type: Sequelize.BOOLEAN,
+          allowNull: true,
+          defaultValue: false,
+          comment: 'Whether this is a secure job that awards premium badges when tapped'
+        });
+        console.log('✅ Added isSecure to jobs');
+      }
+    } catch (e) { console.log('ℹ️ isSecure column check/add skipped:', e.message); }
 
-    // Add secureJobTaps field to users table to track secure job interactions
-    await queryInterface.addColumn('users', 'secureJobTaps', {
-      type: Sequelize.INTEGER,
-      allowNull: true,
-      defaultValue: 0,
-      comment: 'Number of secure jobs tapped by this user'
-    });
+    // Add secureJobTaps field to users table
+    try {
+      const usersTable = await queryInterface.describeTable('users');
+      if (!usersTable['secureJobTaps']) {
+        await queryInterface.addColumn('users', 'secureJobTaps', {
+          type: Sequelize.INTEGER,
+          allowNull: true,
+          defaultValue: 0,
+          comment: 'Number of secure jobs tapped by this user'
+        });
+        console.log('✅ Added secureJobTaps to users');
+      }
+    } catch (e) { console.log('ℹ️ secureJobTaps column check/add skipped:', e.message); }
 
-    // Add secureJobTapsAt field to users table to track when they first tapped a secure job
-    await queryInterface.addColumn('users', 'secureJobTapsAt', {
-      type: Sequelize.DATE,
-      allowNull: true,
-      comment: 'When the user first tapped a secure job'
-    });
+    // Add secureJobTapsAt field to users table
+    try {
+      const usersTable2 = await queryInterface.describeTable('users');
+      if (!usersTable2['secureJobTapsAt']) {
+        await queryInterface.addColumn('users', 'secureJobTapsAt', {
+          type: Sequelize.DATE,
+          allowNull: true,
+          comment: 'When the user first tapped a secure job'
+        });
+        console.log('✅ Added secureJobTapsAt to users');
+      }
+    } catch (e) { console.log('ℹ️ secureJobTapsAt column check/add skipped:', e.message); }
 
     // Create secure_job_taps table to track individual secure job taps
     await queryInterface.createTable('secure_job_taps', {
@@ -96,11 +114,11 @@ module.exports = {
   async down(queryInterface, Sequelize) {
     // Remove the secure job taps table
     await queryInterface.dropTable('secure_job_taps');
-    
+
     // Remove columns from users table
     await queryInterface.removeColumn('users', 'secureJobTaps');
     await queryInterface.removeColumn('users', 'secureJobTapsAt');
-    
+
     // Remove column from jobs table
     await queryInterface.removeColumn('jobs', 'isSecure');
   }

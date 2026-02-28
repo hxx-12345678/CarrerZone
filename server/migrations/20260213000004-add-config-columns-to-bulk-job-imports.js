@@ -13,75 +13,54 @@ module.exports = {
     }
 
     if (!desc.mapping_config) {
-      
       try {
-        const tableInfo = await queryInterface.describeTable('table');
-        if (!tableInfo['mapping_config']) {
-          await queryInterface.addColumn('table', 'mapping_config', {
-        type: Sequelize.JSONB,
-        allowNull: true,
-        defaultValue: {}
-      });
-          console.log('✅ Added mapping_config to table');
-        } else {
-          console.log('ℹ️ Column mapping_config already exists in table, skipping...');
-        }
+        await queryInterface.addColumn(table, 'mapping_config', {
+          type: Sequelize.JSONB,
+          allowNull: true,
+          defaultValue: {}
+        });
+        console.log(`✅ Added mapping_config to ${table}`);
       } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Column mapping_config already exists in table, skipping...');
+        if (err?.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+          // ignore
         } else {
-            console.warn('⚠️ Could not check/add mapping_config to table:', err.message);
+          console.warn(`⚠️ Could not add mapping_config to ${table}:`, err?.message || err);
         }
       }
-
     }
 
     if (!desc.validation_rules) {
-      
       try {
-        const tableInfo = await queryInterface.describeTable('table');
-        if (!tableInfo['validation_rules']) {
-          await queryInterface.addColumn('table', 'validation_rules', {
-        type: Sequelize.JSONB,
-        allowNull: true,
-        defaultValue: {}
-      });
-          console.log('✅ Added validation_rules to table');
-        } else {
-          console.log('ℹ️ Column validation_rules already exists in table, skipping...');
-        }
+        await queryInterface.addColumn(table, 'validation_rules', {
+          type: Sequelize.JSONB,
+          allowNull: true,
+          defaultValue: {}
+        });
+        console.log(`✅ Added validation_rules to ${table}`);
       } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Column validation_rules already exists in table, skipping...');
+        if (err?.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+          // ignore
         } else {
-            console.warn('⚠️ Could not check/add validation_rules to table:', err.message);
+          console.warn(`⚠️ Could not add validation_rules to ${table}:`, err?.message || err);
         }
       }
-
     }
 
     if (!desc.default_values) {
-      
       try {
-        const tableInfo = await queryInterface.describeTable('table');
-        if (!tableInfo['default_values']) {
-          await queryInterface.addColumn('table', 'default_values', {
-        type: Sequelize.JSONB,
-        allowNull: true,
-        defaultValue: {}
-      });
-          console.log('✅ Added default_values to table');
-        } else {
-          console.log('ℹ️ Column default_values already exists in table, skipping...');
-        }
+        await queryInterface.addColumn(table, 'default_values', {
+          type: Sequelize.JSONB,
+          allowNull: true,
+          defaultValue: {}
+        });
+        console.log(`✅ Added default_values to ${table}`);
       } catch (err) {
-        if (err.message.includes('already exists')) {
-            console.log('ℹ️ Column default_values already exists in table, skipping...');
+        if (err?.message && (err.message.includes('already exists') || err.message.includes('duplicate column'))) {
+          // ignore
         } else {
-            console.warn('⚠️ Could not check/add default_values to table:', err.message);
+          console.warn(`⚠️ Could not add default_values to ${table}:`, err?.message || err);
         }
       }
-
     }
   },
 

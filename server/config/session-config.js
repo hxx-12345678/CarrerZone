@@ -8,9 +8,13 @@ const session = require('express-session');
 // Production session configuration
 function getSessionConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
+
+  if (isProduction && !process.env.SESSION_SECRET) {
+    throw new Error('SESSION_SECRET is required in production');
+  }
   
   const sessionConfig = {
-    secret: process.env.SESSION_SECRET || 'your-session-secret-key-change-this-in-production',
+    secret: process.env.SESSION_SECRET || 'dev-session-secret',
     resave: false,
     saveUninitialized: false,
     cookie: {

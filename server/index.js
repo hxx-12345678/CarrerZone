@@ -114,14 +114,20 @@ const PORT = process.env.PORT || 8000;
 app.set('trust proxy', 1);
 
 // Security middleware - Configure helmet to allow cross-origin resources
+const isProduction = process.env.NODE_ENV === 'production';
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
       imgSrc: ["'self'", "data:", "https:", "http:", "blob:", "https://res.cloudinary.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc: isProduction
+        ? ["'self'", "'unsafe-inline'"]
+        : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "https:", "http:"],
@@ -132,6 +138,11 @@ app.use(helmet({
     }
   }
 }));
+
+// Enforce HTTPS in production
+if (isProduction) {
+  app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true }));
+}
 
 // Enhanced CORS configuration - MUST BE BEFORE ALL ROUTES
 // Enhanced CORS configuration - MUST BE BEFORE ALL ROUTES
@@ -300,15 +311,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    // Allow cross-origin usage of uploaded files (for frontend domains)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
     // Fix Cross-Origin-Resource-Policy issue
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-    res.setHeader('Timing-Allow-Origin', '*');
     // Set accurate content-type based on extension
     const lower = filePath.toLowerCase();
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {

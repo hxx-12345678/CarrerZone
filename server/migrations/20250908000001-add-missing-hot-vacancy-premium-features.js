@@ -49,14 +49,14 @@ module.exports = {
     const premiumFeatures = [
       {
         name: 'urgencylevel',
-        type: Sequelize.ENUM('high', 'critical', 'immediate'),
+        type: Sequelize.STRING,
         allowNull: true,
         defaultValue: null,
         comment: 'Urgency level for hot vacancy (high/critical/immediate)'
       },
       {
         name: 'hiringtimeline',
-        type: Sequelize.ENUM('immediate', '1-week', '2-weeks', '1-month'),
+        type: Sequelize.STRING,
         allowNull: true,
         defaultValue: null,
         comment: 'When employer needs to fill the position'
@@ -77,7 +77,7 @@ module.exports = {
       },
       {
         name: 'pricingtier',
-        type: Sequelize.ENUM('basic', 'premium', 'enterprise', 'super-premium'),
+        type: Sequelize.STRING,
         allowNull: true,
         defaultValue: null,
         comment: 'Hot vacancy pricing tier'
@@ -206,6 +206,16 @@ module.exports = {
     
     // Add composite indexes for hot vacancy premium features
     console.log('\n📊 Adding indexes for premium features...');
+
+    const columnExists = async (tableName, columnName) => {
+      const [results] = await queryInterface.sequelize.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name = :table AND column_name = :column LIMIT 1`,
+        { replacements: { table: tableName, column: columnName } }
+      );
+      return results && results.length > 0;
+    };
+
+    const hasIsHotVacancy = await columnExists('jobs', 'ishotvacancy');
     
     const indexes = [
       {
@@ -241,6 +251,27 @@ module.exports = {
     
     for (const index of indexes) {
       try {
+        // If index uses partial where clause on ishotvacancy, ensure column exists
+        if (index.where && !hasIsHotVacancy) {
+          console.log(`⏭️  Skipping index ${index.name} (ishotvacancy column missing)`);
+          continue;
+        }
+
+        // Ensure all index columns exist before attempting to create index
+        const requiredColumns = Array.isArray(index.fields) ? index.fields : [];
+        let missing = false;
+        for (const col of requiredColumns) {
+          const ok = await columnExists('jobs', col);
+          if (!ok) {
+            console.log(`⏭️  Skipping index ${index.name} (${col} column missing)`);
+            missing = true;
+            break;
+          }
+        }
+        if (missing) {
+          continue;
+        }
+
         await queryInterface.addIndex('jobs', index.fields, {
           name: index.name,
           where: index.where

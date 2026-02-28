@@ -6,6 +6,23 @@ const express = require('express');
 const router = express.Router();
 const { User } = require('../models');
 
+const requireSetupAccess = (req, res, next) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const enabled = process.env.ENABLE_ADMIN_SETUP === 'true';
+  const requiredToken = process.env.ADMIN_SETUP_TOKEN;
+  const providedToken = req.headers['x-setup-token'];
+
+  if (isProduction && !enabled) {
+    return res.status(404).json({ success: false, message: 'Not found' });
+  }
+
+  if (requiredToken && String(providedToken || '') !== String(requiredToken)) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
+  next();
+};
+
 // Admin setup function (inline since ensureAdminUser script was removed)
 const ensureAdminUser = async () => {
   try {
@@ -38,7 +55,7 @@ const ensureAdminUser = async () => {
 };
 
 // Endpoint to ensure admin user exists (no auth required for setup)
-router.post('/ensure-admin', async (req, res) => {
+router.post('/ensure-admin', requireSetupAccess, async (req, res) => {
   try {
     console.log('🔧 Admin setup request received');
     
@@ -65,7 +82,7 @@ router.post('/ensure-admin', async (req, res) => {
 });
 
 // Health check for admin setup
-router.get('/admin-health', async (req, res) => {
+router.get('/admin-health', requireSetupAccess, async (req, res) => {
   try {
     const { User } = require('../models');
     

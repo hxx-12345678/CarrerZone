@@ -1,55 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const JobAlert = require('../models/JobAlert');
-const User = require('../models/User');
 
-// Middleware to verify JWT token
-const authenticateToken = async (req, res, next) => {
-  try {
-    console.log('🔍 authenticateToken - Headers:', req.headers);
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    console.log('🔍 authenticateToken - Token:', token ? 'Present' : 'Missing');
-    
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access token required'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    console.log('🔍 authenticateToken - Decoded token:', decoded);
-    
-    const user = await User.findByPk(decoded.id, {
-      attributes: { exclude: ['password'] }
-    });
-    console.log('🔍 authenticateToken - User found:', !!user);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token'
-      });
-    }
-    
-    console.error('Authentication error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
-};
+const { authenticateToken } = require('../middlewares/auth');
 
 // Get all job alerts for the authenticated user
 router.get('/', authenticateToken, async (req, res) => {
@@ -76,9 +29,6 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create a new job alert
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    console.log('🔍 POST /job-alerts - Request body:', req.body);
-    console.log('🔍 POST /job-alerts - User:', req.user);
-    
     const {
       name,
       keywords,

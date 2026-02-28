@@ -640,8 +640,8 @@ router.get('/:id', async (req, res) => {
     try {
       const authHeader = req.headers['authorization'];
       const token = authHeader && authHeader.split(' ')[1];
-      if (token) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      if (token && process.env.JWT_SECRET) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         user = await User.findByPk(decoded.id);
       }
     } catch (authError) {

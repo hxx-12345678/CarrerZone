@@ -21,7 +21,7 @@ module.exports = {
       ];
 
       // Check which columns already exist
-      const tableInfo = await queryInterface.describeTable('users');
+      const tableInfo = await queryInterface.describeTable('users', { transaction });
 
       for (const column of columnsToAdd) {
         if (!tableInfo[column.name]) {

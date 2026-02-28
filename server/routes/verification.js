@@ -610,7 +610,10 @@ router.post('/documents/access', authenticateToken, async (req, res) => {
     // Generate a temporary signed URL (valid for 5 minutes)
     const crypto = require('crypto');
     const timestamp = Date.now();
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
+    const secret = process.env.JWT_SECRET;
     const signature = crypto.createHmac('sha256', secret)
       .update(`${filename}-${timestamp}-${userId}`)
       .digest('hex');
@@ -667,7 +670,10 @@ router.get('/documents/signed/:filename', async (req, res) => {
 
     // Verify signature
     const crypto = require('crypto');
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required but not set');
+    }
+    const secret = process.env.JWT_SECRET;
     const expectedSignature = crypto.createHmac('sha256', secret)
       .update(`${filename}-${timestamp}-${u}`)
       .digest('hex');
