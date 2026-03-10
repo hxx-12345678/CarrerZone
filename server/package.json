@@ -1,7 +1,7 @@
 {
-  "name": "jobportal",
+  "name": "careerzone-backend",
   "version": "1.0.0",
-  "description": "Backend for JobPortal application",
+  "description": "Backend for CareerZone application",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
