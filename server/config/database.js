@@ -24,78 +24,92 @@ const getDialectOptions = (host) => {
 
 module.exports = {
   development: {
-    use_env_variable: process.env.DATABASE_URL ? 'DATABASE_URL' : (process.env.DB_URL ? 'DB_URL' : null),
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'jobportal_dev',
-    host: process.env.DB_HOST || 'localhost',
+    use_env_variable: process.env.DATABASE_URL
+      ? "DATABASE_URL"
+      : process.env.DB_URL
+        ? "DB_URL"
+        : null,
+    username: process.env.DB_USER || "postgres",
+    password: process.env.DB_PASSWORD || "1234",
+    database: process.env.DB_NAME || "CareerZone",
+    host: process.env.DB_HOST || "localhost",
     port: process.env.DB_PORT || 5432,
-    dialect: 'postgres',
+    dialect: "postgres",
     logging: console.log,
     pool: {
       max: 5,
       min: 0,
       acquire: 30000,
-      idle: 10000
+      idle: 10000,
     },
     define: {
       timestamps: true,
       underscored: false,
-      freezeTableName: true
+      freezeTableName: true,
     },
-    dialectOptions: getDialectOptions(process.env.DB_HOST)
+    dialectOptions: getDialectOptions(process.env.DB_HOST),
   },
   test: {
     // Allow switching to in-memory sqlite for isolated Jest runs
-    ...(process.env.TEST_SQLITE === 'true'
+    ...(process.env.TEST_SQLITE === "true"
       ? {
-        username: 'sqlite',
-        password: '',
-        database: 'jobportal_test',
-        host: '',
-        port: 0,
-        url: '',
-        dialect: 'sqlite',
-        storage: ':memory:',
-        logging: false,
-        pool: { max: 1, min: 0, acquire: 30000, idle: 10000 },
-        define: { timestamps: true, underscored: false, freezeTableName: true },
-        dialectOptions: {}
-      }
+          username: "sqlite",
+          password: "",
+          database: "jobportal_test",
+          host: "",
+          port: 0,
+          url: "",
+          dialect: "sqlite",
+          storage: ":memory:",
+          logging: false,
+          pool: { max: 1, min: 0, acquire: 30000, idle: 10000 },
+          define: {
+            timestamps: true,
+            underscored: false,
+            freezeTableName: true,
+          },
+          dialectOptions: {},
+        }
       : {
-        username: process.env.DB_USER || 'postgres',
-        password: process.env.DB_PASSWORD || 'password',
-        database: process.env.DB_NAME_TEST || 'jobportal_test',
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT || 5432,
-        url: process.env.DB_URL || 'postgresql://postgres:password@localhost:5432/jobportal_test',
-        dialect: 'postgres',
-        logging: false,
-        pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
-        define: { timestamps: true, underscored: false, freezeTableName: true },
-        dialectOptions: getDialectOptions(process.env.DB_HOST)
-      })
+          username: process.env.DB_USER || "postgres",
+          password: process.env.DB_PASSWORD || "password",
+          database: process.env.DB_NAME_TEST || "jobportal_test",
+          host: process.env.DB_HOST || "localhost",
+          port: process.env.DB_PORT || 5432,
+          url:
+            process.env.DB_URL ||
+            "postgresql://postgres:password@localhost:5432/jobportal_test",
+          dialect: "postgres",
+          logging: false,
+          pool: { max: 5, min: 0, acquire: 30000, idle: 10000 },
+          define: {
+            timestamps: true,
+            underscored: false,
+            freezeTableName: true,
+          },
+          dialectOptions: getDialectOptions(process.env.DB_HOST),
+        }),
   },
   production: {
-    use_env_variable: 'DATABASE_URL',
-    dialect: 'postgres',
+    use_env_variable: "DATABASE_URL",
+    dialect: "postgres",
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+      },
     },
     logging: false,
     pool: {
       max: 10,
       min: 2,
       acquire: 30000,
-      idle: 10000
+      idle: 10000,
     },
     define: {
       timestamps: true,
       underscored: false,
-      freezeTableName: true
-    }
-  }
+      freezeTableName: true,
+    },
+  },
 };
