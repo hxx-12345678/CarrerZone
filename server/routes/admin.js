@@ -685,24 +685,6 @@ router.get('/users/:userId/resumes/:resumeId/view', authenticateToken, async (re
       }
     }
 
-    // Fallback to Cloudinary
-    if (metadata.cloudinaryUrl) {
-      const https = require('https');
-
-      https.get(metadata.cloudinaryUrl, (response) => {
-        res.setHeader('Content-Type', metadata.mimeType || 'application/pdf');
-        res.setHeader('Content-Disposition', 'inline');
-        response.pipe(res);
-      }).on('error', (err) => {
-        console.error('Cloudinary error:', err);
-        res.status(500).json({
-          success: false,
-          message: 'Failed to fetch resume from storage'
-        });
-      });
-      return;
-    }
-
     res.status(404).json({
       success: false,
       message: 'Resume file not found'
@@ -774,24 +756,6 @@ router.get('/users/:userId/resumes/:resumeId/download', authenticateToken, async
         res.sendFile(filePath);
         return;
       }
-    }
-
-    // Fallback to Cloudinary
-    if (metadata.cloudinaryUrl) {
-      const https = require('https');
-
-      https.get(metadata.cloudinaryUrl, (response) => {
-        res.setHeader('Content-Type', metadata.mimeType || 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-        response.pipe(res);
-      }).on('error', (err) => {
-        console.error('Cloudinary error:', err);
-        res.status(500).json({
-          success: false,
-          message: 'Failed to fetch resume from storage'
-        });
-      });
-      return;
     }
 
     res.status(404).json({

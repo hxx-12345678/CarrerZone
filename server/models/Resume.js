@@ -96,8 +96,13 @@ const Resume = sequelize.define('Resume', {
     afterCreate: async (resume) => {
       try {
         const DashboardService = require('../services/dashboardService');
+        
+        // Get current dashboard to increment properly
+        const dashboard = await DashboardService.getUserDashboard(resume.userId);
+        const currentTotal = dashboard ? (dashboard.totalResumes || 0) : 0;
+        
         await DashboardService.updateDashboardStats(resume.userId, {
-          totalResumes: sequelize.literal('totalResumes + 1'),
+          totalResumes: currentTotal + 1,
           hasDefaultResume: resume.isDefault,
           lastResumeUpdate: new Date()
         });
@@ -140,8 +145,14 @@ const Resume = sequelize.define('Resume', {
     afterDestroy: async (resume) => {
       try {
         const DashboardService = require('../services/dashboardService');
+        
+        // Get current dashboard to decrement properly
+        const dashboard = await DashboardService.getUserDashboard(resume.userId);
+        const currentTotal = dashboard ? (dashboard.totalResumes || 0) : 0;
+        const newTotal = Math.max(0, currentTotal - 1); // Ensure we don't go negative
+        
         await DashboardService.updateDashboardStats(resume.userId, {
-          totalResumes: sequelize.literal('totalResumes - 1')
+          totalResumes: newTotal
         });
 
         // Record activity

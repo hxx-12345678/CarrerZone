@@ -10,7 +10,6 @@ const Resume = require('../models/Resume');
 const CoverLetter = require('../models/CoverLetter');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
-const { uploadBufferToCloudinary, isConfigured: isCloudinaryConfigured, deleteFromCloudinary } = require('../config/cloudinary');
 const { authenticateToken } = require('../middlewares/auth');
 const checkPermission = require('../middlewares/checkPermission');
 const { normalizePermissions } = require('../utils/permissions');
@@ -79,7 +78,7 @@ function findResumeFile(filename, metadata) {
     // If still not found, check if this is a production environment issue
     if (!filePath && process.env.NODE_ENV === 'production') {
       console.log('⚠️ Production environment detected - files may have been lost during server restart');
-      console.log('💡 Consider implementing cloud storage (S3, Cloudinary) for production');
+      console.log('� All files are stored in local /uploads/ directory - ensure persistent storage is configured');
     }
   }
 
@@ -140,8 +139,20 @@ function findCoverLetterFile(filename, metadata) {
 // Serve static files from uploads directory
 router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Configure multer for file uploads - Use memory storage for Cloudinary
-const storage = multer.memoryStorage(); // Store in memory instead of disk
+// Configure multer for file uploads - Use disk storage for local file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/resumes');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `resume-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
 
 const upload = multer({
   storage: storage,
@@ -159,8 +170,20 @@ const upload = multer({
   }
 });
 
-// Configure multer for cover letter uploads - Use memory storage for Cloudinary
-const coverLetterStorage = multer.memoryStorage(); // Store in memory instead of disk
+// Configure multer for cover letter uploads - Use disk storage for local file uploads
+const coverLetterStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/cover-letters');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `coverletter-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
 
 const coverLetterUpload = multer({
   storage: coverLetterStorage,
@@ -178,8 +201,20 @@ const coverLetterUpload = multer({
   }
 });
 
-// Configure multer for avatar uploads - Use memory storage for Cloudinary
-const avatarStorage = multer.memoryStorage(); // Store in memory instead of disk
+// Configure multer for avatar uploads - Use disk storage for local file uploads
+const avatarStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/avatars');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `avatar-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
 
 const avatarUpload = multer({
   storage: avatarStorage,
@@ -3734,46 +3769,12 @@ router.post('/resumes/upload', authenticateToken, upload.single('resume'), async
 
     const isDefault = existingResumes === 0;
 
-    let cloudinaryUrl = null;
-    let cloudinaryPublicId = null;
+    // File is already saved to disk by multer with disk storage
+    console.log('💾 Resume automatically saved by multer to:', req.file.path);
+    const filename = path.basename(req.file.path);
+    const localPath = req.file.path;
 
-    // Always save to local storage first (primary storage)
-    console.log('💾 Saving resume to local storage...');
-    const uploadDir = path.join(__dirname, '../uploads/resumes');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filename = `resume-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(originalName)}`;
-    const localPath = path.join(uploadDir, filename);
-
-    // Write buffer to disk
-    fs.writeFileSync(localPath, req.file.buffer);
     console.log('✅ Resume saved to local storage:', localPath);
-
-    // Also try to upload to Cloudinary for backup/redundancy
-    if (isCloudinaryConfigured()) {
-      try {
-        console.log('☁️ Also uploading resume to Cloudinary for backup...');
-        const uploadResult = await uploadBufferToCloudinary(
-          req.file.buffer,
-          'job-portal/resumes',
-          {
-            public_id: `resume-${req.user.id}-${Date.now()}`,
-            resource_type: 'raw', // For non-image files (PDFs, docs)
-            format: path.extname(originalName).substring(1),
-            type: 'upload' // Ensure it's a regular upload, not private
-          }
-        );
-
-        cloudinaryUrl = uploadResult.url;
-        cloudinaryPublicId = uploadResult.publicId;
-        console.log('✅ Resume also uploaded to Cloudinary:', cloudinaryUrl);
-      } catch (cloudinaryError) {
-        console.error('❌ Cloudinary upload failed (continuing with local storage):', cloudinaryError.message);
-        // Continue with local storage only
-      }
-    }
 
     // Create resume record
     const resume = await Resume.create({
@@ -3791,12 +3792,9 @@ router.post('/resumes/upload', authenticateToken, upload.single('resume'), async
         uploadDate: new Date().toISOString(),
         filePath: `/uploads/resumes/${filename}`,
         localPath: localPath,
-        cloudinaryUrl: cloudinaryUrl,
-        cloudinaryPublicId: cloudinaryPublicId,
-        storageType: cloudinaryUrl ? 'local+cloudinary' : 'local',
+        storageType: 'local',
         publicUrl: `/uploads/resumes/${filename}`,
-        hasLocalFile: true,
-        hasCloudinaryFile: !!cloudinaryUrl
+        hasLocalFile: true
       }
     });
 
@@ -3913,37 +3911,6 @@ router.get('/resumes/:id/download', authenticateToken, async (req, res) => {
         // Send file
         res.sendFile(filePath);
         return;
-      } else {
-        console.log('❌ File not found in local storage, trying Cloudinary...');
-      }
-    }
-
-    // Fallback to Cloudinary if local file not found
-    if (metadata.cloudinaryUrl && metadata.hasCloudinaryFile) {
-      console.log('☁️ Trying Cloudinary as fallback:', metadata.cloudinaryUrl);
-
-      try {
-        // Download file from Cloudinary and serve it
-        const cloudinaryResponse = await axios.get(metadata.cloudinaryUrl, {
-          responseType: 'stream'
-        });
-
-        // Increment download count
-        await resume.update({
-          downloads: resume.downloads + 1
-        });
-
-        // Set headers for file download
-        res.setHeader('Content-Type', metadata.mimeType || 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename="' + metadata.originalName + '"');
-        res.setHeader('Content-Length', cloudinaryResponse.headers['content-length']);
-
-        // Pipe the file to response
-        cloudinaryResponse.data.pipe(res);
-        return;
-      } catch (cloudinaryError) {
-        console.error('❌ Failed to fetch from Cloudinary:', cloudinaryError.message);
-        // Fall through to error
       }
     }
 
@@ -3952,8 +3919,7 @@ router.get('/resumes/:id/download', authenticateToken, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'This resume was created without a file upload. Please upload a resume file to enable download.',
-        code: 'NO_FILE_UPLOADED',
-        hint: 'Use the "Upload Resume" option to add a file to this resume'
+        code: 'NO_FILE_UPLOADED'
       });
     }
 
@@ -3967,9 +3933,8 @@ router.get('/resumes/:id/download', authenticateToken, async (req, res) => {
       }
       return res.status(404).json({
         success: false,
-        message: 'Resume file not found on server. The file was lost during server restart (Render free tier ephemeral storage). Please re-upload your resume - it will be stored in permanent cloud storage.',
-        code: 'FILE_NOT_FOUND',
-        hint: 'New uploads will use Cloudinary for permanent storage'
+        message: 'Resume file not found on server. Please re-upload your resume.',
+        code: 'FILE_NOT_FOUND'
       });
     }
 
@@ -4039,45 +4004,13 @@ router.get('/resumes/:id/view', authenticateToken, async (req, res) => {
         // Send file
         res.sendFile(filePath);
         return;
-      } else {
-        console.log('❌ File not found in local storage, trying Cloudinary...');
-      }
-    }
-
-    // Fallback to Cloudinary if local file not found
-    if (metadata.cloudinaryUrl && metadata.hasCloudinaryFile) {
-      console.log('☁️ Trying Cloudinary as fallback:', metadata.cloudinaryUrl);
-
-      try {
-        // Download file from Cloudinary and serve it
-        const cloudinaryResponse = await axios.get(metadata.cloudinaryUrl, {
-          responseType: 'stream'
-        });
-
-        // Increment view count
-        await resume.update({
-          views: (resume.views || 0) + 1
-        });
-
-        // Set headers for file view
-        res.setHeader('Content-Type', metadata.mimeType || 'application/pdf');
-        res.setHeader('Content-Disposition', 'inline');
-        res.setHeader('Content-Length', cloudinaryResponse.headers['content-length']);
-
-        // Pipe the file to response
-        cloudinaryResponse.data.pipe(res);
-        return;
-      } catch (cloudinaryError) {
-        console.error('❌ Failed to fetch from Cloudinary:', cloudinaryError.message);
-        // Fall through to error
       }
     }
     if (!filename) {
       return res.status(404).json({
         success: false,
         message: 'This resume was created without a file upload. Please upload a resume file to enable viewing.',
-        code: 'NO_FILE_UPLOADED',
-        hint: 'Use the "Upload Resume" option to add a file to this resume'
+        code: 'NO_FILE_UPLOADED'
       });
     }
 
@@ -4085,10 +4018,6 @@ router.get('/resumes/:id/view', authenticateToken, async (req, res) => {
     const filePath = findResumeFile(filename, metadata);
 
     if (!filePath) {
-      if (metadata.cloudinaryUrl) {
-        console.log('☁️ Fallback to Cloudinary URL redirection as last resort');
-        return res.redirect(metadata.cloudinaryUrl);
-      }
       return res.status(404).json({
         success: false,
         message: 'Resume file not found on server. Please re-upload your resume.',
@@ -4955,85 +4884,7 @@ router.get('/employer/applications/:applicationId/resume/download', attachTokenF
 
     console.log('🔍 Resume metadata:', { metadata });
 
-    // Check if file is stored in Cloudinary first (permanent storage)
-    if (metadata.cloudinaryUrl) {
-      console.log('☁️ Resume stored in Cloudinary, serving through proxy:', metadata.cloudinaryUrl);
-
-      // Increment download count
-      const currentDownloads = resume.downloads || 0;
-      await resume.update({
-        downloads: currentDownloads + 1
-      });
-
-      // Check and consume quota for resume download
-      try {
-        const EmployerQuotaService = require('../services/employerQuotaService');
-        await EmployerQuotaService.checkAndConsume(
-          req.user.id,
-          EmployerQuotaService.QUOTA_TYPES.RESUME_VIEWS,
-          {
-            activityType: 'resume_download',
-            details: {
-              resumeId: resume.id,
-              candidateId: application.userId,
-              applicationId: application.id
-            },
-            defaultLimit: 100
-          }
-        );
-      } catch (quotaError) {
-        console.error('Quota check failed for resume download:', quotaError);
-        if (quotaError.code === 'QUOTA_LIMIT_EXCEEDED') {
-          return res.status(429).json({
-            success: false,
-            message: 'Resume download quota exceeded. Please contact your administrator.'
-          });
-        }
-      }
-
-      // Log resume download activity
-      try {
-        const EmployerActivityService = require('../services/employerActivityService');
-        await EmployerActivityService.logResumeDownload(
-          req.user.id,
-          resume.id,
-          application.userId,
-          {
-            ipAddress: req.ip,
-            userAgent: req.get('User-Agent'),
-            applicationId: application.id
-          }
-        );
-      } catch (activityError) {
-        console.error('Failed to log resume download activity:', activityError);
-      }
-
-      // Download file from Cloudinary and serve it (don't redirect - Cloudinary URLs may require auth)
-      try {
-        console.log('☁️ Downloading from Cloudinary and serving:', metadata.cloudinaryUrl);
-
-        // Download file from Cloudinary and serve it
-        const cloudinaryResponse = await axios.get(metadata.cloudinaryUrl, {
-          responseType: 'stream'
-        });
-
-        // Set headers for file download
-        res.setHeader('Content-Type', metadata.mimeType || 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-        if (cloudinaryResponse.headers['content-length']) {
-          res.setHeader('Content-Length', cloudinaryResponse.headers['content-length']);
-        }
-
-        // Pipe the file to response
-        cloudinaryResponse.data.pipe(res);
-        return;
-      } catch (cloudinaryError) {
-        console.error('❌ Failed to fetch from Cloudinary:', cloudinaryError.message);
-        // Fall through to try local file
-      }
-    }
-
-    // Fallback to local file storage (ephemeral on Render)
+    // Get filename from metadata
     const filename = metadata.filename;
 
     if (!filename) {
@@ -5101,12 +4952,11 @@ router.get('/employer/applications/:applicationId/resume/download', attachTokenF
     const filePath = findResumeFile(filename, metadata);
 
     if (!filePath) {
-      console.log('❌ File not found on filesystem - Render ephemeral storage issue');
+      console.log('❌ File not found on filesystem');
       return res.status(404).json({
         success: false,
-        message: 'Resume file not found. Files were lost during server restart (Render free tier limitation). Please ask the candidate to re-upload their resume.',
-        code: 'FILE_NOT_FOUND',
-        hint: 'New uploads will use Cloudinary for permanent storage'
+        message: 'Resume file not found. Please ask the candidate to re-upload their resume.',
+        code: 'FILE_NOT_FOUND'
       });
     }
 
@@ -5165,47 +5015,12 @@ router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), async (
 
     let avatarUrl = null;
 
-    // Try to upload to Cloudinary if configured, otherwise fallback to local storage
-    if (isCloudinaryConfigured()) {
-      try {
-        console.log('☁️ Uploading avatar to Cloudinary...');
-        const uploadResult = await uploadBufferToCloudinary(
-          req.file.buffer,
-          'job-portal/avatars',
-          {
-            public_id: `avatar-${req.user.id}-${Date.now()}`,
-            resource_type: 'image',
-            transformation: [
-              { width: 400, height: 400, crop: 'fill', gravity: 'face' },
-              { quality: 'auto', fetch_format: 'auto' }
-            ]
-          }
-        );
-
-        avatarUrl = uploadResult.url;
-        console.log('✅ Avatar uploaded to Cloudinary:', avatarUrl);
-      } catch (cloudinaryError) {
-        console.error('❌ Cloudinary upload failed, falling back to local storage:', cloudinaryError.message);
-        // Fall through to local storage
-      }
-    }
-
-    // Fallback to local storage if Cloudinary not configured or upload failed
-    if (!avatarUrl) {
-      console.log('💾 Saving avatar to local storage (WARNING: Ephemeral on Render)');
-      const uploadDir = path.join(__dirname, '../uploads/avatars');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const filename = `avatar-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(req.file.originalname)}`;
-      const localPath = path.join(uploadDir, filename);
-
-      // Write buffer to disk
-      fs.writeFileSync(localPath, req.file.buffer);
-      avatarUrl = `/uploads/avatars/${filename}`;
-      console.log('✅ Avatar saved to local storage:', localPath);
-    }
+    // File is already saved to disk by multer with disk storage
+    console.log('💾 Avatar automatically saved by multer to:', req.file.path);
+    const filename = path.basename(req.file.path);
+    const localPath = req.file.path;
+    avatarUrl = `/uploads/avatars/${filename}`;
+    console.log('✅ Avatar saved to local storage:', localPath);
 
     console.log('🔍 Generated avatar URL:', avatarUrl);
 

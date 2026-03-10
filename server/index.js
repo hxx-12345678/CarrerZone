@@ -124,7 +124,7 @@ app.use(helmet({
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
-      imgSrc: ["'self'", "data:", "https:", "http:", "blob:", "https://res.cloudinary.com"],
+      imgSrc: ["'self'", "data:", "https:", "http:", "blob:"],
       scriptSrc: isProduction
         ? ["'self'", "'unsafe-inline'"]
         : ["'self'", "'unsafe-inline'", "'unsafe-eval'"],

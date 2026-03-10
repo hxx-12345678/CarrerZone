@@ -19,8 +19,20 @@ const { CompanyPhoto } = require('../config');
 // Middleware to verify JWT token (must be defined before use)
 
 
-// Use memory storage for Cloudinary uploads
-const companyPhotoStorage = multer.memoryStorage();
+// Use disk storage for local file uploads
+const companyPhotoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/company-photos');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `photo-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
 
 // Define upload middlewares BEFORE routes that use them
 const companyPhotoUpload = multer({
@@ -34,15 +46,50 @@ const companyPhotoUpload = multer({
   }
 });
 
-// Cloudinary upload configuration
-const { uploadBufferToCloudinary, isConfigured } = require('../config/cloudinary');
-
-// Use memory storage (Cloudinary doesn't need disk storage)
-const logoStorage = multer.memoryStorage();
+// Use disk storage for local file uploads
+const logoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/company-logos');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `logo-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
 
 const companyLogoUpload = multer({
   storage: logoStorage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: function (req, file, cb) {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) return cb(null, true);
+    cb(new Error('Only JPG, PNG, GIF, and WebP files are allowed'));
+  }
+});
+
+// Use disk storage for banner uploads
+const bannerStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/company-banners');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `banner-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const companyBannerUpload = multer({
+  storage: bannerStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: function (req, file, cb) {
     const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -65,38 +112,10 @@ router.post('/:id/photos', authenticateToken, checkPermission('settings'), compa
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    // Upload to Cloudinary (persistent cloud storage)
-    let fileUrl, filename, publicId;
-
-    if (isConfigured()) {
-      console.log('☁️ Uploading company photo to Cloudinary...');
-      const cloudinaryResult = await uploadBufferToCloudinary(
-        req.file.buffer,
-        'company-photos',
-        {
-          public_id: `company-${id}-photo-${Date.now()}`,
-          transformation: [
-            { width: 1200, height: 800, crop: 'limit' },
-            { quality: 'auto' },
-            { fetch_format: 'auto' }
-          ]
-        }
-      );
-      fileUrl = cloudinaryResult.url;
-      publicId = cloudinaryResult.publicId;
-      filename = req.file.originalname;
-      console.log('✅ Photo uploaded to Cloudinary:', fileUrl);
-    } else {
-      console.warn('⚠️ Cloudinary not configured, using local storage');
-      filename = `photo-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(req.file.originalname)}`;
-      const localPath = path.join(__dirname, '../uploads/company-photos', filename);
-      const fs = require('fs');
-      if (!fs.existsSync(path.dirname(localPath))) {
-        fs.mkdirSync(path.dirname(localPath), { recursive: true });
-      }
-      fs.writeFileSync(localPath, req.file.buffer);
-      fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/company-photos/${filename}`;
-    }
+    // Save to local storage
+    const filename = path.basename(req.file.path);
+    const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/company-photos/${filename}`;
+    console.log('💾 Photo saved to local storage:', fileUrl);
 
     // If marking as primary, unset others for this company
     if (isPrimary === 'true' || isPrimary === true) {
@@ -108,7 +127,7 @@ router.post('/:id/photos', authenticateToken, checkPermission('settings'), compa
     const photo = await CompanyPhoto.create({
       companyId: id,
       filename,
-      filePath: publicId || `/uploads/company-photos/${filename}`,
+      filePath: `/uploads/company-photos/${filename}`,
       fileUrl,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
@@ -194,36 +213,10 @@ router.post('/:id/logo', authenticateToken, checkPermission('settings'), company
     const company = await Company.findByPk(id);
     if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
 
-    // Upload to Cloudinary (persistent cloud storage)
-    let fileUrl;
-
-    if (isConfigured()) {
-      console.log('☁️ Uploading logo to Cloudinary...');
-      const cloudinaryResult = await uploadBufferToCloudinary(
-        req.file.buffer,
-        'company-logos',
-        {
-          public_id: `company-logo-${id}-${Date.now()}`,
-          transformation: [
-            { width: 400, height: 400, crop: 'limit' },
-            { quality: 'auto' },
-            { fetch_format: 'auto' }
-          ]
-        }
-      );
-      fileUrl = cloudinaryResult.url;
-      console.log('✅ Logo uploaded to Cloudinary:', fileUrl);
-    } else {
-      console.warn('⚠️ Cloudinary not configured, using local storage (files will be lost on restart!)');
-      const filename = `logo-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(req.file.originalname)}`;
-      const localPath = path.join(__dirname, '../uploads/company-logos', filename);
-      const fs = require('fs');
-      if (!fs.existsSync(path.dirname(localPath))) {
-        fs.mkdirSync(path.dirname(localPath), { recursive: true });
-      }
-      fs.writeFileSync(localPath, req.file.buffer);
-      fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/company-logos/${filename}`;
-    }
+    // Save to local storage
+    const filename = path.basename(req.file.path);
+    const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/company-logos/${filename}`;
+    console.log('💾 Logo saved to local storage:', fileUrl);
 
     await company.update({ logo: fileUrl });
 
@@ -235,7 +228,7 @@ router.post('/:id/logo', authenticateToken, checkPermission('settings'), company
 });
 
 // Upload/replace company banner/placeholder image
-router.post('/:id/banner', authenticateToken, checkPermission('settings'), companyLogoUpload.single('banner'), async (req, res) => {
+router.post('/:id/banner', authenticateToken, checkPermission('settings'), companyBannerUpload.single('banner'), async (req, res) => {
   try {
     const { id } = req.params;
     if (!req.file) {
@@ -250,36 +243,10 @@ router.post('/:id/banner', authenticateToken, checkPermission('settings'), compa
     const company = await Company.findByPk(id);
     if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
 
-    // Upload to Cloudinary (persistent cloud storage)
-    let fileUrl;
-
-    if (isConfigured()) {
-      console.log('☁️ Uploading banner to Cloudinary...');
-      const cloudinaryResult = await uploadBufferToCloudinary(
-        req.file.buffer,
-        'company-banners',
-        {
-          public_id: `company-banner-${id}-${Date.now()}`,
-          transformation: [
-            { width: 1200, height: 400, crop: 'limit' },
-            { quality: 'auto' },
-            { fetch_format: 'auto' }
-          ]
-        }
-      );
-      fileUrl = cloudinaryResult.url;
-      console.log('✅ Banner uploaded to Cloudinary:', fileUrl);
-    } else {
-      console.warn('⚠️ Cloudinary not configured, using local storage (files will be lost on restart!)');
-      const filename = `banner-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(req.file.originalname)}`;
-      const localPath = path.join(__dirname, '../uploads/company-banners', filename);
-      const fs = require('fs');
-      if (!fs.existsSync(path.dirname(localPath))) {
-        fs.mkdirSync(path.dirname(localPath), { recursive: true });
-      }
-      fs.writeFileSync(localPath, req.file.buffer);
-      fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/company-banners/${filename}`;
-    }
+    // Save to local storage
+    const filename = path.basename(req.file.path);
+    const fileUrl = `${process.env.BACKEND_URL || 'http://localhost:8000'}/uploads/company-banners/${filename}`;
+    console.log('💾 Banner saved to local storage:', fileUrl);
 
     await company.update({ banner: fileUrl });
 
