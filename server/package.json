@@ -1,5 +1,5 @@
 {
-  "name": "JobPortal",
+  "name": "jobportal",
   "version": "1.0.0",
   "description": "Backend for JobPortal application",
   "main": "index.js",
