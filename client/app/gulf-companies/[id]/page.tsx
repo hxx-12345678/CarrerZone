@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 import {
@@ -306,6 +306,14 @@ function GulfCompanyDetailPage() {
   const safeBenefits = getSafeBenefits()
   const safeJobs = getSafeJobs()
 
+  // If the route param is a slug, we'll resolve the true UUID from loaded company data.
+  // Keep this value stable to avoid effect/callback dependency loops.
+  const resolvedCompanyId = useMemo(() => {
+    if (isValidUuid) return companyId
+    const id = (company as any)?.id
+    return typeof id === 'string' && id ? id : ''
+  }, [companyId, isValidUuid, (company as any)?.id])
+
   const formatHeadquarters = useCallback(() => {
     const parts = [
       toDisplayText((company as any)?.city),
@@ -336,7 +344,6 @@ function GulfCompanyDetailPage() {
   // Initialize follow state from localStorage
   // Fetch follow status from API
   const fetchFollowStatus = useCallback(async () => {
-    const resolvedCompanyId = (isValidUuid ? companyId : (company as any)?.id) as string | undefined
     if (!isAuthenticated || !resolvedCompanyId) return
 
     try {
@@ -347,7 +354,7 @@ function GulfCompanyDetailPage() {
     } catch (error) {
       console.error('Error fetching follow status:', error)
     }
-  }, [companyId, isAuthenticated, isValidUuid, company])
+  }, [isAuthenticated, resolvedCompanyId])
 
   // Check follow status from localStorage on mount (fallback)
   useEffect(() => {
@@ -365,7 +372,6 @@ function GulfCompanyDetailPage() {
       return
     }
 
-    const resolvedCompanyId = (isValidUuid ? companyId : (company as any)?.id) as string | undefined
     if (!resolvedCompanyId) return
 
     try {
@@ -394,7 +400,7 @@ function GulfCompanyDetailPage() {
       console.error('❌ Error toggling follow:', error)
       toast.error('Failed to update follow status')
     }
-  }, [companyId, isFollowing, isAuthenticated, isValidUuid, company])
+  }, [resolvedCompanyId, isFollowing, isAuthenticated])
 
   // Rating functions
   const fetchUserRating = useCallback(async () => {
@@ -677,16 +683,25 @@ function GulfCompanyDetailPage() {
     }
   }, [filters, fetchCompanyJobs, activeTab])
 
+  // Core company data: only re-run when the route param changes
   useEffect(() => {
-    if (companyId) {
-      fetchCompanyData()
-      fetchCompanyJobs()
-      fetchCompanyPhotos()
-      fetchAppliedJobs()
-      fetchFollowStatus()
-      fetchUserRating()
-    }
-  }, [companyId, fetchCompanyData, fetchCompanyJobs, fetchCompanyPhotos, fetchAppliedJobs, fetchFollowStatus, fetchUserRating])
+    if (!companyId) return
+    fetchCompanyData()
+    fetchCompanyJobs()
+    fetchCompanyPhotos()
+  }, [companyId, fetchCompanyData, fetchCompanyJobs, fetchCompanyPhotos])
+
+  // Auth-dependent extras: don't cause full refetch loop when company state updates
+  useEffect(() => {
+    if (!companyId) return
+    fetchAppliedJobs()
+  }, [companyId, fetchAppliedJobs])
+
+  useEffect(() => {
+    if (!resolvedCompanyId) return
+    fetchFollowStatus()
+    fetchUserRating()
+  }, [resolvedCompanyId, fetchFollowStatus, fetchUserRating])
 
   // Load watch status for expired jobs when jobs or auth changes
   useEffect(() => {
