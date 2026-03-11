@@ -43,12 +43,12 @@ const CompanyReview = sequelize.define('CompanyReview', {
     allowNull: false
   },
   pros: {
-    type: DataTypes.TEXT,
-    allowNull: true
+    type: DataTypes.JSONB,
+    defaultValue: []
   },
   cons: {
-    type: DataTypes.TEXT,
-    allowNull: true
+    type: DataTypes.JSONB,
+    defaultValue: []
   },
   jobTitle: {
     type: DataTypes.STRING(100),
