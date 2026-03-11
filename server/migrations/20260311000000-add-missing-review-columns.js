@@ -102,6 +102,16 @@ module.exports = {
         console.log('  ✅ Changed employment_duration type to STRING(50)');
       }
 
+      // 10. Fix title column - allow NULL
+      console.log('  🔄 Fixing title column (allow NULL)...');
+      if (tableDesc.title && !tableDesc.title.allowNull) {
+        await queryInterface.changeColumn(table, 'title', {
+          type: Sequelize.STRING(255),
+          allowNull: true
+        });
+        console.log('  ✅ Changed title column to allow NULL');
+      }
+
       console.log('🎉 Successfully fixed company_reviews table!');
     } catch (error) {
       console.error('❌ Error fixing company_reviews table:', error);

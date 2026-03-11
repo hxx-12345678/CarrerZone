@@ -98,6 +98,20 @@ const CompanyReview = sequelize.define('CompanyReview', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  moderatedBy: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    field: 'moderated_by',
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  moderatedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'moderated_at'
+  },
   companyResponse: {
     type: DataTypes.TEXT,
     allowNull: true
