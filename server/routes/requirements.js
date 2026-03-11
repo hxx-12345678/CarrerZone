@@ -5068,7 +5068,7 @@ router.post('/:requirementId/candidates/:candidateId/contact', authenticateToken
     await conversation.update({
       lastMessageId: newMessage.id,
       lastMessageAt: new Date(),
-      unreadCount: sequelize.literal('unread_count + 1')
+      unreadCount: sequelize.literal('"unread_count" + 1')
     });
 
     console.log(`✅ Message sent to candidate ${candidateId} by employer ${req.user.id} for requirement ${requirementId}`);

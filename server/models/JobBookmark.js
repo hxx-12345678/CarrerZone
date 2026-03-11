@@ -72,7 +72,7 @@ const JobBookmark = sequelize.define('JobBookmark', {
         // Update dashboard stats
         const DashboardService = require('../services/dashboardService');
         await DashboardService.updateDashboardStats(bookmark.userId, {
-          totalBookmarks: sequelize.literal('totalBookmarks + 1'),
+          totalBookmarks: sequelize.literal('"totalBookmarks" + 1'),
           lastBookmarkDate: new Date()
         });
         
@@ -98,7 +98,7 @@ const JobBookmark = sequelize.define('JobBookmark', {
         // Update dashboard stats
         const DashboardService = require('../services/dashboardService');
         await DashboardService.updateDashboardStats(bookmark.userId, {
-          totalBookmarks: sequelize.literal('totalBookmarks - 1')
+          totalBookmarks: sequelize.literal('"totalBookmarks" - 1')
         });
         
         // Record activity

@@ -1227,7 +1227,7 @@ function CompanyDetailPage() {
                     <Button
                       className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full"
                       onClick={() => {
-                        if (!isAuthenticated) {
+                        if (!user) {
                           setShowAuthDialog(true)
                           return
                         }
@@ -1417,11 +1417,14 @@ function CompanyDetailPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <Button
-                            className={`w-full bg-gradient-to-r ${sectorColors.bg} hover:shadow-lg transition-all duration-300`}
-                          >
-                            Register now
-                          </Button>
+                          {!user ? (
+                            <Button
+                              className={`w-full bg-gradient-to-r ${sectorColors.bg} hover:shadow-lg transition-all duration-300`}
+                              onClick={() => router.push('/register')}
+                            >
+                              Register now
+                            </Button>
+                          ) : null}
                         </CardContent>
                       </Card>
 

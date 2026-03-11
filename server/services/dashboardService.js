@@ -155,7 +155,7 @@ class DashboardService {
       // Update dashboard search stats (best-effort)
       try {
         await this.updateDashboardStats(userId, {
-          totalSearches: sequelize.literal('totalSearches + 1'),
+          totalSearches: sequelize.literal('"totalSearches" + 1'),
           lastSearchDate: new Date()
         });
       } catch (statsErr) {
@@ -221,7 +221,7 @@ class DashboardService {
 
       // Update dashboard saved searches count
       await this.updateDashboardStats(userId, {
-        savedSearches: sequelize.literal('savedSearches + 1')
+        savedSearches: sequelize.literal('"savedSearches" + 1')
       });
 
       return searchHistory;
