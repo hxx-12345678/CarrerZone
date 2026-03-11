@@ -413,6 +413,37 @@ Company.prototype.getAverageRating = function() {
   return this.totalReviews > 0 ? this.rating : 0;
 };
 
+Company.prototype.updateAverageRating = async function() {
+  try {
+    const CompanyReview = this.sequelize.models.CompanyReview;
+    const result = await CompanyReview.findOne({
+      where: {
+        companyId: this.id,
+        status: 'approved'
+      },
+      attributes: [
+        [this.sequelize.fn('AVG', this.sequelize.col('rating')), 'avgRating'],
+        [this.sequelize.fn('COUNT', this.sequelize.col('id')), 'totalReviews']
+      ],
+      raw: true
+    });
+
+    const avgRating = parseFloat(result.avgRating) || 0;
+    const totalReviews = parseInt(result.totalReviews) || 0;
+
+    await this.update({
+      rating: avgRating,
+      totalReviews: totalReviews
+    });
+
+    console.log(`✅ Updated average rating for company ${this.name}: ${avgRating} (${totalReviews} reviews)`);
+    return { avgRating, totalReviews };
+  } catch (error) {
+    console.error(`❌ Error updating average rating for company ${this.id}:`, error);
+    return null;
+  }
+};
+
 Company.prototype.getCompanySizeRange = function() {
   const sizeMap = {
     '1-50': '1-50 employees',

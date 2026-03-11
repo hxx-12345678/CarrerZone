@@ -151,18 +151,30 @@ const CompanyReview = sequelize.define('CompanyReview', {
   hooks: {
     afterCreate: async (review) => {
       // Update company average rating
-      const { Company } = require('../config/index');
-      const company = await Company.findByPk(review.companyId);
-      if (company) {
-        await company.updateAverageRating();
+      try {
+        const Company = review.sequelize.models.Company;
+        const company = await Company.findByPk(review.companyId);
+        if (company && typeof company.updateAverageRating === 'function') {
+          await company.updateAverageRating();
+        } else {
+          console.warn(`⚠️ updateAverageRating not found on company ${review.companyId}`);
+        }
+      } catch (err) {
+        console.error('❌ Error in CompanyReview afterCreate hook:', err);
       }
     },
     afterUpdate: async (review) => {
       if (review.changed('rating') || review.changed('status')) {
-        const { Company } = require('../config/index');
-        const company = await Company.findByPk(review.companyId);
-        if (company) {
-          await company.updateAverageRating();
+        try {
+          const Company = review.sequelize.models.Company;
+          const company = await Company.findByPk(review.companyId);
+          if (company && typeof company.updateAverageRating === 'function') {
+            await company.updateAverageRating();
+          } else {
+            console.warn(`⚠️ updateAverageRating not found on company ${review.companyId}`);
+          }
+        } catch (err) {
+          console.error('❌ Error in CompanyReview afterUpdate hook:', err);
         }
       }
     }
