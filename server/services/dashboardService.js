@@ -176,7 +176,11 @@ class DashboardService {
     try {
       // Check if the table exists first
       const tableExists = await sequelize.getQueryInterface().showAllTables();
-      const searchHistoryTableExists = tableExists.some(table => table === 'search_history');
+      // Support schema-qualified names too (e.g., public.search_history)
+      const searchHistoryTableExists = tableExists.some(t => {
+        const name = String(t);
+        return name === 'search_history' || name.endsWith('.search_history');
+      });
       
       if (!searchHistoryTableExists) {
         console.log('Search history table does not exist, returning empty array');
@@ -185,7 +189,8 @@ class DashboardService {
 
       const searchHistory = await SearchHistory.findAll({
         where: { userId },
-        order: [['created_at', 'DESC']],
+        // Model/migration use timestamps with createdAt/updatedAt (not created_at)
+        order: [['createdAt', 'DESC']],
         limit
       });
 
