@@ -646,10 +646,31 @@ router.get('/:id', async (req, res) => {
       'Expires': '0'
     });
 
+    // Track company profile view (best-effort; should not break the endpoint)
+    try {
+      const Analytics = require('../models/Analytics');
+      await Analytics.create({
+        userId: user?.id || null,
+        eventType: 'company_view',
+        eventCategory: 'company_interaction',
+        pageUrl: req.originalUrl || null,
+        referrerUrl: req.get('referer') || null,
+        userAgent: req.get('user-agent') || null,
+        ipAddress: req.ip || null,
+        companyId: company.id,
+        metadata: {
+          companyId: company.id,
+          companySlug: company.slug || null
+        }
+      });
+    } catch (e) {
+      console.warn('Could not record company_view analytics:', e?.message);
+    }
+
     // Get additional company data
     let companyPhotos = [];
     let companyStats = {
-      profileViews: Math.floor(Math.random() * 50) + 1,
+      profileViews: 0,
       totalApplications: 0,
       averageRating: 0,
       totalReviews: 0
@@ -663,6 +684,17 @@ router.get('/:id', async (req, res) => {
         order: [['display_order', 'ASC'], ['created_at', 'ASC']],
         limit: 10
       });
+
+      // Company profile views (persistent, from analytics events)
+      try {
+        const Analytics = require('../models/Analytics');
+        companyStats.profileViews = await Analytics.count({
+          where: { companyId: id, eventType: 'company_view' }
+        });
+      } catch (viewErr) {
+        console.warn('Could not compute company profile views:', viewErr?.message);
+        companyStats.profileViews = 0;
+      }
 
       // Get company statistics
       const JobApplication = require('../models/JobApplication');

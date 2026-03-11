@@ -306,6 +306,27 @@ function CompanyDetailPage() {
   const safeBenefits = getSafeBenefits()
   const safeJobs = getSafeJobs()
 
+  const formatHeadquarters = useCallback(() => {
+    // Prefer structured fields when present; fall back to backend-computed headquarters string.
+    const parts = [
+      toDisplayText((company as any)?.city),
+      toDisplayText((company as any)?.state),
+      toDisplayText((company as any)?.country),
+    ].filter(Boolean) as string[];
+
+    const fromParts = parts.join(", ").replace(/^,\s*|,\s*$/g, "").replace(/,\s*,/g, ",");
+    if (fromParts) return fromParts;
+
+    const hq = toDisplayText((company as any)?.headquarters);
+    if (!hq) return "";
+    // Normalize multiple commas/spaces just in case.
+    return hq
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join(", ");
+  }, [company]);
+
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -317,17 +338,18 @@ function CompanyDetailPage() {
   // Initialize follow state from localStorage
   // Fetch follow status from API
   const fetchFollowStatus = useCallback(async () => {
-    if (!isAuthenticated || !companyId) return
+    const resolvedCompanyId = (isValidUuid ? companyId : (company as any)?.id) as string | undefined
+    if (!isAuthenticated || !resolvedCompanyId) return
 
     try {
-      const response = await apiService.getCompanyFollowStatus(companyId)
+      const response = await apiService.getCompanyFollowStatus(resolvedCompanyId)
       if (response.success && response.data) {
         setIsFollowing(response.data.isFollowing)
       }
     } catch (error) {
       console.error('Error fetching follow status:', error)
     }
-  }, [companyId, isAuthenticated])
+  }, [companyId, isAuthenticated, isValidUuid, company])
 
   // Check follow status from localStorage on mount (fallback)
   useEffect(() => {
@@ -345,26 +367,27 @@ function CompanyDetailPage() {
       return
     }
 
-    if (!companyId) return
+    const resolvedCompanyId = (isValidUuid ? companyId : (company as any)?.id) as string | undefined
+    if (!resolvedCompanyId) return
 
     try {
       if (isFollowing) {
         // UNFOLLOW
-        const response = await apiService.unfollowCompany(companyId)
+        const response = await apiService.unfollowCompany(resolvedCompanyId)
         if (response.success) {
           setIsFollowing(false)
           toast.success('Unfollowed company')
-          console.log('✅ Unfollowed company:', companyId)
+          console.log('✅ Unfollowed company:', resolvedCompanyId)
         } else {
           toast.error('Failed to unfollow company')
         }
       } else {
         // FOLLOW
-        const response = await apiService.followCompany(companyId)
+        const response = await apiService.followCompany(resolvedCompanyId)
         if (response.success) {
           setIsFollowing(true)
           toast.success('Following company')
-          console.log('✅ Followed company:', companyId)
+          console.log('✅ Followed company:', resolvedCompanyId)
         } else {
           toast.error('Failed to follow company')
         }
@@ -373,7 +396,7 @@ function CompanyDetailPage() {
       console.error('❌ Error toggling follow:', error)
       toast.error('Failed to update follow status')
     }
-  }, [companyId, isFollowing, isAuthenticated])
+  }, [companyId, isFollowing, isAuthenticated, isValidUuid, company])
 
   // Rating functions
   const fetchUserRating = useCallback(async () => {
@@ -1319,7 +1342,7 @@ function CompanyDetailPage() {
                               <Building2 className="w-5 h-5 mr-3 text-slate-400" />
                               <div>
                                 <div className="font-medium">Headquarters</div>
-                                <div className="text-slate-600 dark:text-slate-400">{toDisplayText(company.headquarters) || 'Not provided'}</div>
+                                <div className="text-slate-600 dark:text-slate-400">{formatHeadquarters() || 'Not provided'}</div>
                               </div>
                             </div>
                             <div className="flex items-center">
@@ -1424,7 +1447,7 @@ function CompanyDetailPage() {
                           </div>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-slate-600 dark:text-slate-400">Headquarters</span>
-                            <span className="font-medium">{toDisplayText(company.headquarters) || 'Not provided'}</span>
+                            <span className="font-medium">{formatHeadquarters() || 'Not provided'}</span>
                           </div>
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-slate-600 dark:text-slate-400">Total Jobs</span>
