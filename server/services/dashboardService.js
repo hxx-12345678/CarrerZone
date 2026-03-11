@@ -311,6 +311,18 @@ class DashboardService {
         recentSearches = [];
       }
 
+      // Ensure search stats are accurate even if UserDashboard cache is stale
+      // (UI uses stats.totalSearches; detail view uses SearchHistory rows directly)
+      let actualTotalSearches = null;
+      let actualSavedSearches = null;
+      try {
+        actualTotalSearches = await SearchHistory.count({ where: { userId } });
+        actualSavedSearches = await SearchHistory.count({ where: { userId, isSaved: true } });
+      } catch (e) {
+        // Non-fatal: keep dashboard cached values if counting fails
+        console.warn('Could not compute actual search counts:', e?.message);
+      }
+
       // Get job alerts with error handling
       let jobAlerts = [];
       try {
@@ -419,8 +431,9 @@ class DashboardService {
           totalApplications: dashboard.totalApplications || 0,
           applicationsUnderReview: dashboard.applicationsUnderReview || 0,
           totalBookmarks: dashboard.totalBookmarks || 0,
-          totalSearches: dashboard.totalSearches || 0,
-          savedSearches: dashboard.savedSearches || 0,
+          // Prefer actual counts if available; otherwise fall back to cached dashboard values
+          totalSearches: (typeof actualTotalSearches === 'number') ? actualTotalSearches : (dashboard.totalSearches || 0),
+          savedSearches: (typeof actualSavedSearches === 'number') ? actualSavedSearches : (dashboard.savedSearches || 0),
           totalResumes: dashboard.totalResumes || 0,
           hasDefaultResume: dashboard.hasDefaultResume || false,
           totalJobAlerts: dashboard.totalJobAlerts || 0,
