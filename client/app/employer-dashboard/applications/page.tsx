@@ -68,6 +68,8 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
 
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [timeFilter, setTimeFilter] = useState("newest") // newest, oldest
+  const [jobFilter, setJobFilter] = useState("all") // all or specific job ID
   const [selectedApplication, setSelectedApplication] = useState<any>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isInterviewDialogOpen, setIsInterviewDialogOpen] = useState(false)
@@ -259,7 +261,9 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
 
       const matchesStatus = statusFilter === "all" || app.status === statusFilter
 
-      return matchesSearch && matchesStatus
+      const matchesJob = jobFilter === "all" || app.jobId === jobFilter || app.job?.id === jobFilter
+
+      return matchesSearch && matchesStatus && matchesJob
     })
     .sort((a, b) => {
       // Sort premium users first
@@ -278,8 +282,16 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
       if (aIsPremium && !bIsPremium) return -1
       if (!aIsPremium && bIsPremium) return 1
 
-      // Within same premium status, sort by application date (newest first)
-      return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+      // Within same premium status, apply time sorting
+      const dateA = new Date(a.appliedAt).getTime()
+      const dateB = new Date(b.appliedAt).getTime()
+      
+      if (timeFilter === "oldest") {
+        return dateA - dateB
+      } else {
+        // newest (default)
+        return dateB - dateA
+      }
     })
 
   const handleViewDetails = async (application: any) => {
@@ -485,6 +497,32 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                   <SelectItem value="hired">Hired</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                   <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={timeFilter} onValueChange={setTimeFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Sort by time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={jobFilter} onValueChange={setJobFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by job" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Jobs</SelectItem>
+                  {Array.from(new Set(applications.map(app => app.jobId)))
+                    .map((jobId: any) => {
+                      const app = applications.find(a => a.jobId === jobId)
+                      return (
+                        <SelectItem key={jobId} value={jobId}>
+                          {app?.job?.title || 'Unknown Job'}
+                        </SelectItem>
+                      )
+                    })}
                 </SelectContent>
               </Select>
             </div>

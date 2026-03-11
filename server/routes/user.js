@@ -1772,7 +1772,7 @@ router.post('/applications', authenticateToken, async (req, res) => {
           employer.email,
           `${employer.firstName} ${employer.lastName}`,
           job.title,
-          `${applicant.firstName} ${applicant.lastName}`,
+          `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'Candidate',
           applicant.email
         );
         console.log('✅ Application notification sent to employer:', employer.email);
@@ -1789,11 +1789,13 @@ router.post('/applications', authenticateToken, async (req, res) => {
       const applicant = await User.findByPk(req.user.id);
 
       if (employer && applicant) {
+        const applicantName = `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'Candidate';
+
         await Notification.create({
           userId: employer.id,
           type: 'job_application',
           title: `🎯 New Job Application Received!`,
-          message: `${applicant.firstName} ${applicant.lastName} has applied for "${job.title}" position.`,
+          message: `${applicantName} has applied for "${job.title}" position.`,
           shortMessage: `New application for ${job.title}`,
           priority: 'high',
           actionUrl: `/employer-dashboard/applications?jobId=${job.id}`,
@@ -1803,7 +1805,7 @@ router.post('/applications', authenticateToken, async (req, res) => {
             applicationId: application.id,
             jobId: job.id,
             applicantId: applicant.id,
-            applicantName: `${applicant.firstName} ${applicant.lastName}`,
+            applicantName: applicantName,
             jobTitle: job.title,
             companyId: job.companyId
           }
@@ -2581,13 +2583,14 @@ router.put('/employer/applications/:id/status', authenticateToken, checkPermissi
         };
 
         const statusMessage = statusMessages[status] || `Application status changed to ${status}`;
+        const applicantName = `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'Candidate';
 
         await Notification.create({
           userId: req.user.id,
           type: 'application_status',
           title: `📋 Application Status Updated`,
-          message: `${statusMessage} for ${applicant.firstName} ${applicant.lastName}'s application to "${job.title}".`,
-          shortMessage: `Status: ${status} - ${applicant.firstName} ${applicant.lastName}`,
+          message: `${statusMessage} for ${applicantName}'s application to "${job.title}".`,
+          shortMessage: `Status: ${status} - ${applicantName}`,
           priority: 'medium',
           actionUrl: `/employer-dashboard/applications/${application.id}`,
           actionText: 'View Application',
@@ -2596,7 +2599,7 @@ router.put('/employer/applications/:id/status', authenticateToken, checkPermissi
             applicationId: application.id,
             jobId: application.jobId,
             applicantId: application.userId,
-            applicantName: `${applicant.firstName} ${applicant.lastName}`,
+            applicantName: applicantName,
             jobTitle: job.title,
             oldStatus: oldStatus,
             newStatus: status,
