@@ -19,7 +19,8 @@ import {
   Search,
   Heart,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Star
 } from 'lucide-react'
 import { Navbar } from '@/components/navbar'
 import { toast } from 'sonner'
@@ -39,6 +40,8 @@ interface FollowedCompany {
     location?: string
     size?: string
     description?: string
+    rating?: number
+    reviews?: number
   }
 }
 
@@ -231,6 +234,13 @@ export default function FollowedCompaniesPage() {
                             <p className="text-sm text-slate-600 dark:text-slate-400">
                               {follow.company.industry || 'Company'}
                             </p>
+                            <div className="flex items-center mt-1">
+                              <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 ml-1">
+                                {Number(follow.company.rating || 0).toFixed(1)}
+                                {follow.company.reviews ? ` (${follow.company.reviews})` : ''}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <Badge variant="secondary" className="flex items-center gap-1">

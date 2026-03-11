@@ -4185,7 +4185,7 @@ export default function CompaniesPage() {
                                     <div className="flex items-center ml-2">
                                       <Star className="w-4 h-4 text-yellow-500 fill-current" />
                                       <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
-                                        {company.rating || 0}
+                                        {Number(company.rating || 0).toFixed(1)}
                                         {company.reviews > 0 && <span className="ml-1 text-xs opacity-70">({company.reviews})</span>}
                                       </span>
                                     </div>

@@ -327,7 +327,9 @@ router.get('/', async (req, res) => {
         founded: company.foundedYear, // Map foundedYear to founded for compatibility
         // Actual values from database
         rating: company.rating || 0,
+        averageRating: company.rating || 0, // Alias for compatibility
         reviews: company.totalReviews || 0,
+        totalReviews: company.totalReviews || 0, // Alias for compatibility
         openings: activeJobsCount,
         benefits: company.benefits || [],
         workCulture: company.culture || '',
@@ -578,19 +580,28 @@ router.get('/followed', authenticateToken, async (req, res) => {
       include: [{
         model: Company,
         as: 'company',
-        attributes: ['id', 'name', 'slug', 'industries', 'logo']
+        attributes: ['id', 'name', 'slug', 'industries', 'logo', 'rating', 'totalReviews', 'city', 'state', 'country', 'companySize', 'description']
       }],
       order: [['followedAt', 'DESC']]
     });
 
     return res.json({
       success: true,
-      data: followedCompanies.map(follow => ({
-        id: follow.id,
-        companyId: follow.companyId,
-        followedAt: follow.followedAt,
-        company: follow.company
-      }))
+      data: followedCompanies.map(follow => {
+        const company = follow.company ? follow.company.toJSON() : null;
+        if (company) {
+          company.location = `${company.city || ''}, ${company.state || ''}, ${company.country || ''}`.replace(/^,\s*|,\s*$/g, '');
+          company.size = company.companySize;
+          company.industry = company.industries && company.industries.length > 0 ? company.industries[0] : 'Company';
+          company.reviews = company.totalReviews;
+        }
+        return {
+          id: follow.id,
+          companyId: follow.companyId,
+          followedAt: follow.followedAt,
+          company
+        };
+      })
     });
 
   } catch (error) {
@@ -603,22 +614,24 @@ router.get('/followed', authenticateToken, async (req, res) => {
 });
 
 // Get company information by ID (public access for job seekers, protected for employers)
-router.get('/:id', async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     // Try to authenticate if token is provided
     let user = null;
     try {
-      const authHeader = req.headers['authorization'];
-      const token = authHeader && authHeader.split(' ')[1];
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
       if (token && process.env.JWT_SECRET) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         user = await User.findByPk(decoded.id);
       }
     } catch (authError) {
       // Continue without authentication for public access
-      console.log('No valid token provided, allowing public access to company info');
+      console.log(
+        "No valid token provided, allowing public access to company info",
+      );
     }
 
     // Allow public access to company details for job seekers
@@ -628,8 +641,11 @@ router.get('/:id', async (req, res) => {
 
     // Resolve company ID - could be UUID or slug
     let company;
-    const isValidUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(id);
-    
+    const isValidUuid =
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(
+        id,
+      );
+
     if (isValidUuid) {
       company = await Company.findByPk(id);
     } else {
@@ -640,23 +656,29 @@ router.get('/:id', async (req, res) => {
     if (!company) {
       return res.status(404).json({
         success: false,
-        message: 'Company not found'
+        message: "Company not found",
       });
     }
 
     // Compute active jobs count
     let activeJobsCount = 0;
     try {
-      activeJobsCount = await Job.count({ where: { companyId: id, status: 'active' } });
+      activeJobsCount = await Job.count({
+        where: { companyId: id, status: "active" },
+      });
     } catch (e) {
-      console.warn('Could not compute activeJobsCount for company', id, e?.message);
+      console.warn(
+        "Could not compute activeJobsCount for company",
+        id,
+        e?.message,
+      );
     }
 
     // Set cache control headers to prevent 304 responses
     res.set({
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
     });
 
     // Get additional company data
@@ -665,29 +687,34 @@ router.get('/:id', async (req, res) => {
       profileViews: Math.floor(Math.random() * 50) + 1,
       totalApplications: 0,
       averageRating: company.rating || 0,
-      totalReviews: company.totalReviews || 0
+      totalReviews: company.totalReviews || 0,
     };
 
     try {
       companyPhotos = await CompanyPhoto.findAll({
         where: { companyId: id, isActive: true },
-        order: [['display_order', 'ASC'], ['created_at', 'ASC']],
-        limit: 10
+        order: [
+          ["display_order", "ASC"],
+          ["created_at", "ASC"],
+        ],
+        limit: 10,
       });
 
       // Get company statistics
       const totalApplications = await JobApplication.count({
-        include: [{
-          model: Job,
-          as: 'job', // CRITICAL: Must specify alias as defined in JobApplication.associate
-          where: { companyId: id },
-          attributes: []
-        }]
+        include: [
+          {
+            model: Job,
+            as: "job", // CRITICAL: Must specify alias as defined in JobApplication.associate
+            where: { companyId: id },
+            attributes: [],
+          },
+        ],
       });
 
       companyStats.totalApplications = totalApplications;
     } catch (e) {
-      console.warn('Could not fetch additional company data:', e?.message);
+      console.warn("Could not fetch additional company data:", e?.message);
     }
 
     // Build comprehensive company data
@@ -709,7 +736,11 @@ router.get('/:id', async (req, res) => {
       logo: company.logo,
       banner: company.banner,
       founded: company.foundedYear, // Map foundedYear to founded for compatibility
-      headquarters: `${company.city || ''}, ${company.state || ''}, ${company.country || ''}`.replace(/^,\s*|,\s*$/g, ''),
+      headquarters:
+        `${company.city || ""}, ${company.state || ""}, ${company.country || ""}`.replace(
+          /^,\s*|,\s*$/g,
+          "",
+        ),
       revenue: company.revenue,
       companyType: company.companyType,
       employees: company.companySize,
@@ -725,50 +756,59 @@ router.get('/:id', async (req, res) => {
       natureOfBusiness: company.natureOfBusiness || [],
       companyTypes: company.companyTypes || [],
       // Additional computed fields
-      location: `${company.city || ''}, ${company.state || ''}, ${company.country || ''}`.replace(/^,\s*|,\s*$/g, ''),
-      sector: company.industries && company.industries.length > 0 ? company.industries[0] : 'Other', // Map first industry to sector for compatibility
+      location:
+        `${company.city || ""}, ${company.state || ""}, ${company.country || ""}`.replace(
+          /^,\s*|,\s*$/g,
+          "",
+        ),
+      sector:
+        company.industries && company.industries.length > 0
+          ? company.industries[0]
+          : "Other", // Map first industry to sector for compatibility
       benefits: company.benefits || [],
-      workCulture: company.culture || '',
+      workCulture: company.culture || "",
       featured: company.isFeatured || false,
       isVerified: company.isVerified || false,
       region: company.region || null, // Include region field
       createdAt: company.created_at,
-      updatedAt: company.updatedAt
+      updatedAt: company.updatedAt,
     };
 
     res.json({
       success: true,
-      data: companyData
+      data: companyData,
     });
-
   } catch (error) {
-    console.error('Get company error:', error);
+    console.error("Get company error:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 });
 
 // Get company jobs (public access)
-router.get('/:id/jobs', async (req, res) => {
+router.get("/:id/jobs", async (req, res) => {
   try {
     const { id } = req.params;
     const { department, location, experience, salary, region } = req.query;
-    const Job = require('../models/Job');
-    const { Op } = require('sequelize');
+    const Job = require("../models/Job");
+    const { Op } = require("sequelize");
 
     // Resolve company ID - could be UUID or slug
     let companyId = id;
-    const isValidUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(id);
-    
+    const isValidUuid =
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(
+        id,
+      );
+
     if (!isValidUuid) {
       // Try to find company by slug
       const company = await Company.findOne({ where: { slug: id } });
       if (!company) {
         return res.status(404).json({
           success: false,
-          message: 'Company not found'
+          message: "Company not found",
         });
       }
       companyId = company.id;
@@ -779,10 +819,10 @@ router.get('/:id/jobs', async (req, res) => {
     const now = new Date();
     const where = {
       companyId: companyId,
-      status: 'active',
+      status: "active",
       [Op.and]: [
-        { [Op.or]: [{ validTill: null }, { validTill: { [Op.gte]: now } }] }
-      ]
+        { [Op.or]: [{ validTill: null }, { validTill: { [Op.gte]: now } }] },
+      ],
     };
 
     // Add region filter if provided
@@ -791,30 +831,30 @@ router.get('/:id/jobs', async (req, res) => {
     }
 
     // Add department filter
-    if (department && department !== 'all') {
+    if (department && department !== "all") {
       where[Op.or] = [
         { department: { [Op.iLike]: `%${department}%` } },
-        { category: { [Op.iLike]: `%${department}%` } }
+        { category: { [Op.iLike]: `%${department}%` } },
       ];
     }
 
     // Add location filter
-    if (location && location !== 'all') {
+    if (location && location !== "all") {
       where[Op.or] = [
         ...(where[Op.or] || []),
         { location: { [Op.iLike]: `%${location}%` } },
         { city: { [Op.iLike]: `%${location}%` } },
         { state: { [Op.iLike]: `%${location}%` } },
-        { country: { [Op.iLike]: `%${location}%` } }
+        { country: { [Op.iLike]: `%${location}%` } },
       ];
     }
 
     // Add experience filter
-    if (experience && experience !== 'all') {
+    if (experience && experience !== "all") {
       const experienceMap = {
-        'entry': { experienceMin: { [Op.lte]: 1 } },
-        'mid': { experienceMin: { [Op.gte]: 2, [Op.lte]: 5 } },
-        'senior': { experienceMin: { [Op.gte]: 6 } }
+        entry: { experienceMin: { [Op.lte]: 1 } },
+        mid: { experienceMin: { [Op.gte]: 2, [Op.lte]: 5 } },
+        senior: { experienceMin: { [Op.gte]: 6 } },
       };
 
       if (experienceMap[experience]) {
@@ -823,11 +863,11 @@ router.get('/:id/jobs', async (req, res) => {
     }
 
     // Add salary filter
-    if (salary && salary !== 'all') {
+    if (salary && salary !== "all") {
       const salaryMap = {
-        'low': { salaryMin: { [Op.lte]: 500000 } },
-        'medium': { salaryMin: { [Op.gte]: 500001, [Op.lte]: 1500000 } },
-        'high': { salaryMin: { [Op.gte]: 1500001 } }
+        low: { salaryMin: { [Op.lte]: 500000 } },
+        medium: { salaryMin: { [Op.gte]: 500001, [Op.lte]: 1500000 } },
+        high: { salaryMin: { [Op.gte]: 1500001 } },
       };
 
       if (salaryMap[salary]) {
@@ -837,140 +877,187 @@ router.get('/:id/jobs', async (req, res) => {
 
     const jobs = await Job.findAll({
       where,
-      order: [['created_at', 'DESC']],
+      order: [["created_at", "DESC"]],
       attributes: [
-        'id', 'title', 'location', 'jobType', 'experienceLevel',
-        'salaryMin', 'salaryMax', 'description', 'requirements',
-        'created_at', 'isUrgent', 'department', 'category', 'city',
-        'state', 'country', 'salary', 'skills', 'applications',
-        'updated_at', 'status', 'remoteWork', 'experienceMin', 'experienceMax', 'validTill', 'region'
-      ]
+        "id",
+        "title",
+        "location",
+        "jobType",
+        "experienceLevel",
+        "salaryMin",
+        "salaryMax",
+        "description",
+        "requirements",
+        "created_at",
+        "isUrgent",
+        "department",
+        "category",
+        "city",
+        "state",
+        "country",
+        "salary",
+        "skills",
+        "applications",
+        "updated_at",
+        "status",
+        "remoteWork",
+        "experienceMin",
+        "experienceMax",
+        "validTill",
+        "region",
+      ],
     });
 
     // Set cache control headers to prevent 304 responses
     res.set({
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
     });
 
     res.json({
       success: true,
-      data: jobs
+      data: jobs,
     });
-
   } catch (error) {
-    console.error('Get company jobs error:', error);
+    console.error("Get company jobs error:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 });
 
 // Update company information
-router.put('/:id', authenticateToken, checkPermission('settings'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name, industries, companySize, website, description, address, city, state, country,
-      whyJoinUs, natureOfBusiness, companyTypes, phone, email, about, region
-    } = req.body;
+router.put(
+  "/:id",
+  authenticateToken,
+  checkPermission("settings"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        name,
+        industries,
+        companySize,
+        website,
+        description,
+        address,
+        city,
+        state,
+        country,
+        whyJoinUs,
+        natureOfBusiness,
+        companyTypes,
+        phone,
+        email,
+        about,
+        region,
+      } = req.body;
 
-    // Check if the user has access to this company
-    if (req.user.user_type !== 'admin') {
-      if (req.user.user_type !== 'employer' || String(req.user.company_id) !== String(id)) {
-        return res.status(403).json({
+      // Check if the user has access to this company
+      if (req.user.user_type !== "admin") {
+        if (
+          req.user.user_type !== "employer" ||
+          String(req.user.company_id) !== String(id)
+        ) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied",
+          });
+        }
+      }
+
+      const company = await Company.findByPk(id);
+
+      if (!company) {
+        return res.status(404).json({
           success: false,
-          message: 'Access denied'
+          message: "Company not found",
         });
       }
-    }
 
-    const company = await Company.findByPk(id);
+      console.log("🔄 Updating company with data:", {
+        natureOfBusiness,
+        companyTypes,
+      });
 
-    if (!company) {
-      return res.status(404).json({
+      // Update company information
+      const updateData = {
+        name: name || company.name,
+        industries: industries || company.industries || ["Other"],
+        companySize: companySize || company.companySize,
+        website: website || company.website,
+        description: description || about || company.description,
+        whyJoinUs:
+          typeof whyJoinUs === "string" ? whyJoinUs : company.whyJoinUs,
+        address: address || company.address,
+        city: city || company.city,
+        state: state || company.state,
+        country: country || company.country,
+        phone: phone || company.phone,
+        email: email || company.email,
+        region: region || company.region,
+      };
+
+      // Add new fields if provided (arrays)
+      if (Array.isArray(natureOfBusiness)) {
+        updateData.natureOfBusiness = natureOfBusiness;
+      }
+      if (Array.isArray(companyTypes)) {
+        updateData.companyTypes = companyTypes;
+      }
+
+      await company.update(updateData);
+
+      console.log(
+        "✅ Company updated successfully with natureOfBusiness and companyTypes",
+      );
+
+      res.json({
+        success: true,
+        message: "Company information updated successfully",
+        data: {
+          id: company.id,
+          name: company.name,
+          industries: company.industries || [],
+          companySize: company.companySize,
+          website: company.website,
+          email: company.email,
+          phone: company.phone,
+          description: company.description,
+          about: company.description,
+          whyJoinUs: company.whyJoinUs,
+          address: company.address,
+          city: company.city,
+          state: company.state,
+          country: company.country,
+          natureOfBusiness: company.natureOfBusiness,
+          companyTypes: company.companyTypes,
+          logo: company.logo,
+        },
+      });
+    } catch (error) {
+      console.error("Update company error:", error);
+      res.status(500).json({
         success: false,
-        message: 'Company not found'
+        message: "Internal server error",
       });
     }
-
-    console.log('🔄 Updating company with data:', { natureOfBusiness, companyTypes });
-
-    // Update company information
-    const updateData = {
-      name: name || company.name,
-      industries: industries || company.industries || ['Other'],
-      companySize: companySize || company.companySize,
-      website: website || company.website,
-      description: description || about || company.description,
-      whyJoinUs: typeof whyJoinUs === 'string' ? whyJoinUs : company.whyJoinUs,
-      address: address || company.address,
-      city: city || company.city,
-      state: state || company.state,
-      country: country || company.country,
-      phone: phone || company.phone,
-      email: email || company.email,
-      region: region || company.region
-    };
-
-    // Add new fields if provided (arrays)
-    if (Array.isArray(natureOfBusiness)) {
-      updateData.natureOfBusiness = natureOfBusiness;
-    }
-    if (Array.isArray(companyTypes)) {
-      updateData.companyTypes = companyTypes;
-    }
-
-    await company.update(updateData);
-
-    console.log('✅ Company updated successfully with natureOfBusiness and companyTypes');
-
-    res.json({
-      success: true,
-      message: 'Company information updated successfully',
-      data: {
-        id: company.id,
-        name: company.name,
-        industries: company.industries || [],
-        companySize: company.companySize,
-        website: company.website,
-        email: company.email,
-        phone: company.phone,
-        description: company.description,
-        about: company.description,
-        whyJoinUs: company.whyJoinUs,
-        address: company.address,
-        city: company.city,
-        state: company.state,
-        country: company.country,
-        natureOfBusiness: company.natureOfBusiness,
-        companyTypes: company.companyTypes,
-        logo: company.logo
-      }
-    });
-
-  } catch (error) {
-    console.error('Update company error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
-});
+  },
+);
 
 // Follow/Unfollow company endpoints
-router.post('/:id/follow', authenticateToken, async (req, res) => {
+router.post("/:id/follow", authenticateToken, async (req, res) => {
   try {
     const { id: companyId } = req.params;
     const userId = req.user.id;
 
     // Check if user is a jobseeker
-    if (req.user.user_type !== 'jobseeker') {
+    if (req.user.user_type !== "jobseeker") {
       return res.status(403).json({
         success: false,
-        message: 'Only job seekers can follow companies'
+        message: "Only job seekers can follow companies",
       });
     }
 
@@ -979,19 +1066,19 @@ router.post('/:id/follow', authenticateToken, async (req, res) => {
     if (!company) {
       return res.status(404).json({
         success: false,
-        message: 'Company not found'
+        message: "Company not found",
       });
     }
 
     // Check if already following
     const existingFollow = await CompanyFollow.findOne({
-      where: { userId, companyId }
+      where: { userId, companyId },
     });
 
     if (existingFollow) {
       return res.status(400).json({
         success: false,
-        message: 'Already following this company'
+        message: "Already following this company",
       });
     }
 
@@ -1005,50 +1092,49 @@ router.post('/:id/follow', authenticateToken, async (req, res) => {
         jobAlerts: true,
         email: true,
         push: true,
-        sms: false
-      }
+        sms: false,
+      },
     });
 
     console.log(`✅ User ${userId} started following company ${companyId}`);
 
     return res.json({
       success: true,
-      message: 'Successfully followed company',
-      data: { followId: follow.id }
+      message: "Successfully followed company",
+      data: { followId: follow.id },
     });
-
   } catch (error) {
-    console.error('Follow company error:', error);
+    console.error("Follow company error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 });
 
-router.delete('/:id/follow', authenticateToken, async (req, res) => {
+router.delete("/:id/follow", authenticateToken, async (req, res) => {
   try {
     const { id: companyId } = req.params;
     const userId = req.user.id;
 
     // Check if user is a jobseeker
-    if (req.user.user_type !== 'jobseeker') {
+    if (req.user.user_type !== "jobseeker") {
       return res.status(403).json({
         success: false,
-        message: 'Only job seekers can unfollow companies'
+        message: "Only job seekers can unfollow companies",
       });
     }
 
     // Find and delete follow record
-    const CompanyFollow = require('../models/CompanyFollow');
+    const CompanyFollow = require("../models/CompanyFollow");
     const follow = await CompanyFollow.findOne({
-      where: { userId, companyId }
+      where: { userId, companyId },
     });
 
     if (!follow) {
       return res.status(404).json({
         success: false,
-        message: 'Not following this company'
+        message: "Not following this company",
       });
     }
 
@@ -1058,14 +1144,13 @@ router.delete('/:id/follow', authenticateToken, async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Successfully unfollowed company'
+      message: "Successfully unfollowed company",
     });
-
   } catch (error) {
-    console.error('Unfollow company error:', error);
+    console.error("Unfollow company error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 });
@@ -1073,67 +1158,88 @@ router.delete('/:id/follow', authenticateToken, async (req, res) => {
 // Removed duplicate /followed route - moved to before /:id route
 
 // Check if user is following a specific company
-router.get('/:id/follow-status', authenticateToken, async (req, res) => {
+router.get("/:id/follow-status", authenticateToken, async (req, res) => {
   try {
     const { id: companyId } = req.params;
     const userId = req.user.id;
 
-    const CompanyFollow = require('../models/CompanyFollow');
+    const CompanyFollow = require("../models/CompanyFollow");
     const follow = await CompanyFollow.findOne({
-      where: { userId, companyId }
+      where: { userId, companyId },
     });
 
     return res.json({
       success: true,
       data: {
         isFollowing: !!follow,
-        followedAt: follow?.followedAt || null
-      }
+        followedAt: follow?.followedAt || null,
+      },
     });
-
   } catch (error) {
-    console.error('Get follow status error:', error);
+    console.error("Get follow status error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 });
 
 // Rate a company (POST /api/companies/:id/rate)
-router.post('/:id/rate', authenticateToken, async (req, res) => {
+router.post("/:id/rate", authenticateToken, async (req, res) => {
   try {
+    console.log("📝 Rating endpoint called");
     const { id: companyId } = req.params;
     const userId = req.user.id;
     const { rating } = req.body;
 
+    console.log(
+      `🔍 Rating for company ${companyId} by user ${userId}, rating: ${rating}`,
+    );
+
     // Validate rating
     if (!rating || rating < 1 || rating > 5) {
+      console.log("❌ Invalid rating value");
       return res.status(400).json({
         success: false,
-        message: 'Rating must be between 1 and 5'
+        message: "Rating must be between 1 and 5",
       });
     }
 
     // Check if company exists
+    console.log("🔍 Checking if company exists...");
     const company = await Company.findByPk(companyId);
     if (!company) {
+      console.log("❌ Company not found");
       return res.status(404).json({
         success: false,
-        message: 'Company not found'
+        message: "Company not found",
       });
     }
+    console.log("✅ Company found");
 
     // Check if user has already rated this company
+    console.log("🔍 Checking for existing review...");
     let existingReview = await CompanyReview.findOne({
-      where: { userId, companyId }
+      where: { userId, companyId },
     });
 
     if (existingReview) {
+      console.log("✅ Existing review found, updating...");
       // Update existing rating
       existingReview.rating = rating;
-      existingReview.review = existingReview.review || 'User rating'; // Keep existing review or use default
+      existingReview.review = existingReview.review || "User rating"; // Keep existing review or use default
       await existingReview.save();
+      console.log("✅ Review updated successfully");
+
+      // Recalculate company average rating
+      await company.updateAverageRating();
+      console.log(`📊 Updated average rating for company: ${company.rating}`);
+
+      // Reload company from database to get updated rating
+      const updatedCompany = await Company.findByPk(companyId);
+      console.log(
+        `🔄 Reloaded company - rating: ${updatedCompany?.rating}, totalReviews: ${updatedCompany?.totalReviews}`,
+      );
 
       // Recalculate average rating for the company
       await company.updateAverageRating();
@@ -1143,7 +1249,7 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
 
       return res.json({
         success: true,
-        message: 'Rating updated successfully',
+        message: "Rating updated successfully",
         data: {
           rating: existingReview.rating,
           reviewId: existingReview.id,
@@ -1152,15 +1258,28 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
         }
       });
     } else {
+      console.log("🆕 Creating new review...");
       // Create new rating (with minimal review text since it's required)
       const newReview = await CompanyReview.create({
         companyId,
         userId,
         rating,
-        review: 'User rating', // Default text for rating-only submissions
-        employmentStatus: 'current', // Default status
-        status: 'approved' // Auto-approve simple ratings
+        title: `${rating} Star Rating`, // Default title for rating-only submissions
+        review: "User rating", // Default text for rating-only submissions
+        employmentStatus: "current", // Default status
+        status: "approved", // Auto-approve simple ratings
       });
+      console.log("✅ Review created successfully");
+
+      // Recalculate company average rating
+      await company.updateAverageRating();
+      console.log(`📊 Updated average rating for company: ${company.rating}`);
+
+      // Reload company from database to get updated rating
+      const updatedCompany = await Company.findByPk(companyId);
+      console.log(
+        `🔄 Reloaded company - rating: ${updatedCompany?.rating}, totalReviews: ${updatedCompany?.totalReviews}`,
+      );
 
       // Recalculate average rating for the company
       await company.updateAverageRating();
@@ -1170,7 +1289,7 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
 
       return res.json({
         success: true,
-        message: 'Rating submitted successfully',
+        message: "Rating submitted successfully",
         data: {
           rating: newReview.rating,
           reviewId: newReview.id,
@@ -1179,12 +1298,14 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
         }
       });
     }
-
   } catch (error) {
-    console.error('Rate company error:', error);
+    console.error("❌ Rate company error:", error);
+    console.error("Stack:", error.stack);
+    console.error("Message:", error.message);
     return res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });

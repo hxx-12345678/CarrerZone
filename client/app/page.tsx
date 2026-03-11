@@ -1496,7 +1496,7 @@ export default function HomePage() {
                             ))}
                           </div>
                           <span className="text-xs text-slate-600 dark:text-slate-400 ml-1.5 font-medium">
-                            {company.rating || 0}
+                            {Number(company.rating || 0).toFixed(1)}
                             {company.reviews > 0 && <span className="ml-1 opacity-70">({company.reviews})</span>}
                           </span>
                         </div>

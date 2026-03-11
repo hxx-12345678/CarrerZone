@@ -942,7 +942,7 @@ export default function GulfCompaniesPage() {
                                     <div className="flex items-center ml-2">
                                       <Star className="w-4 h-4 text-yellow-500 fill-current" />
                                       <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
-                                        {company.averageRating || company.rating || 0}
+                                        {Number(company.averageRating || company.rating || 0).toFixed(1)}
                                         {(company.totalReviews || company.reviews) > 0 && (
                                           <span className="ml-1 text-xs opacity-70">({company.totalReviews || company.reviews})</span>
                                         )}

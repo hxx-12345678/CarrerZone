@@ -195,9 +195,18 @@ const getGulfJobById = async (req, res) => {
       });
     }
 
+    // Transform company to include rating fields
+    const jobData = job.toJSON();
+    if (jobData.company) {
+      jobData.company.rating = jobData.company.rating || 0;
+      jobData.company.averageRating = jobData.company.rating || 0;
+      jobData.company.reviews = jobData.company.totalReviews || 0;
+      jobData.company.totalReviews = jobData.company.totalReviews || 0;
+    }
+
     res.json({
       success: true,
-      data: job
+      data: jobData
     });
   } catch (error) {
     console.error('Error fetching Gulf job:', error);
@@ -322,10 +331,24 @@ const getGulfCompanies = async (req, res) => {
       offset: parseInt(offset)
     });
 
+    // Transform companies to include rating fields for frontend
+    const transformedCompanies = companies.map(company => {
+      const activeJobsCount = company.jobs ? company.jobs.length : 0;
+      return {
+        ...company.toJSON(),
+        activeJobsCount,
+        rating: company.rating || 0,
+        averageRating: company.rating || 0,
+        reviews: company.totalReviews || 0,
+        totalReviews: company.totalReviews || 0,
+        openings: activeJobsCount
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        companies,
+        companies: transformedCompanies,
         pagination: {
           total: count,
           page: parseInt(page),
