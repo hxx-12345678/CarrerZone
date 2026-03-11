@@ -137,7 +137,7 @@ const CompanyReview = sequelize.define('CompanyReview', {
       fields: ['company_id', 'rating']
     },
     {
-      fields: ['user_id', 'company_id'],
+      fields: ['reviewer_id', 'company_id'],
       unique: true,
       name: 'unique_user_company_review'
     },

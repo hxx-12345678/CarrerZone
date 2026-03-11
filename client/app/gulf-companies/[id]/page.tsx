@@ -453,11 +453,24 @@ function GulfCompanyDetailPage() {
     try {
       const response = await apiService.rateCompany(companyId, rating)
       if (response.success) {
-        setUserRating(rating)
-        toast.success('Rating submitted successfully!')
-        setShowRatingDialog(false)
-        // Refresh company data to get updated average rating
-        fetchCompanyData()
+        setUserRating(rating);
+        toast.success("Rating submitted successfully!");
+        setShowRatingDialog(false);
+
+        // Update company with the new rating immediately from API response
+        if (response.data?.companyRating !== undefined) {
+          setCompany((prev: any) => ({
+            ...prev,
+            rating: response.data.companyRating,
+            totalReviews: response.data.totalReviews,
+          }));
+          console.log(
+            `✅ Updated company rating to ${response.data.companyRating}`,
+          );
+        } else {
+          // Fallback: refresh company data if rating not in response
+          fetchCompanyData();
+        }
       } else {
         toast.error(response.message || 'Failed to submit rating')
       }
