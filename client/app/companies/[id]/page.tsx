@@ -1225,9 +1225,20 @@ function CompanyDetailPage() {
                         <h1 className="text-3xl lg:text-4xl font-bold mb-2">{toDisplayText(company.name) || 'Company'}</h1>
                         <div className="flex items-center space-x-4">
                           {/* Rating + allow user rating */}
-                          <div className="flex items-center bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full cursor-pointer" onClick={() => setShowRatingDialog(true)}>
-                            <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                            <span className="font-bold text-sm">{company.averageRating || company.rating || 0}</span>
+                          <div className="flex items-center bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full cursor-pointer hover:bg-white/30 transition-colors duration-200" onClick={() => setShowRatingDialog(true)}>
+                            <div className="flex items-center mr-1.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-3.5 h-3.5 ${
+                                    i < Math.floor(Number(company.averageRating || company.rating || 0))
+                                      ? "text-yellow-400 fill-current"
+                                      : "text-white/40"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="font-bold text-sm">{Number(company.averageRating || company.rating || 0).toFixed(1)}</span>
                             {(company.totalReviews || company.reviews) ? (
                               <span className="ml-1 text-xs opacity-80">({company.totalReviews || company.reviews})</span>
                             ) : null}

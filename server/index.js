@@ -716,6 +716,39 @@ const startServer = async () => {
       } catch (error) {
         console.warn('⚠️ Failed to start job alerts cron service:', error.message);
       }
+
+      // Recalculate all company ratings on startup
+      try {
+        const Company = require('./models/Company');
+        const RecalculateRatingsService = {
+          start: async () => {
+            console.log('🔄 Recalculating company ratings...');
+            const companies = await Company.findAll({ raw: false });
+            let count = 0;
+            
+            for (const company of companies) {
+              try {
+                const reviews = await company.sequelize.models.CompanyReview.count({
+                  where: { companyId: company.id, status: 'approved' }
+                });
+                
+                if (reviews > 0) {
+                  await company.updateAverageRating();
+                  count++;
+                }
+              } catch (e) {
+                // Silently skip if there's an issue
+              }
+            }
+            
+            console.log(`✅ Recalculated ratings for ${count} companies`);
+          }
+        };
+        
+        await RecalculateRatingsService.start();
+      } catch (error) {
+        console.warn('⚠️ Rating recalculation skipped:', error.message);
+      }
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

@@ -2,6 +2,10 @@ const express = require('express');
 const Company = require('../models/Company');
 const User = require('../models/User');
 const Job = require('../models/Job');
+const CompanyFollow = require('../models/CompanyFollow');
+const CompanyReview = require('../models/CompanyReview');
+const JobApplication = require('../models/JobApplication');
+const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
@@ -280,7 +284,9 @@ router.get('/', async (req, res) => {
         'city', 'state', 'country', 'region', 'description', 'foundedYear',
         'revenue', 'companyType', 'natureOfBusiness', 'companyTypes', 'isFeatured', 'isVerified', 'isActive', 'verificationStatus', 'created_at', 'updated_at',
         // Add claiming fields for registration flow
-        'isClaimed', 'createdByAgencyId', 'claimedAt'
+        'isClaimed', 'createdByAgencyId', 'claimedAt',
+        // Add rating fields for display
+        'rating', 'totalReviews'
       ],
       include: [
         {
@@ -309,7 +315,7 @@ router.get('/', async (req, res) => {
       console.log(`🔍 Company ${company.name}: activeJobs=${activeJobsCount}, profileViews=${profileViews}`);
 
       // Build comprehensive company data for list view
-      const companyData = {
+      const formattedCompany = {
         ...company.toJSON(),
         activeJobsCount,
         profileViews, // Generate some realistic view counts for demo
@@ -319,9 +325,9 @@ router.get('/', async (req, res) => {
         employees: company.companySize,
         headquarters: `${company.city || ''}, ${company.state || ''}, ${company.country || ''}`.replace(/^,\s*|,\s*$/g, ''),
         founded: company.foundedYear, // Map foundedYear to founded for compatibility
-        // Default values for missing fields
-        rating: 0,
-        reviews: 0,
+        // Actual values from database
+        rating: company.rating || 0,
+        reviews: company.totalReviews || 0,
         openings: activeJobsCount,
         benefits: company.benefits || [],
         workCulture: company.culture || '',
@@ -330,7 +336,7 @@ router.get('/', async (req, res) => {
         isVerified: company.isVerified || false
       };
 
-      return companyData;
+      return formattedCompany;
     }));
 
     return res.json({ success: true, data: companiesWithStats });
@@ -567,7 +573,6 @@ router.get('/followed', authenticateToken, async (req, res) => {
       });
     }
 
-    const CompanyFollow = require('../models/CompanyFollow');
     const followedCompanies = await CompanyFollow.findAll({
       where: { userId },
       include: [{
@@ -642,7 +647,6 @@ router.get('/:id', async (req, res) => {
     // Compute active jobs count
     let activeJobsCount = 0;
     try {
-      const Job = require('../models/Job');
       activeJobsCount = await Job.count({ where: { companyId: id, status: 'active' } });
     } catch (e) {
       console.warn('Could not compute activeJobsCount for company', id, e?.message);
@@ -660,13 +664,11 @@ router.get('/:id', async (req, res) => {
     let companyStats = {
       profileViews: Math.floor(Math.random() * 50) + 1,
       totalApplications: 0,
-      averageRating: 0,
-      totalReviews: 0
+      averageRating: company.rating || 0,
+      totalReviews: company.totalReviews || 0
     };
 
     try {
-      // Get company photos
-      const { CompanyPhoto } = require('../config');
       companyPhotos = await CompanyPhoto.findAll({
         where: { companyId: id, isActive: true },
         order: [['display_order', 'ASC'], ['created_at', 'ASC']],
@@ -674,7 +676,6 @@ router.get('/:id', async (req, res) => {
       });
 
       // Get company statistics
-      const JobApplication = require('../models/JobApplication');
       const totalApplications = await JobApplication.count({
         include: [{
           model: Job,
@@ -715,7 +716,9 @@ router.get('/:id', async (req, res) => {
       profileViews: companyStats.profileViews,
       totalApplications: companyStats.totalApplications,
       averageRating: companyStats.averageRating,
+      rating: companyStats.averageRating, // Alias for compatibility
       totalReviews: companyStats.totalReviews,
+      reviews: companyStats.totalReviews, // Alias for compatibility
       activeJobsCount,
       photos: companyPhotos,
       // New fields
@@ -981,7 +984,6 @@ router.post('/:id/follow', authenticateToken, async (req, res) => {
     }
 
     // Check if already following
-    const CompanyFollow = require('../models/CompanyFollow');
     const existingFollow = await CompanyFollow.findOne({
       where: { userId, companyId }
     });
@@ -1122,8 +1124,6 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
       });
     }
 
-    const CompanyReview = require('../models/CompanyReview');
-
     // Check if user has already rated this company
     let existingReview = await CompanyReview.findOne({
       where: { userId, companyId }
@@ -1135,12 +1135,20 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
       existingReview.review = existingReview.review || 'User rating'; // Keep existing review or use default
       await existingReview.save();
 
+      // Recalculate average rating for the company
+      await company.updateAverageRating();
+      
+      // Reload company to get updated rating
+      await company.reload();
+
       return res.json({
         success: true,
         message: 'Rating updated successfully',
         data: {
           rating: existingReview.rating,
-          reviewId: existingReview.id
+          reviewId: existingReview.id,
+          companyAverageRating: company.rating,
+          companyTotalReviews: company.totalReviews
         }
       });
     } else {
@@ -1154,12 +1162,20 @@ router.post('/:id/rate', authenticateToken, async (req, res) => {
         status: 'approved' // Auto-approve simple ratings
       });
 
+      // Recalculate average rating for the company
+      await company.updateAverageRating();
+      
+      // Reload company to get updated rating
+      await company.reload();
+
       return res.json({
         success: true,
         message: 'Rating submitted successfully',
         data: {
           rating: newReview.rating,
-          reviewId: newReview.id
+          reviewId: newReview.id,
+          companyAverageRating: company.rating,
+          companyTotalReviews: company.totalReviews
         }
       });
     }
@@ -1179,7 +1195,6 @@ router.get('/:id/user-rating', authenticateToken, async (req, res) => {
     const { id: companyId } = req.params;
     const userId = req.user.id;
 
-    const CompanyReview = require('../models/CompanyReview');
     const review = await CompanyReview.findOne({
       where: { userId, companyId }
     });

@@ -779,7 +779,8 @@ export default function HomePage() {
             industry: c.industries && Array.isArray(c.industries) && c.industries.length > 0 ? c.industries[0] : (c.industry || 'General'),
             industries: c.industries && Array.isArray(c.industries) ? c.industries : [],
             openings: 0,
-            rating: 0,
+            rating: c.averageRating || c.rating || 0,
+            reviews: c.totalReviews || c.reviews || 0,
             icon: '🏢',
             color: getSectorColor(((c.industries && Array.isArray(c.industries) && c.industries.length > 0 ? c.industries[0] : c.industry||'').toLowerCase().includes('tech')?'technology':((c.industries && Array.isArray(c.industries) && c.industries.length > 0 ? c.industries[0] : c.industry)||'').toLowerCase().includes('fin')?'finance':((c.industries && Array.isArray(c.industries) && c.industries.length > 0 ? c.industries[0] : c.industry)||'').toLowerCase().includes('health')?'healthcare':((c.industries && Array.isArray(c.industries) && c.industries.length > 0 ? c.industries[0] : c.industry)||'').toLowerCase().includes('auto')?'automotive':((c.industries && Array.isArray(c.industries) && c.industries.length > 0 ? c.industries[0] : c.industry)||'').toLowerCase().includes('e-com')?'ecommerce':'technology')),
             location: [c.city, c.state, c.country].filter(Boolean).join(', '),
@@ -810,7 +811,7 @@ export default function HomePage() {
           
           console.log('🏢 Setting companies data:', withColors)
           setTopCompanies(withColors)
-          setFeaturedCompanies(withCounts)
+          setFeaturedCompanies(withColors)
         } else {
           console.log('❌ No companies data found in response')
           setTopCompanies([])
@@ -1173,8 +1174,9 @@ export default function HomePage() {
                                 />
                               ))}
                             </div>
-                            <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">
-                              {company.rating || 0}
+                            <span className="text-sm text-slate-600 dark:text-slate-400 ml-2 font-semibold">
+                              {Number(company.rating || 0).toFixed(1)}
+                              {company.reviews > 0 && <span className="ml-1 opacity-70">({company.reviews})</span>}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
@@ -1406,89 +1408,106 @@ export default function HomePage() {
                 className="group transform transition-transform duration-300 hover:-translate-y-2"
               >
                 {company ? (
-                <Link href={getCompanyRoute(company)}>
+                  <Link href={getCompanyRoute(company)}>
                     <Card className="cursor-pointer border border-white/40 dark:border-slate-700/50 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
-                    <CardContent className="p-6 text-center relative h-full flex flex-col justify-between">
+                      <CardContent className="p-6 text-center relative h-full flex flex-col justify-between">
                         <div className={`absolute inset-0 bg-gradient-to-br ${getSectorColor(company.sector)} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
 
-                      <div>
+                        <div>
                           <Avatar className="w-16 h-16 mx-auto mb-4 ring-2 ring-white/50 group-hover:ring-[3px] group-hover:scale-110 transition-all duration-300 shadow">
-                          <AvatarImage src={company.logo} alt={company.name} />
-                          <AvatarFallback className="text-lg font-bold">{company.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <h3 className="font-bold text-slate-900 dark:text-white mb-2 text-lg group-hover:text-blue-600 transition-colors duration-300">
-                          {company.name}
-                        </h3>
-                        <div className="flex items-center flex-wrap gap-1 mb-2">
-                          {company.industries && company.industries.length > 0 ? (
-                            company.industries.length > 3 ? (
-                              <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full font-medium">
-                                Multi Industry
-                              </span>
-                            ) : company.industries.length === 3 ? (
-                              <>
+                            <AvatarImage src={company.logo} alt={company.name} />
+                            <AvatarFallback className="text-lg font-bold">{company.name[0]}</AvatarFallback>
+                          </Avatar>
+                          <h3 className="font-bold text-slate-900 dark:text-white mb-2 text-lg group-hover:text-blue-600 transition-colors duration-300">
+                            {company.name}
+                          </h3>
+                          <div className="flex items-center flex-wrap gap-1 mb-2">
+                            {company.industries && company.industries.length > 0 ? (
+                              company.industries.length > 3 ? (
+                                <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full font-medium">
+                                  Multi Industry
+                                </span>
+                              ) : company.industries.length === 3 ? (
+                                <>
+                                  <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
+                                    {company.industries[0]}
+                                  </span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-500 bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-full">
+                                    +2 more
+                                  </span>
+                                </>
+                              ) : company.industries.length === 2 ? (
+                                <>
+                                  <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
+                                    {company.industries[0]}
+                                  </span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-500 bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-full">
+                                    +1 more
+                                  </span>
+                                </>
+                              ) : (
                                 <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
                                   {company.industries[0]}
                                 </span>
-                                <span className="text-xs text-slate-500 dark:text-slate-500 bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-full">
-                                  +2 more
-                                </span>
-                              </>
-                            ) : company.industries.length === 2 ? (
-                              <>
-                                <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
-                                  {company.industries[0]}
-                                </span>
-                                <span className="text-xs text-slate-500 dark:text-slate-500 bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded-full">
-                                  +1 more
-                                </span>
-                              </>
+                              )
                             ) : (
-                              <span className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
-                                {company.industries[0]}
+                              <span className="text-sm text-slate-600 dark:text-slate-400">
+                                {company.industry}
                               </span>
-                            )
-                          ) : (
-                            <span className="text-sm text-slate-600 dark:text-slate-400">
-                              {company.industry}
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-1 mb-4">
-                          <div className="flex items-center flex-wrap gap-1">
-                            {Array.isArray(company.natureOfBusiness) && company.natureOfBusiness.length > 0 ? (
-                              company.natureOfBusiness.map((nature: string, index: number) => (
-                                <span key={index} className="text-xs text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
-                                  {nature.replace(/\([^)]*\)/g, '').trim()}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-slate-500 dark:text-slate-500">Not specified</span>
-                            )}
-                        </div>
-                          <div className="flex items-center flex-wrap gap-1">
-                            {Array.isArray(company.companyTypes) && company.companyTypes.length > 0 ? (
-                              company.companyTypes.map((type: string, index: number) => (
-                                <span key={index} className="text-xs text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
-                                  {type.replace('Software as a Service', 'SaaS').replace('Software as Service', 'SaaS')}
-                          </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-slate-500 dark:text-slate-500">Not specified</span>
                             )}
                           </div>
+                          <div className="space-y-1 mb-4">
+                            <div className="flex items-center flex-wrap gap-1">
+                              {Array.isArray(company.natureOfBusiness) && company.natureOfBusiness.length > 0 ? (
+                                company.natureOfBusiness.map((nature: string, index: number) => (
+                                  <span key={index} className="text-xs text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
+                                    {nature.replace(/\([^)]*\)/g, '').trim()}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-500 dark:text-slate-500">Not specified</span>
+                              )}
+                            </div>
+                            <div className="flex items-center flex-wrap gap-1">
+                              {Array.isArray(company.companyTypes) && company.companyTypes.length > 0 ? (
+                                company.companyTypes.map((type: string, index: number) => (
+                                  <span key={index} className="text-xs text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full">
+                                    {type.replace('Software as a Service', 'SaaS').replace('Software as Service', 'SaaS')}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-500 dark:text-slate-500">Not specified</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
 
-                      <div>
+                        <div className="flex items-center justify-center mb-2">
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-3 h-3 ${
+                                  i < Math.floor(company.rating || 0)
+                                    ? "text-yellow-400 fill-current"
+                                    : "text-slate-300 dark:text-slate-600"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-slate-600 dark:text-slate-400 ml-1.5 font-medium">
+                            {company.rating || 0}
+                            {company.reviews > 0 && <span className="ml-1 opacity-70">({company.reviews})</span>}
+                          </span>
+                        </div>
+
                         <div className="flex items-center justify-center text-sm mb-4">
                           <span className="font-semibold text-slate-900 dark:text-white">{company.activeJobsCount || company.openings || 0} openings</span>
-                          </div>
-                          <div className={`w-0 group-hover:w-full h-[2px] bg-gradient-to-r ${getSectorColor(company.sector)} transition-all duration-300 mx-auto rounded-full`} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                        </div>
+                        <div className={`w-0 group-hover:w-full h-[2px] bg-gradient-to-r ${getSectorColor(company.sector)} transition-all duration-300 mx-auto rounded-full`} />
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ) : (
                   <div className="w-full h-full">
                     <div className="h-full rounded-2xl border border-white/40 dark:border-slate-700/50 bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl shadow-sm p-6 animate-pulse">

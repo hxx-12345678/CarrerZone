@@ -1804,9 +1804,9 @@ export default function CompaniesPage() {
 
       employees: employeesBySize[String(c.companySize)] || String(c.companySize || 'Not provided'),
 
-      rating: 0,
+      rating: c.averageRating || c.rating || 0,
 
-      reviews: 0,
+      reviews: c.totalReviews || c.reviews || 0,
 
       openings: 0,
 
@@ -4186,6 +4186,7 @@ export default function CompaniesPage() {
                                       <Star className="w-4 h-4 text-yellow-500 fill-current" />
                                       <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">
                                         {company.rating || 0}
+                                        {company.reviews > 0 && <span className="ml-1 text-xs opacity-70">({company.reviews})</span>}
                                       </span>
                                     </div>
                                   </div>
