@@ -22,6 +22,7 @@ import {
   MessageCircle,
   ArrowLeft,
   CheckCircle,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -96,10 +97,12 @@ function GulfCompanyDetailPage() {
   // Safely get user data without causing errors
   let user = null
   let loading = false
+  let isAuthenticated = false
   try {
     const authContext = useAuth()
     user = authContext.user
     loading = authContext.loading
+    isAuthenticated = !!authContext.user
   } catch (error) {
     console.log('Auth context not available, proceeding without authentication')
   }
@@ -108,7 +111,8 @@ function GulfCompanyDetailPage() {
   const isValidUuid = /^[0-9a-fA-F-]{36}$/.test(companyId)
   const [isFollowing, setIsFollowing] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showUnfollowDialog, setShowUnfollowDialog] = useState(false)
+  const [isFollowLoading, setIsFollowLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [userRating, setUserRating] = useState<number | null>(null)
   const [hoverRating, setHoverRating] = useState<number | null>(null)
@@ -366,6 +370,28 @@ function GulfCompanyDetailPage() {
     } catch { }
   }, [companyId])
 
+  const handleUnfollowConfirm = useCallback(async () => {
+    if (!resolvedCompanyId) return
+
+    setIsFollowLoading(true)
+    try {
+      const response = await apiService.unfollowCompany(resolvedCompanyId)
+      if (response.success) {
+        setIsFollowing(false)
+        toast.success('Unfollowed company')
+        console.log('✅ Unfollowed company:', resolvedCompanyId)
+      } else {
+        toast.error('Failed to unfollow company')
+      }
+    } catch (error) {
+      console.error('❌ Error unfollowing company:', error)
+      toast.error('Failed to unfollow company')
+    } finally {
+      setIsFollowLoading(false)
+      setShowUnfollowDialog(false)
+    }
+  }, [resolvedCompanyId])
+
   const toggleFollow = useCallback(async () => {
     if (!isAuthenticated) {
       setShowAuthDialog(true)
@@ -374,17 +400,11 @@ function GulfCompanyDetailPage() {
 
     if (!resolvedCompanyId) return
 
+    setIsFollowLoading(true)
     try {
       if (isFollowing) {
-        // UNFOLLOW
-        const response = await apiService.unfollowCompany(resolvedCompanyId)
-        if (response.success) {
-          setIsFollowing(false)
-          toast.success('Unfollowed company')
-          console.log('✅ Unfollowed company:', resolvedCompanyId)
-        } else {
-          toast.error('Failed to unfollow company')
-        }
+        // UNFOLLOW - Show confirmation dialog instead
+        setShowUnfollowDialog(true)
       } else {
         // FOLLOW
         const response = await apiService.followCompany(resolvedCompanyId)
@@ -399,6 +419,8 @@ function GulfCompanyDetailPage() {
     } catch (error) {
       console.error('❌ Error toggling follow:', error)
       toast.error('Failed to update follow status')
+    } finally {
+      setIsFollowLoading(false)
     }
   }, [resolvedCompanyId, isFollowing, isAuthenticated])
 
@@ -1281,39 +1303,20 @@ function GulfCompanyDetailPage() {
 
                     {/* Follow Button */}
                     <Button
-                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full"
-                      onClick={() => {
-                        if (!user) {
-                          setShowAuthDialog(true)
-                          return
-                        }
-                        // toggle follow
-                        (async () => {
-                          try {
-                            if (isFollowing) {
-                              const res = await apiService.unfollowCompany(companyId)
-                              if (res.success) {
-                                setIsFollowing(false)
-                                toast.success('Unfollowed company')
-                              } else {
-                                toast.error('Failed to unfollow')
-                              }
-                            } else {
-                              const res = await apiService.followCompany(companyId)
-                              if (res.success) {
-                                setIsFollowing(true)
-                                toast.success('Following company')
-                              } else {
-                                toast.error('Failed to follow')
-                              }
-                            }
-                          } catch (e) {
-                            toast.error('Action failed')
-                          }
-                        })()
-                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={toggleFollow}
+                      disabled={isFollowLoading}
                     >
-                      {isFollowing ? 'Following' : '+ Follow'}
+                      {isFollowLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : isFollowing ? (
+                        'Following'
+                      ) : (
+                        '+ Follow'
+                      )}
                     </Button>
                   </div>
 
@@ -2063,6 +2066,42 @@ function GulfCompanyDetailPage() {
                   Login
                 </Button>
               </Link>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Unfollow Confirmation Dialog */}
+        <Dialog open={showUnfollowDialog} onOpenChange={setShowUnfollowDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Unfollow Company</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to unfollow {company.name}? You will no longer receive updates about new job openings from this company.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowUnfollowDialog(false)}
+                disabled={isFollowLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleUnfollowConfirm}
+                disabled={isFollowLoading}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isFollowLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Unfollowing...
+                  </>
+                ) : (
+                  'Unfollow'
+                )}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

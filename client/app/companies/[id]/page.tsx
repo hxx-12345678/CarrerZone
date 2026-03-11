@@ -22,6 +22,7 @@ import {
   MessageCircle,
   ArrowLeft,
   CheckCircle,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -96,10 +97,12 @@ function CompanyDetailPage() {
   // Safely get user data without causing errors
   let user = null
   let loading = false
+  let isAuthenticated = false
   try {
     const authContext = useAuth()
     user = authContext.user
     loading = authContext.loading
+    isAuthenticated = !!authContext.user
   } catch (error) {
     console.log('Auth context not available, proceeding without authentication')
   }
@@ -108,7 +111,8 @@ function CompanyDetailPage() {
   const isValidUuid = /^[0-9a-fA-F-]{36}$/.test(companyId)
   const [isFollowing, setIsFollowing] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [showUnfollowDialog, setShowUnfollowDialog] = useState(false)
+  const [isFollowLoading, setIsFollowLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [userRating, setUserRating] = useState<number | null>(null)
   const [hoverRating, setHoverRating] = useState<number | null>(null)
@@ -343,10 +347,9 @@ function CompanyDetailPage() {
   // Add error boundary for the entire component
   const [hasRenderError, setHasRenderError] = useState(false)
 
-  // Initialize follow state from localStorage
   // Fetch follow status from API
   const fetchFollowStatus = useCallback(async () => {
-    if (!isAuthenticated || !resolvedCompanyId) return
+    if (!user || !resolvedCompanyId) return
 
     try {
       const response = await apiService.getCompanyFollowStatus(resolvedCompanyId)
@@ -356,7 +359,7 @@ function CompanyDetailPage() {
     } catch (error) {
       console.error('Error fetching follow status:', error)
     }
-  }, [isAuthenticated, resolvedCompanyId])
+  }, [user, resolvedCompanyId])
 
   // Check follow status from localStorage on mount (fallback)
   useEffect(() => {
@@ -368,25 +371,41 @@ function CompanyDetailPage() {
     } catch { }
   }, [companyId])
 
+  const handleUnfollowConfirm = useCallback(async () => {
+    if (!resolvedCompanyId) return
+
+    setIsFollowLoading(true)
+    try {
+      const response = await apiService.unfollowCompany(resolvedCompanyId)
+      if (response.success) {
+        setIsFollowing(false)
+        toast.success('Unfollowed company')
+        console.log('✅ Unfollowed company:', resolvedCompanyId)
+      } else {
+        toast.error('Failed to unfollow company')
+      }
+    } catch (error) {
+      console.error('❌ Error unfollowing company:', error)
+      toast.error('Failed to unfollow company')
+    } finally {
+      setIsFollowLoading(false)
+      setShowUnfollowDialog(false)
+    }
+  }, [resolvedCompanyId])
+
   const toggleFollow = useCallback(async () => {
-    if (!isAuthenticated) {
+    if (!user) {
       setShowAuthDialog(true)
       return
     }
 
     if (!resolvedCompanyId) return
 
+    setIsFollowLoading(true)
     try {
       if (isFollowing) {
-        // UNFOLLOW
-        const response = await apiService.unfollowCompany(resolvedCompanyId)
-        if (response.success) {
-          setIsFollowing(false)
-          toast.success('Unfollowed company')
-          console.log('✅ Unfollowed company:', resolvedCompanyId)
-        } else {
-          toast.error('Failed to unfollow company')
-        }
+        // UNFOLLOW - Show confirmation dialog instead
+        setShowUnfollowDialog(true)
       } else {
         // FOLLOW
         const response = await apiService.followCompany(resolvedCompanyId)
@@ -401,8 +420,10 @@ function CompanyDetailPage() {
     } catch (error) {
       console.error('❌ Error toggling follow:', error)
       toast.error('Failed to update follow status')
+    } finally {
+      setIsFollowLoading(false)
     }
-  }, [resolvedCompanyId, isFollowing, isAuthenticated])
+  }, [resolvedCompanyId, isFollowing, user])
 
   // Rating functions
   const fetchUserRating = useCallback(async () => {
@@ -1225,39 +1246,20 @@ function CompanyDetailPage() {
 
                     {/* Follow Button */}
                     <Button
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full"
-                      onClick={() => {
-                        if (!user) {
-                          setShowAuthDialog(true)
-                          return
-                        }
-                        // toggle follow
-                        (async () => {
-                          try {
-                            if (isFollowing) {
-                              const res = await apiService.unfollowCompany(companyId)
-                              if (res.success) {
-                                setIsFollowing(false)
-                                toast.success('Unfollowed company')
-                              } else {
-                                toast.error('Failed to unfollow')
-                              }
-                            } else {
-                              const res = await apiService.followCompany(companyId)
-                              if (res.success) {
-                                setIsFollowing(true)
-                                toast.success('Following company')
-                              } else {
-                                toast.error('Failed to follow')
-                              }
-                            }
-                          } catch (e) {
-                            toast.error('Action failed')
-                          }
-                        })()
-                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={toggleFollow}
+                      disabled={isFollowLoading}
                     >
-                      {isFollowing ? 'Following' : '+ Follow'}
+                      {isFollowLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : isFollowing ? (
+                        'Following'
+                      ) : (
+                        '+ Follow'
+                      )}
                     </Button>
                   </div>
 
@@ -1691,7 +1693,7 @@ function CompanyDetailPage() {
                                             'Apply now'
                                           )}
                                         </Button>
-                                        {!isAuthenticated && (
+                                        {!user && (
                                           <div className="flex space-x-2">
                                             <Button
                                               variant="outline"
@@ -2007,6 +2009,33 @@ function CompanyDetailPage() {
                   Login
                 </Button>
               </Link>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Unfollow Confirmation Dialog */}
+        <Dialog open={showUnfollowDialog} onOpenChange={setShowUnfollowDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Unfollow Company?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to unfollow {company?.name}? You will no longer receive updates about their job postings.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col space-y-3 mt-6">
+              <Button 
+                className="w-full bg-red-600 hover:bg-red-700"
+                onClick={handleUnfollowConfirm}
+              >
+                Unfollow
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowUnfollowDialog(false)}
+              >
+                Keep Following
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

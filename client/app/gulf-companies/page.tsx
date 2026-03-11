@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Building2, MapPin, Briefcase, Search, Loader2, Globe, Star, Eye, Filter, X, ChevronLeft, ChevronRight, Sparkles, Zap } from "lucide-react"
+import { Building2, MapPin, Briefcase, Search, Loader2, Globe, Star, Eye, Filter, X, ChevronLeft, ChevronRight, Sparkles, Zap, Heart } from "lucide-react"
 import GulfNavbar from "@/components/gulf-navbar"
 import { EmployerFooter } from "@/components/employer-footer"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -95,6 +96,106 @@ export default function GulfCompaniesPage() {
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
 
+  // Follow status management
+  const [followedCompanies, setFollowedCompanies] = useState<Set<string>>(new Set())
+  const [loadingFollow, setLoadingFollow] = useState<Set<string>>(new Set())
+  const [showUnfollowDialog, setShowUnfollowDialog] = useState(false)
+  const [companyToUnfollow, setCompanyToUnfollow] = useState<{id: string, name: string} | null>(null)
+
+  // Fetch followed companies
+  const fetchFollowedCompanies = useCallback(async () => {
+    if (!user) return
+
+    try {
+      const response = await apiService.getFollowedCompanies()
+      if (response.success && response.data) {
+        const companyIds = response.data.map((follow: any) => follow.companyId).filter(Boolean)
+        setFollowedCompanies(new Set(companyIds))
+        console.log('✅ Loaded followed companies:', Array.from(companyIds))
+      }
+    } catch (error) {
+      console.error('❌ Error fetching followed companies:', error)
+    }
+  }, [user])
+
+  // Handle follow/unfollow toggle
+  const handleUnfollowConfirm = useCallback(async () => {
+    if (!companyToUnfollow || !user) return
+
+    const { id: companyId } = companyToUnfollow
+    setLoadingFollow(prev => new Set([...prev, companyId]))
+    setShowUnfollowDialog(false)
+
+    try {
+      const response = await apiService.unfollowCompany(companyId)
+      if (response.success) {
+        setFollowedCompanies(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(companyId)
+          return newSet
+        })
+        toast.success('Unfollowed company')
+        console.log('✅ Unfollowed company:', companyId)
+      } else {
+        toast.error('Failed to unfollow company')
+      }
+    } catch (error) {
+      console.error('❌ Error unfollowing company:', error)
+      toast.error('Failed to unfollow company')
+    } finally {
+      setLoadingFollow(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(companyId)
+        return newSet
+      })
+      setCompanyToUnfollow(null)
+    }
+  }, [user, companyToUnfollow])
+
+  const handleFollowToggle = useCallback(async (companyId: string, companyName?: string) => {
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    if (loadingFollow.has(companyId)) return
+
+    try {
+      const isCurrentlyFollowing = followedCompanies.has(companyId)
+      
+      if (isCurrentlyFollowing) {
+        // UNFOLLOW - Show dialog
+        setCompanyToUnfollow({ id: companyId, name: companyName || 'this company' })
+        setShowUnfollowDialog(true)
+        return
+      } else {
+        // FOLLOW
+        setLoadingFollow(prev => new Set([...prev, companyId]))
+        const response = await apiService.followCompany(companyId)
+        if (response.success) {
+          setFollowedCompanies(prev => new Set([...prev, companyId]))
+          toast.success('Following company')
+          console.log('✅ Followed company:', companyId)
+        } else {
+          toast.error('Failed to follow company')
+        }
+        setLoadingFollow(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(companyId)
+          return newSet
+        })
+      }
+    } catch (error) {
+      console.error('❌ Error toggling follow:', error)
+      toast.error('Failed to update follow status')
+      setLoadingFollow(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(companyId)
+        return newSet
+      })
+    }
+  }, [user, followedCompanies, loadingFollow, router])
+
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -145,7 +246,10 @@ export default function GulfCompaniesPage() {
 
   useEffect(() => {
     fetchCompanies()
-  }, [page, search])
+    if (user && user.userType === 'jobseeker') {
+      fetchFollowedCompanies()
+    }
+  }, [page, search, user, fetchFollowedCompanies])
 
   // Auth check - redirect employers/admins to Gulf dashboard (after all data hooks)
   useEffect(() => {
@@ -858,12 +962,35 @@ export default function GulfCompaniesPage() {
                                 </div>
 
                                 <div className="flex flex-col sm:flex-row lg:flex-col items-center lg:items-end space-y-1 sm:space-y-0 sm:space-x-2 lg:space-x-0 lg:space-y-2 flex-shrink-0">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={`w-full sm:w-auto backdrop-blur-sm transition-all duration-300 text-xs h-8 px-3 ${
+                                      followedCompanies.has(company.id) 
+                                        ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400" 
+                                        : "bg-white/50 dark:bg-slate-700/50 hover:bg-white dark:hover:bg-slate-600"
+                                    }`}
+                                    onClick={(e) => {
+                                       e.preventDefault()
+                                       e.stopPropagation()
+                                       handleFollowToggle(company.id, company.name)
+                                     }}
+                                    disabled={loadingFollow.has(company.id)}
+                                  >
+                                    <Heart className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 ${followedCompanies.has(company.id) ? "fill-current" : ""}`} />
+                                    {loadingFollow.has(company.id) 
+                                      ? "..." 
+                                      : followedCompanies.has(company.id) 
+                                        ? "Following" 
+                                        : "Follow"
+                                    }
+                                  </Button>
                                   <Link href={`/gulf-companies/${company.id}`}>
                                     <Button className={`w-full sm:w-auto bg-gradient-to-r ${industryColors.bg} ${industryColors.hover} hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-xs h-8 px-3`}>
                                       <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                                       View
                                     </Button>
-                        </Link>
+                                  </Link>
                                 </div>
                       </div>
 
@@ -1029,6 +1156,36 @@ export default function GulfCompaniesPage() {
           </div>
         </div>
       </footer>
+
+      {/* Unfollow Confirmation Dialog */}
+      <Dialog open={showUnfollowDialog} onOpenChange={setShowUnfollowDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unfollow Company</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to unfollow {companyToUnfollow?.name}? You will no longer receive updates about new job openings from this company.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUnfollowDialog(false)
+                setCompanyToUnfollow(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleUnfollowConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Unfollow
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showIndustryDropdown && (
         <IndustryDropdown

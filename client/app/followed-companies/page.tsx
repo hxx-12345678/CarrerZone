@@ -223,9 +223,11 @@ export default function FollowedCompaniesPage() {
                             </div>
                           )}
                           <div>
-                            <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">
-                              {follow.company.name}
-                            </CardTitle>
+                            <Link href={`/companies/${follow.companyId}`}>
+                              <CardTitle className="text-lg group-hover:text-blue-600 transition-colors cursor-pointer">
+                                {follow.company.name}
+                              </CardTitle>
+                            </Link>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
                               {follow.company.industry || 'Company'}
                             </p>
@@ -264,7 +266,7 @@ export default function FollowedCompaniesPage() {
                       </div>
 
                       <div className="flex gap-2 pt-2">
-                        <Link href={`/companies/${follow.company.slug || follow.companyId}`} className="flex-1">
+                        <Link href={`/companies/${follow.companyId}`} className="flex-1">
                           <Button variant="outline" size="sm" className="w-full">
                             <ExternalLink className="w-4 h-4 mr-2" />
                             View Profile

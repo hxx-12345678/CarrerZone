@@ -42,6 +42,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -707,6 +709,10 @@ export default function CompaniesPage() {
 
   const [loadingFollow, setLoadingFollow] = useState<Set<string>>(new Set())
 
+  const [showUnfollowDialog, setShowUnfollowDialog] = useState(false)
+
+  const [companyToUnfollow, setCompanyToUnfollow] = useState<{id: string, name: string} | null>(null)
+
 
 
   // Fetch followed companies - SIMPLIFIED
@@ -743,7 +749,40 @@ export default function CompaniesPage() {
 
   // Handle follow/unfollow toggle - COMPLETELY REWRITTEN
 
-  const handleFollowToggle = useCallback(async (companyId: string) => {
+  const handleUnfollowConfirm = useCallback(async () => {
+    if (!companyToUnfollow || !user) return
+
+    const { id: companyId } = companyToUnfollow
+    setLoadingFollow(prev => new Set([...prev, companyId]))
+    setShowUnfollowDialog(false)
+
+    try {
+      const response = await apiService.unfollowCompany(companyId)
+      if (response.success) {
+        setFollowedCompanies(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(companyId)
+          return newSet
+        })
+        toast.success('Unfollowed company')
+        console.log('✅ Unfollowed company:', companyId)
+      } else {
+        toast.error('Failed to unfollow company')
+      }
+    } catch (error) {
+      console.error('❌ Error unfollowing company:', error)
+      toast.error('Failed to unfollow company')
+    } finally {
+      setLoadingFollow(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(companyId)
+        return newSet
+      })
+      setCompanyToUnfollow(null)
+    }
+  }, [user, companyToUnfollow])
+
+  const handleFollowToggle = useCallback(async (companyId: string, companyName?: string) => {
 
     if (!user) {
 
@@ -759,10 +798,6 @@ export default function CompaniesPage() {
 
 
 
-    setLoadingFollow(prev => new Set([...prev, companyId]))
-
-
-
     try {
 
       const isCurrentlyFollowing = followedCompanies.has(companyId)
@@ -771,35 +806,14 @@ export default function CompaniesPage() {
 
       if (isCurrentlyFollowing) {
 
-        // UNFOLLOW
-
-        const response = await apiService.unfollowCompany(companyId)
-
-        if (response.success) {
-
-          setFollowedCompanies(prev => {
-
-            const newSet = new Set(prev)
-
-            newSet.delete(companyId)
-
-            return newSet
-
-          })
-
-          toast.success('Unfollowed company')
-
-          console.log('✅ Unfollowed company:', companyId)
-
-        } else {
-
-          toast.error('Failed to unfollow company')
-
-        }
-
+        // UNFOLLOW - Show dialog
+        setCompanyToUnfollow({ id: companyId, name: companyName || 'this company' })
+        setShowUnfollowDialog(true)
+        return
       } else {
 
         // FOLLOW
+        setLoadingFollow(prev => new Set([...prev, companyId]))
 
         const response = await apiService.followCompany(companyId)
 
@@ -816,7 +830,12 @@ export default function CompaniesPage() {
           toast.error('Failed to follow company')
 
         }
-
+        
+        setLoadingFollow(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(companyId)
+          return newSet
+        })
       }
 
     } catch (error) {
@@ -824,19 +843,12 @@ export default function CompaniesPage() {
       console.error('❌ Error toggling follow:', error)
 
       toast.error('Failed to update follow status')
-
-    } finally {
-
+      
       setLoadingFollow(prev => {
-
         const newSet = new Set(prev)
-
         newSet.delete(companyId)
-
         return newSet
-
       })
-
     }
 
   }, [user, followedCompanies, loadingFollow, router])
@@ -4249,7 +4261,7 @@ export default function CompaniesPage() {
 
                                       e.stopPropagation()
 
-                                      handleFollowToggle(company.id)
+                                      handleFollowToggle(company.id, company.name)
 
                                     }}
 
@@ -4283,7 +4295,7 @@ export default function CompaniesPage() {
 
                                       <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
 
-                                      View ({company.activeJobsCount || company.openings || 0})
+                                      View
 
                                     </Button>
 
@@ -4618,6 +4630,36 @@ export default function CompaniesPage() {
         </div>
 
       </footer>
+
+      {/* Unfollow Confirmation Dialog */}
+      <Dialog open={showUnfollowDialog} onOpenChange={setShowUnfollowDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Unfollow Company</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to unfollow {companyToUnfollow?.name}? You will no longer receive updates about new job openings from this company.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUnfollowDialog(false)
+                setCompanyToUnfollow(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleUnfollowConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Unfollow
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showIndustryDropdown && (
         <IndustryDropdown
