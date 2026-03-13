@@ -2100,7 +2100,7 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
     ];
 
     const enrichedApplications = applications.map(app => {
-      const plain = app.toJSON();
+      const plain = app && typeof app.toJSON === 'function' ? app.toJSON() : app;
       const idx = statusHierarchy.indexOf(plain.status);
       return {
         ...plain,
@@ -2198,11 +2198,11 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
 
     // Transform the data to include comprehensive jobseeker profile information
     const enrichedApplicationsWithProfile = applications.map(application => {
-      const applicant = application.applicant;
-      const jobResume = application.jobResume;
+      const app = application && typeof application.toJSON === 'function' ? application.toJSON() : application;
+      const applicant = app.applicant;
+      const jobResume = app.jobResume;
       const applicantWorkExperiences = experiencesByUser.get(applicant?.id) || [];
       const applicantEducations = educationsByUser.get(applicant?.id) || [];
-
       // Calculate total work experience
       const totalExperience = applicantWorkExperiences.reduce((total, exp) => {
         const start = new Date(exp.startDate);
@@ -2230,11 +2230,14 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
       });
       if (jobResume?.skills) jobResume.skills.forEach(skill => allSkills.add(skill));
 
+      const applicantPlain = applicant && typeof applicant.toJSON === 'function' ? applicant.toJSON() : applicant;
+      const jobResumePlain = jobResume && typeof jobResume.toJSON === 'function' ? jobResume.toJSON() : jobResume;
+
       return {
-        ...application.toJSON(),
+        ...app,
         applicant: {
-          ...applicant.toJSON(),
-          fullName: `${applicant.first_name} ${applicant.last_name}`,
+          ...applicantPlain,
+          fullName: `${applicantPlain.first_name} ${applicantPlain.last_name}`,
           totalExperienceYears: experienceYears,
           totalExperienceMonths: experienceMonths,
           totalExperienceDisplay: experienceYears > 0
@@ -2250,7 +2253,7 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
           workExperiences: applicantWorkExperiences,
           educations: applicantEducations,
         },
-        jobResume: jobResume ? jobResume.toJSON() : null
+        jobResume: jobResumePlain
       };
     });
 
