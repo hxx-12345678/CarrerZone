@@ -2088,6 +2088,33 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
       });
     }
 
+    // before returning, enrich each application with helper flags and a numeric statusIndex
+    const statusHierarchy = [
+      'applied',
+      'reviewing',
+      'shortlisted',
+      'interview_scheduled',
+      'interviewed',
+      'offered',
+      'hired'
+    ];
+
+    const enrichedApplications = applications.map(app => {
+      const plain = app.toJSON();
+      const idx = statusHierarchy.indexOf(plain.status);
+      return {
+        ...plain,
+        statusIndex: idx,
+        isShortlisted: idx >= 2,
+        isInterviewScheduled: idx >= 3,
+        isInterviewed: idx >= 4,
+        isHired: idx >= 6
+      };
+    });
+
+    // replace applications with enriched list for downstream logic
+    applications = enrichedApplications;
+
     // Fetch experiences and education separately to avoid nested SQL JSON path issues
     const applicantIds = Array.from(new Set(applications.map(a => a.applicant?.id).filter(Boolean)));
     let experiencesByUser = new Map();
@@ -2170,7 +2197,7 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
     }
 
     // Transform the data to include comprehensive jobseeker profile information
-    const enrichedApplications = applications.map(application => {
+    const enrichedApplicationsWithProfile = applications.map(application => {
       const applicant = application.applicant;
       const jobResume = application.jobResume;
       const applicantWorkExperiences = experiencesByUser.get(applicant?.id) || [];
@@ -2188,7 +2215,7 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
       const experienceYears = Math.floor(totalExperience / 365);
       const experienceMonths = Math.floor((totalExperience % 365) / 30);
 
-      // Get highest education
+      // Get highest education (sorted by level)
       const highestEducation = applicantEducations.sort((a, b) => {
         const levelOrder = { 'phd': 6, 'master': 5, 'bachelor': 4, 'diploma': 3, 'high-school': 2, 'certification': 1, 'other': 0 };
         return (levelOrder[b.level] || 0) - (levelOrder[a.level] || 0);
@@ -2197,12 +2224,10 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
       // Combine all skills from profile, work experience, and resume
       const allSkills = new Set();
       if (applicant.skills) applicant.skills.forEach(skill => allSkills.add(skill));
-      if (applicantWorkExperiences) {
-        applicantWorkExperiences.forEach(exp => {
-          if (exp.skills) exp.skills.forEach(skill => allSkills.add(skill));
-          if (exp.technologies) exp.technologies.forEach(tech => allSkills.add(tech));
-        });
-      }
+      applicantWorkExperiences.forEach(exp => {
+        if (exp.skills) exp.skills.forEach(skill => allSkills.add(skill));
+        if (exp.technologies) exp.technologies.forEach(tech => allSkills.add(tech));
+      });
       if (jobResume?.skills) jobResume.skills.forEach(skill => allSkills.add(skill));
 
       return {
@@ -2222,39 +2247,19 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
             formattedPeriod: highestEducation.getFormattedPeriod()
           } : null,
           allSkills: Array.from(allSkills),
-          workExperiences: applicantWorkExperiences.map(exp => ({
-            ...exp.toJSON(),
-            duration: exp.getDuration(),
-            formattedPeriod: exp.getFormattedPeriod(),
-            skillsString: exp.getSkillsString(),
-            technologiesString: exp.getTechnologiesString()
-          })),
-          educations: applicantEducations.map(edu => ({
-            ...edu.toJSON(),
-            duration: edu.getDuration(),
-            formattedPeriod: edu.getFormattedPeriod(),
-            gradeDisplay: edu.getGradeDisplay(),
-            fullDegree: edu.getFullDegree()
-          })),
-          resumes: applicant.resumes?.map(resume => ({
-            ...resume.toJSON(),
-            skillsString: resume.getSkillsString(),
-            languagesString: resume.getLanguagesString(),
-            certificationsString: resume.getCertificationsString()
-          })) || []
+          workExperiences: applicantWorkExperiences,
+          educations: applicantEducations,
         },
-        jobResume: jobResume ? {
-          ...jobResume.toJSON(),
-          skillsString: jobResume.getSkillsString(),
-          languagesString: jobResume.getLanguagesString(),
-          certificationsString: jobResume.getCertificationsString()
-        } : null
+        jobResume: jobResume ? jobResume.toJSON() : null
       };
     });
 
+    // replace applications variable with enriched results including profile info
+    applications = enrichedApplicationsWithProfile;
+
     res.json({
       success: true,
-      data: enrichedApplications
+      data: applications
     });
   } catch (error) {
     console.error('❌ Error fetching employer applications:', error);
@@ -2462,6 +2467,23 @@ router.get('/employer/applications/:id', authenticateToken, checkPermission('app
       } : null
     };
 
+    // also compute flags for single application
+    const statusHierarchy = [
+      'applied',
+      'reviewing',
+      'shortlisted',
+      'interview_scheduled',
+      'interviewed',
+      'offered',
+      'hired'
+    ];
+    const idx = statusHierarchy.indexOf(enrichedApplication.status);
+    enrichedApplication.statusIndex = idx;
+    enrichedApplication.isShortlisted = idx >= 2;
+    enrichedApplication.isInterviewScheduled = idx >= 3;
+    enrichedApplication.isInterviewed = idx >= 4;
+    enrichedApplication.isHired = idx >= 6;
+
     res.json({
       success: true,
       data: enrichedApplication
@@ -2667,11 +2689,32 @@ router.put('/employer/applications/:id/status', authenticateToken, checkPermissi
       // Don't fail the status update if notification fails
     }
 
-    res.json({
-      success: true,
-      data: application,
-      message: 'Application status updated successfully'
-    });
+    // enrich response with computed flags
+    {
+      const statusHierarchy = [
+        'applied',
+        'reviewing',
+        'shortlisted',
+        'interview_scheduled',
+        'interviewed',
+        'offered',
+        'hired'
+      ];
+      const idx = statusHierarchy.indexOf(application.status);
+      const enriched = {
+        ...application.toJSON(),
+        statusIndex: idx,
+        isShortlisted: idx >= 2,
+        isInterviewScheduled: idx >= 3,
+        isInterviewed: idx >= 4,
+        isHired: idx >= 6
+      };
+      res.json({
+        success: true,
+        data: enriched,
+        message: 'Application status updated successfully'
+      });
+    }
   } catch (error) {
     console.error('❌ Error updating application status for employer:', {
       error: error.message,
@@ -2780,11 +2823,32 @@ router.put('/applications/:id/status', authenticateToken, async (req, res) => {
       lastUpdatedAt: new Date()
     });
 
-    res.json({
-      success: true,
-      data: application,
-      message: 'Application status updated successfully'
-    });
+    // enrich response with flags for client convenience
+    {
+      const statusHierarchy = [
+        'applied',
+        'reviewing',
+        'shortlisted',
+        'interview_scheduled',
+        'interviewed',
+        'offered',
+        'hired'
+      ];
+      const idx = statusHierarchy.indexOf(application.status);
+      const enriched = {
+        ...application.toJSON(),
+        statusIndex: idx,
+        isShortlisted: idx >= 2,
+        isInterviewScheduled: idx >= 3,
+        isInterviewed: idx >= 4,
+        isHired: idx >= 6
+      };
+      res.json({
+        success: true,
+        data: enriched,
+        message: 'Application status updated successfully'
+      });
+    }
   } catch (error) {
     console.error('Error updating application status:', error);
     res.status(500).json({

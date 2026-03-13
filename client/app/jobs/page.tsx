@@ -5887,50 +5887,29 @@ export default function JobsPage() {
 
 
 
-      {/* Authentication Dialog */}
+      {/* Authentication Dialog (only one) */}
 
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-
         <DialogContent className="sm:max-w-md">
-
           <DialogHeader>
-
-            <DialogTitle>Login Required</DialogTitle>
-
+            <DialogTitle>Sign In Required</DialogTitle>
             <DialogDescription>
-
-              You need to be logged in to save jobs and apply for positions. Please register or login to continue.
-
+              You need to be signed in to save jobs or apply for positions. Please register or login to continue.
             </DialogDescription>
-
           </DialogHeader>
-
           <div className="flex flex-col space-y-3 mt-6">
-
             <Link href="/register" className="w-full">
-
               <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-
                 Register Now
-
               </Button>
-
             </Link>
-
             <Link href="/login" className="w-full">
-
               <Button variant="outline" className="w-full bg-transparent">
-
                 Login
-
               </Button>
-
             </Link>
-
           </div>
-
         </DialogContent>
-
       </Dialog>
 
 
@@ -6046,44 +6025,6 @@ export default function JobsPage() {
       )}
 
 
-
-      {/* Auth Dialog */}
-
-      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
-
-        <DialogContent>
-
-          <DialogHeader>
-
-            <DialogTitle>Sign In Required</DialogTitle>
-
-            <DialogDescription>
-
-              You need to sign in to apply for jobs and access all features.
-
-            </DialogDescription>
-
-          </DialogHeader>
-
-          <div className="flex justify-end space-x-3">
-
-            <Button variant="outline" onClick={() => setShowAuthDialog(false)}>
-
-              Cancel
-
-            </Button>
-
-            <Button onClick={() => window.location.href = '/login'}>
-
-              Sign In
-
-            </Button>
-
-          </div>
-
-        </DialogContent>
-
-      </Dialog>
 
 
     </div>

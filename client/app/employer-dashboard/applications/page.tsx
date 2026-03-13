@@ -252,6 +252,18 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
     return icons[status as keyof typeof icons] || Clock
   }
 
+  // build a mapping for hierarchical statuses so filters include downstream states
+  const statusOrder: Record<string, number> = {
+    applied: 0,
+    reviewing: 1,
+    shortlisted: 2,
+    interview_scheduled: 3,
+    interviewed: 4,
+    offered: 5,
+    hired: 6
+  };
+  const filterIndex = statusFilter === 'all' ? -1 : (statusOrder[statusFilter] ?? -1);
+
   const filteredApplications = applications
     .filter(app => {
       const matchesSearch = !searchQuery ||
@@ -259,7 +271,9 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
         app.job?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         app.applicant?.email?.toLowerCase().includes(searchQuery.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || app.status === statusFilter
+      // if the backend provided a statusIndex use it, otherwise fall back to direct equality
+      const appIndex = typeof app.statusIndex === 'number' ? app.statusIndex : statusOrder[app.status] ?? -1;
+      const matchesStatus = statusFilter === "all" || (appIndex >= filterIndex && filterIndex >= 0) || app.status === statusFilter;
 
       const matchesJob = jobFilter === "all" || app.jobId === jobFilter || app.job?.id === jobFilter
 
@@ -320,22 +334,14 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
           )
           toast.success('Application rejected and removed from list')
         } else {
-          // For other status updates, check if the new status matches the current filter
-          if (statusFilter === 'all' || statusFilter === newStatus) {
-            // Update the application in the list if it should still be visible
-            setApplications(prevApplications =>
-              prevApplications.map(app =>
-                app.id === applicationId
-                  ? { ...app, status: newStatus }
-                  : app
-              )
+          // For other status updates, update the application in the list
+          setApplications(prevApplications =>
+            prevApplications.map(app =>
+              app.id === applicationId
+                ? { ...app, status: newStatus, ...response.data.updatedFields }
+                : app
             )
-          } else {
-            // Remove the application from the list if it no longer matches the filter
-            setApplications(prevApplications =>
-              prevApplications.filter(app => app.id !== applicationId)
-            )
-          }
+          )
           toast.success('Application status updated successfully')
         }
       } else {
@@ -599,10 +605,18 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                             {applicant && (applicant.verification_level === 'premium' || (applicant as any).verificationLevel === 'premium' || (applicant as any)?.preferences?.premium) && (
                               <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Premium</Badge>
                             )}
-                            <Badge className={getStatusColor(application.status)}>
-                              <StatusIcon className="w-3 h-3 mr-1" />
-                              {application.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                            </Badge>
+                            {/* render one or more status badges based on computed flags */}
+                          <div className="flex space-x-2 flex-wrap">
+                            {[...'shortlisted', 'interview', 'hired'].filter(s => application[s]).map((stat: string) => {
+                                const Icon = getStatusIcon(stat);
+                                return (
+                                  <Badge key={stat} className={getStatusColor(stat)}>
+                                    <Icon className="w-3 h-3 mr-1" />
+                                    {stat.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                  </Badge>
+                                );
+                              })}
+                          </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

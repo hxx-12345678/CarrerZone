@@ -1251,80 +1251,81 @@ export default function HomePage() {
                 className="transform transition-transform duration-300 ease-out hover:-translate-y-2"
               >
                 {job ? (
-                  <Link href={`/jobs/${job.id}`}>
-                    <Card className="group cursor-pointer border border-white/40 dark:border-slate-700/50 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
-                      <CardContent className="p-4 relative h-full flex flex-col justify-between">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${getSectorColor(job.sector)} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                        
-                        <div>
-                          <div className="flex items-start justify-between mb-3">
-                            <Avatar className="w-10 h-10 ring-2 ring-white/50 group-hover:ring-[3px] transition-all duration-300">
-                              <AvatarImage src={job.logo} alt={job.company} />
-                              <AvatarFallback className="text-xs font-bold">{job.company && job.company[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col gap-1">
-                              {(job as any).isHotVacancy && (
-                                <Badge className="bg-red-100 text-red-800 border-red-200 text-xs animate-pulse">
-                                  🔥 Hot
-                                </Badge>
-                              )}
-                              {((job as any).urgentHiring || job.urgent) && (
-                                <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                                  URGENT
-                                </Badge>
-                              )}
-                              {(job as any).superFeatured && (
-                                <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                  ⭐ Super
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
+                  <Card className="group cursor-pointer border border-white/40 dark:border-slate-700/50 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full">
+                    <CardContent className="p-4 relative h-full flex flex-col justify-between">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${getSectorColor(job.sector)} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                      
+                      <Link href={`/jobs/${job.id}`} className="absolute inset-0 z-0" />
 
-                          <h3 className="font-bold text-slate-900 dark:text-white mb-1 text-base group-hover:text-blue-600 transition-colors line-clamp-2">
-                            {job.title}
-                        </h3>
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-400 mb-2">{job.company}</p>
-
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-400">
-                              <div className="flex items-center">
-                                <MapPin className="w-3 h-3 mr-2" />
-                                <span className="truncate">{job.location}</span>
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-3">
+                          <Avatar className="w-10 h-10 ring-2 ring-white/50 group-hover:ring-[3px] transition-all duration-300">
+                            <AvatarImage src={job.logo} alt={job.company} />
+                            <AvatarFallback className="text-xs font-bold">{job.company && job.company[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col gap-1">
+                            {(job as any).isHotVacancy && (
+                              <Badge className="bg-red-100 text-red-800 border-red-200 text-xs animate-pulse">
+                                🔥 Hot
+                              </Badge>
+                            )}
+                            {((job as any).urgentHiring || job.urgent) && (
+                              <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
+                                URGENT
+                              </Badge>
+                            )}
+                            {(job as any).superFeatured && (
+                              <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                ⭐ Super
+                              </Badge>
+                            )}
                           </div>
-                              <div className="flex items-center">
-                                <Clock className="w-3 h-3 mr-1" />
-                                <span className="truncate">
-                                  {job.applicationDeadline 
-                                    ? new Date(job.applicationDeadline).toLocaleDateString('en-US', { 
-                                        month: 'short', 
-                                        day: 'numeric' 
-                                      })
-                                    : new Date(job.posted).toLocaleDateString('en-US', { 
-                                        month: 'short', 
-                                        day: 'numeric' 
-                                      })
-                                  }
-                                </span>
                         </div>
+
+                        <h3 className="font-bold text-slate-900 dark:text-white mb-1 text-base group-hover:text-blue-600 transition-colors line-clamp-2">
+                          {job.title}
+                        </h3>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-400 mb-2">{job.company}</p>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-400">
+                            <div className="flex items-center">
+                              <MapPin className="w-3 h-3 mr-2" />
+                              <span className="truncate">{job.location}</span>
                             </div>
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-400">
-                              <div className="flex items-center">
-                                <Briefcase className="w-3 h-3 mr-2" />
-                                <span className="truncate">{job.experience || 'Experience not specified'}</span>
-                              </div>
-                              <div className="flex items-center">
-                                <Users className="w-3 h-3 mr-1" />
-                                <span className="truncate">{job.applicants}</span>
-                              </div>
+                            <div className="flex items-center">
+                              <Clock className="w-3 h-3 mr-1" />
+                              <span className="truncate">
+                                {job.applicationDeadline 
+                                  ? new Date(job.applicationDeadline).toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric' 
+                                    })
+                                  : new Date(job.posted).toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric' 
+                                    })
+                                }
+                              </span>
                             </div>
-                            <div className="flex items-center text-xs font-bold text-slate-700 dark:text-slate-400">
-                              <span className="truncate capitalize">{job.type ? job.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Full-time'}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-400">
+                            <div className="flex items-center">
+                              <Briefcase className="w-3 h-3 mr-2" />
+                              <span className="truncate">{job.experience || 'Experience not specified'}</span>
                             </div>
-                            <div className="flex items-center text-xs font-bold text-slate-700 dark:text-slate-400">
-                              <IndianRupee className="w-3 h-3 mr-2" />
-                              <span className="truncate">{job.salary ? (job.salary.includes('LPA') ? job.salary : `${job.salary} LPA`) : 'Salary not specified'}</span>
+                            <div className="flex items-center">
+                              <Users className="w-3 h-3 mr-1" />
+                              <span className="truncate">{job.applicants}</span>
                             </div>
+                          </div>
+                          <div className="flex items-center text-xs font-bold text-slate-700 dark:text-slate-400">
+                            <span className="truncate capitalize">{job.type ? job.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Full-time'}</span>
+                          </div>
+                          <div className="flex items-center text-xs font-bold text-slate-700 dark:text-slate-400">
+                            <IndianRupee className="w-3 h-3 mr-2" />
+                            <span className="truncate">{job.salary ? (job.salary.includes('LPA') ? job.salary : `${job.salary} LPA`) : 'Salary not specified'}</span>
+                          </div>
                         </div>
                         
                         <div className="flex flex-wrap gap-1 mb-3">
@@ -1332,29 +1333,38 @@ export default function HomePage() {
                             <Badge
                               key={skillIndex}
                               variant="secondary"
-                                className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                              className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                             >
                               {skill}
                             </Badge>
                           ))}
                           {job.skills.length > 2 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{job.skills.length - 2} more
+                            <Badge variant="secondary" className="text-xs">
+                              +{job.skills.length - 2} more
                             </Badge>
                           )}
-                          </div>
                         </div>
-                        
-                      <div>
-                          <Button
+                      </div>
+                      
+                      <div className="relative z-10">
+                        <Button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!user) {
+                              // Here you should trigger your auth modal
+                              console.log('Auth modal should be triggered');
+                            } else {
+                              router.push(`/jobs/${job.id}?apply=true`);
+                            }
+                          }}
                           className={`w-full bg-gradient-to-r ${getSectorColor(job.sector)} hover:from-blue-600 hover:to-indigo-600 text-white border-0 shadow-md transition-colors duration-300 text-sm py-2`}
-                          >
+                        >
                           View Job
-                          </Button>
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
-                    </Link>
                 ) : (
                   <div className="w-full h-full">
                     <div className="h-full rounded-2xl border border-white/40 dark:border-slate-700/50 bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl shadow-sm p-6 animate-pulse">

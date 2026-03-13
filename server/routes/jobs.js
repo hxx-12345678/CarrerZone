@@ -44,11 +44,24 @@ router.patch('/:id/status', authenticateToken, checkPermission('jobPosting'), as
   try {
     const { id } = req.params;
     const { status } = req.body || {};
-    const job = await Job.findByPk(id);
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    const application = await JobApplication.findByPk(id);
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
 
-    const prevStatus = job.status;
-    await job.update({ status });
+    const prevStatus = application.status;
+    
+    // Hierarchical status update
+    const statusHierarchy = ['applied', 'shortlisted', 'interview', 'hired', 'rejected'];
+    const newStatusIndex = statusHierarchy.indexOf(status);
+    
+    if (newStatusIndex > -1) {
+      const updates = { status };
+      for (let i = 0; i <= newStatusIndex; i++) {
+        updates[statusHierarchy[i]] = true;
+      }
+      await application.update(updates);
+    } else {
+      await application.update({ status });
+    }
 
     if (status === 'active') {
       console.log('🔔 [route] Reactivation for job', job.id, 'prevStatus=', prevStatus, '-> active');

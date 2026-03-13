@@ -326,7 +326,13 @@ export interface JobApplication {
   id: string;
   jobId: string;
   userId: string;
-  status: 'applied' | 'reviewing' | 'shortlisted' | 'interviewed' | 'offered' | 'hired' | 'rejected' | 'withdrawn';
+  status: 'applied' | 'reviewing' | 'shortlisted' | 'interview_scheduled' | 'interviewed' | 'offered' | 'hired' | 'rejected' | 'withdrawn';
+  // computed helpers from backend
+  statusIndex?: number;
+  isShortlisted?: boolean;
+  isInterviewScheduled?: boolean;
+  isInterviewed?: boolean;
+  isHired?: boolean;
   coverLetter?: string;
   expectedSalary?: number;
   appliedAt: string;
