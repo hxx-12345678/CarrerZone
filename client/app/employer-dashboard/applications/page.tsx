@@ -605,18 +605,13 @@ function ApplicationsPageContent({ user, authLoading }: { user: any; authLoading
                             {applicant && (applicant.verification_level === 'premium' || (applicant as any).verificationLevel === 'premium' || (applicant as any)?.preferences?.premium) && (
                               <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Premium</Badge>
                             )}
-                            {/* render one or more status badges based on computed flags */}
-                          <div className="flex space-x-2 flex-wrap">
-                            {[...'shortlisted', 'interview', 'hired'].filter(s => application[s]).map((stat: string) => {
-                                const Icon = getStatusIcon(stat);
-                                return (
-                                  <Badge key={stat} className={getStatusColor(stat)}>
-                                    <Icon className="w-3 h-3 mr-1" />
-                                    {stat.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                                  </Badge>
-                                );
-                              })}
-                          </div>
+                            {/* render status badge */}
+                            <div className="flex space-x-2 flex-wrap">
+                              <Badge className={getStatusColor(application.status)}>
+                                <StatusIcon className="w-3 h-3 mr-1" />
+                                {application.status.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                              </Badge>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

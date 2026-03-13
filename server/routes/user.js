@@ -8,7 +8,7 @@ const axios = require('axios');
 const User = require('../models/User');
 const Resume = require('../models/Resume');
 const CoverLetter = require('../models/CoverLetter');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const { authenticateToken } = require('../middlewares/auth');
 const checkPermission = require('../middlewares/checkPermission');
@@ -1278,7 +1278,6 @@ router.get('/notifications', authenticateToken, async (req, res) => {
       const preference = await JobPreference.findOne({ where: { userId: req.user.id, isActive: true } });
       if (preference) {
         const whereClause = { status: 'active', region: preference.region || req.user.region || 'india' };
-        const { Op } = require('sequelize');
         if (preference.preferredJobTitles && preference.preferredJobTitles.length > 0) {
           whereClause.title = { [Op.iLike]: { [Op.any]: preference.preferredJobTitles.map(t => `%${t}%`) } };
         }
@@ -2121,7 +2120,6 @@ router.get('/employer/applications', authenticateToken, checkPermission('applica
     let educationsByUser = new Map();
     if (applicantIds.length > 0) {
       // Use Sequelize queries with Op.in to properly handle array parameters
-      const { Op } = require('sequelize');
 
       // CRITICAL: Only select columns that actually exist in the work_experiences table
       // Based on migration, the actual columns are:
@@ -3297,8 +3295,6 @@ router.get('/employer/dashboard-stats', authenticateToken, async (req, res) => {
 
     // Get employer's jobs - filter by user's region to ensure Gulf employers only see Gulf jobs
     console.log('🔍 Querying jobs for employerId:', req.user.id, 'region:', req.user.region);
-    const { Op: SeqOp } = require('sequelize');
-    const Sequelize = require('sequelize');
     const whereClause = { employerId: req.user.id };
 
     // Add region filtering to ensure Gulf employers only see Gulf jobs in normal dashboard
@@ -3313,8 +3309,8 @@ router.get('/employer/dashboard-stats', authenticateToken, async (req, res) => {
 
     // CRITICAL: Exclude internal placeholder jobs (used for requirement shortlisting)
     // These have metadata.isPlaceholder = true and should not inflate dashboard counts
-    whereClause[SeqOp.and] = whereClause[SeqOp.and] || [];
-    whereClause[SeqOp.and].push(
+    whereClause[Op.and] = whereClause[Op.and] || [];
+    whereClause[Op.and].push(
       Sequelize.literal("(metadata->>'isPlaceholder' IS NULL OR metadata->>'isPlaceholder' != 'true')")
     );
 
@@ -3360,7 +3356,6 @@ router.get('/employer/dashboard-stats', authenticateToken, async (req, res) => {
     let profileViews = 0;
     try {
       const { ViewTracking } = require('../config/index');
-      const { Op } = require('sequelize');
       profileViews = await ViewTracking.count({
         where: {
           viewedUserId: req.user.id,
@@ -4829,10 +4824,9 @@ router.get('/employer/dashboard', authenticateToken, checkPermission('analytics'
     // If user has no region set, show all jobs (backward compatibility)
 
     // CRITICAL: Exclude internal placeholder jobs (used for requirement shortlisting)
-    const SeqLib = require('sequelize');
-    whereClause[SeqLib.Op.and] = whereClause[SeqLib.Op.and] || [];
-    whereClause[SeqLib.Op.and].push(
-      SeqLib.literal("(metadata->>'isPlaceholder' IS NULL OR metadata->>'isPlaceholder' != 'true')")
+    whereClause[Op.and] = whereClause[Op.and] || [];
+    whereClause[Op.and].push(
+      Sequelize.literal("(metadata->>'isPlaceholder' IS NULL OR metadata->>'isPlaceholder' != 'true')")
     );
 
     const jobs = await Job.findAll({
@@ -5656,7 +5650,7 @@ async function anonymizeSharedData(userId, transaction) {
     try {
       const options = {
         where: {
-          [require('sequelize').Op.or]: [
+          [Op.or]: [
             { senderId: userId },
             { receiverId: userId }
           ]
@@ -5747,7 +5741,7 @@ async function deleteUserSpecificData(userId, transaction) {
     try {
       const options = {
         where: {
-          [require('sequelize').Op.or]: [
+          [Op.or]: [
             { participant1Id: userId },
             { participant2Id: userId }
           ]
@@ -5784,7 +5778,7 @@ async function deleteUserSpecificData(userId, transaction) {
     try {
       const options = {
         where: {
-          [require('sequelize').Op.or]: [
+          [Op.or]: [
             { employerId: userId },
             { candidateId: userId }
           ]
@@ -5801,7 +5795,7 @@ async function deleteUserSpecificData(userId, transaction) {
     try {
       const options = {
         where: {
-          [require('sequelize').Op.or]: [
+          [Op.or]: [
             { viewerId: userId },
             { viewedUserId: userId }
           ]

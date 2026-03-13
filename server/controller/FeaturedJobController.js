@@ -54,8 +54,8 @@ exports.createFeaturedJob = async (req, res, next) => {
       where: { 
         jobId,
         isActive: true,
-        startDate: { [require('sequelize').Op.lte]: new Date() },
-        endDate: { [require('sequelize').Op.gte]: new Date() }
+        startDate: { [Op.lte]: new Date() },
+        endDate: { [Op.gte]: new Date() }
       }
     });
 

@@ -5,7 +5,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const { Op, QueryTypes } = require('sequelize');
+const { Op, QueryTypes, Sequelize } = require('sequelize');
 const { sequelize } = require('../config/sequelize');
 const CandidateLike = require('../models/CandidateLike');
 
@@ -4837,15 +4837,13 @@ router.post('/:requirementId/candidates/:candidateId/shortlist', authenticateTok
       // IMPORTANT: We store isPlaceholder inside the metadata JSONB field
       // because the Job model doesn't have a dedicated isPlaceholder column.
       // This allows us to filter placeholder jobs out of normal listings.
-      const Sequelize = require('sequelize');
-      const { Op: SeqOp } = Sequelize;
       const companyId = req.user.companyId || req.user.company_id;
 
       let placeholderJob = await Job.findOne({
         where: {
           companyId,
           title: 'Requirement Shortlist',
-          [SeqOp.and]: [
+          [Op.and]: [
             // JSONB equality checks on objects are too strict here; use a JSON path condition instead.
             Sequelize.literal("metadata->>'isPlaceholder' = 'true'")
           ]

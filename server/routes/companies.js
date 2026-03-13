@@ -267,8 +267,7 @@ router.post('/:id/banner', authenticateToken, checkPermission('settings'), compa
 // List companies (public)
 router.get('/', async (req, res) => {
   try {
-    const { search, limit = 20, offset = 0 } = req.query;
-    const { Op } = require('sequelize');
+    const { search, limit = 20, offset = 0, region } = req.query;
     const where = {};
     if (search && String(search).trim().length > 0) {
       const q = String(search).trim();
@@ -276,6 +275,9 @@ router.get('/', async (req, res) => {
         { name: { [Op.iLike]: `%${q}%` } },
         { slug: { [Op.iLike]: `%${q}%` } }
       ];
+    }
+    if (region) {
+      where.region = region;
     }
     const companies = await Company.findAll({
       where,
@@ -792,8 +794,7 @@ router.get("/:id/jobs", async (req, res) => {
   try {
     const { id } = req.params;
     const { department, location, experience, salary, region } = req.query;
-    const Job = require("../models/Job");
-    const { Op } = require("sequelize");
+    // Use Job and Op from the top-level imports
 
     // Resolve company ID - could be UUID or slug
     let companyId = id;

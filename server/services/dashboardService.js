@@ -7,6 +7,7 @@ const Resume = require('../models/Resume');
 const Analytics = require('../models/Analytics');
 const CandidateLike = require('../models/CandidateLike');
 const { sequelize } = require('../config/sequelize');
+const { Op, fn, col, literal } = require('sequelize');
 
 class DashboardService {
   /**
@@ -271,7 +272,7 @@ class DashboardService {
       try {
         recentApplications = await JobApplication.findAll({
           where: { userId },
-          order: [[require('sequelize').col('applied_at'), 'DESC']],
+          order: [[col('applied_at'), 'DESC']],
           limit: 5,
           include: [{
             model: require('../models/Job'),
@@ -600,15 +601,15 @@ class DashboardService {
     };
 
     // Lazy-require to avoid circular deps at top-level
-    const { Op, fn, col, literal } = require('sequelize');
-    const SearchHistory = require('../models/SearchHistory');
-    const JobApplication = require('../models/JobApplication');
-    const User = require('../models/User');
-    const Analytics = require('../models/Analytics');
-    let ViewTracking;
-    try { ViewTracking = require('../models/ViewTracking'); } catch (_) {}
-    let Message;
-    try { Message = require('../models/Message'); } catch (_) {}
+    const models = require('../models');
+    const Job = models.Job;
+    const JobApplication = models.JobApplication;
+    const ViewTracking = models.ViewTracking;
+    const Interview = models.Interview;
+    const SearchHistory = models.SearchHistory;
+    const User = models.User;
+    const Analytics = models.Analytics;
+    const Message = models.Message;
 
     // Totals
     const totalSearches = await safeCount(() => SearchHistory.count({ where: { userId, createdAt: { [Op.gte]: dateFrom } } }));
@@ -1152,24 +1153,13 @@ class DashboardService {
 
 
     // Lazy-require to avoid circular deps at top-level
-
-    const { Op, fn, col, literal } = require('sequelize');
-
     const SearchHistory = require('../models/SearchHistory');
-
     const JobApplication = require('../models/JobApplication');
-
     const User = require('../models/User');
-
     const Analytics = require('../models/Analytics');
-
-    let ViewTracking;
-
-    try { ViewTracking = require('../models/ViewTracking'); } catch (_) {}
-
-    let Message;
-
-    try { Message = require('../models/Message'); } catch (_) {}
+    const models = require('../models');
+    const ViewTracking = models.ViewTracking;
+    const Message = models.Message;
 
 
 

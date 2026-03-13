@@ -675,7 +675,7 @@ export default function GulfNavbar() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <p className="text-sm text-slate-700">
               <strong>Email:</strong> {existingUserData.email}
             </p>

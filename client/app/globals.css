@@ -74,18 +74,22 @@
 :root {
   --gradient-primary: linear-gradient(90deg, #5A00F2 0%, #A855F7 55%, #4F9BFF 100%);
   --gradient-secondary: linear-gradient(90deg, #EEF2FF 0%, #F8F5FF 100%);
-  --accent: #5A00F2;
+  --accent: #059669;
   --text-primary: #0F1724;
   --text-muted: #6B7280;
-  --shadow-large: 0 30px 70px rgba(20,16,48,0.12);
-  --shadow-small: 0 6px 18px rgba(20,16,48,0.08);
+  --shadow-large: 0 30px 70px rgba(16,185,129,0.12);
+  --shadow-small: 0 6px 18px rgba(16,185,129,0.08);
+  --heading-shadow: rgba(16,185,129,0.16);
+  --bg-color-1: rgba(16,185,129,0.06);
+  --bg-color-2: rgba(5,150,105,0.06);
+  --bg-color-3: rgba(52,211,153,0.06);
 }
 .heading-gradient {
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 6px 30px rgba(90,0,242,0.16);
+  text-shadow: 0 6px 30px var(--heading-shadow);
 }
 
 .glass-20 {
@@ -132,7 +136,7 @@
 }
 
 .bg-animated {
-  background: linear-gradient(120deg, rgba(90,0,242,0.06), rgba(168,85,247,0.06), rgba(79,155,255,0.06));
+  background: linear-gradient(120deg, var(--bg-color-1), var(--bg-color-2), var(--bg-color-3));
   background-size: 200% 200%;
   animation: bg-move 12s ease infinite;
 }
@@ -187,6 +191,16 @@
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */
   scrollbar-width: none;  /* Firefox */
+}
+
+/* Gulf Theme Overrides */
+.gulf-theme {
+  --gradient-primary: linear-gradient(90deg, #059669 0%, #10b981 55%, #34d399 100%);
+  --shadow-large: 0 30px 70px rgba(16,185,129,0.12);
+  --heading-shadow: rgba(16,185,129,0.16);
+  --bg-color-1: rgba(16,185,129,0.06);
+  --bg-color-2: rgba(5,150,105,0.06);
+  --bg-color-3: rgba(52,211,153,0.06);
 }
 
 .scrollbar-hide::-webkit-scrollbar {

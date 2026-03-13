@@ -977,23 +977,38 @@ function EmployerDashboardContent({ user, refreshUser, updateUser }: { user: any
     let completion = 0
 
     // User profile fields (40% of total)
+    // Only looking at fields editable in /employer-dashboard/settings
     const userFields = [
-      user.firstName, user.lastName, user.email, user.phone,
-      user.currentLocation, user.headline, user.summary
+      user.firstName, user.lastName, user.email, user.phone, user.currentLocation
     ]
+    let filledUserFields = 0
     userFields.forEach(field => {
-      if (field && field.trim() !== '') completion += 5.7
+      if (field && String(field).trim() !== '') filledUserFields++
     })
+    completion += (filledUserFields / userFields.length) * 40
 
     // Company profile fields (60% of total)
     if (user.companyId && companyData) {
+      // Look at exactly what's editable in company settings tab
       const companyFields = [
-        companyData.name, companyData.industries && companyData.industries.length > 0 ? companyData.industries[0] : 'Other', companyData.companySize,
-        companyData.website, companyData.description, companyData.address
+        companyData.name, 
+        companyData.industries && companyData.industries.length > 0 ? 'yes' : '', 
+        companyData.companySize,
+        companyData.website, 
+        companyData.description || companyData.about, 
+        companyData.whyJoinUs,
+        companyData.natureOfBusiness && companyData.natureOfBusiness.length > 0 ? 'yes' : '',
+        companyData.companyTypes && companyData.companyTypes.length > 0 ? 'yes' : '',
+        companyData.address,
+        companyData.contactPhone || companyData.phone,
+        companyData.contactEmail || companyData.email
       ]
+      
+      let filledCompanyFields = 0
       companyFields.forEach(field => {
-        if (field && field.trim() !== '') completion += 10
+        if (field && String(field).trim() !== '') filledCompanyFields++
       })
+      completion += (filledCompanyFields / companyFields.length) * 60
     } else if (user.companyId) {
       // If user has companyId but companyData is not loaded yet, show partial completion
       completion += 30
