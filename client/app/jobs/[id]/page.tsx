@@ -56,6 +56,8 @@ export default function JobDetailPage() {
   const { user, loading } = useAuth()
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [bookmarkId, setBookmarkId] = useState<string | null>(null)
+  const [bookmarkLoading, setBookmarkLoading] = useState(false)
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [showApplicationDialog, setShowApplicationDialog] = useState(false)
   const [forceUpdate, setForceUpdate] = useState(false)
@@ -516,6 +518,77 @@ export default function JobDetailPage() {
     return false
   }, [isEmployerAccount, user, job])
 
+  // Load bookmark status
+  useEffect(() => {
+    const fetchBookmarkStatus = async () => {
+      if (!user || user.userType !== 'jobseeker' || !jobIdFromParams) {
+        setIsBookmarked(false)
+        setBookmarkId(null)
+        return
+      }
+
+      try {
+        const res = await apiService.getBookmarks()
+        if (res.success && Array.isArray(res.data)) {
+          const bookmark = res.data.find((b: any) => String(b.jobId) === String(jobIdFromParams))
+          if (bookmark) {
+            setIsBookmarked(true)
+            setBookmarkId(bookmark.id)
+          } else {
+            setIsBookmarked(false)
+            setBookmarkId(null)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching bookmark status:', error)
+      }
+    }
+
+    if (!loading) {
+      fetchBookmarkStatus()
+    }
+  }, [user, loading, jobIdFromParams])
+
+  const handleBookmark = async () => {
+    if (!user) {
+      setShowAuthDialog(true)
+      return
+    }
+
+    if (user.userType !== 'jobseeker') {
+      toast.error('Only jobseekers can save jobs')
+      return
+    }
+
+    setBookmarkLoading(true)
+    try {
+      if (isBookmarked && bookmarkId) {
+        const res = await apiService.deleteBookmark(bookmarkId)
+        if (res.success) {
+          setIsBookmarked(false)
+          setBookmarkId(null)
+          toast.success('Job removed from saved jobs')
+        } else {
+          toast.error(res.message || 'Failed to remove job')
+        }
+      } else {
+        const res = await apiService.createBookmark({ jobId: jobIdFromParams })
+        if (res.success && res.data) {
+          setIsBookmarked(true)
+          setBookmarkId(res.data.id)
+          toast.success('Job saved successfully')
+        } else {
+          toast.error(res.message || 'Failed to save job')
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error)
+      toast.error('An error occurred. Please try again.')
+    } finally {
+      setBookmarkLoading(false)
+    }
+  }
+
   const handleApply = async () => {
     if (!user) {
       setShowAuthDialog(true)
@@ -779,7 +852,8 @@ export default function JobDetailPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setIsBookmarked(!isBookmarked)}
+                          onClick={handleBookmark}
+                          disabled={bookmarkLoading}
                           className={`${isBookmarked ? "bg-blue-50 border-blue-200 text-blue-600" : ""}`}
                         >
                           <Bookmark className={`w-4 h-4 mr-2 ${isBookmarked ? "fill-current" : ""}`} />
