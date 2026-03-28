@@ -25,6 +25,7 @@ import {
   GraduationCap,
   Zap,
   Video,
+  Sparkles,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -767,7 +768,17 @@ export default function GulfJobDetailPage() {
                           <AvatarFallback className="text-xl font-bold text-emerald-600">{(typeof job?.company === 'string' ? job?.company : job?.company?.name || 'C')[0]}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{job?.title || 'Job'}</h1>
+                          <div className="flex items-center gap-3 mb-2">
+                            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{job?.title || 'Job'}</h1>
+                            
+                            {/* AI Match Score Badge */}
+                            {(job as any).matchScore !== undefined && (
+                              <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-3 py-1 flex items-center gap-1.5 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
+                                <Sparkles className="w-4 h-4 fill-emerald-500 text-emerald-500 animate-pulse" />
+                                <span className="font-bold">{(job as any).matchScore}% AI Match</span>
+                              </Badge>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 flex-wrap mb-3">
                             {job?.company && (
                               <Link
@@ -1063,6 +1074,73 @@ export default function GulfJobDetailPage() {
                   </CardContent>
                 </Card>
               </motion.div>
+
+              {/* AI Match Analysis (If available) */}
+              {job?.matchScore !== undefined && job?.matchAnalysis && (
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.6 }}
+                >
+                  <Card className="border-0 bg-emerald-50/50 dark:bg-emerald-900/10 backdrop-blur-xl shadow-lg border-l-4 border-l-emerald-500">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xl flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                        <Sparkles className="w-5 h-5 fill-emerald-500" />
+                        AI Fitment Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {typeof job.matchAnalysis === 'string' ? (
+                        <p className="text-slate-700 dark:text-slate-300 italic">
+                          "{job.matchAnalysis}"
+                        </p>
+                      ) : (
+                        <>
+                          {job.matchAnalysis.assessment && (
+                            <p className="text-slate-700 dark:text-slate-300 italic mb-4">
+                              "{job.matchAnalysis.assessment}"
+                            </p>
+                          )}
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {job.matchAnalysis.strengths && job.matchAnalysis.strengths.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="font-bold text-emerald-700 dark:text-emerald-400 text-sm uppercase tracking-wider flex items-center gap-1">
+                                  <CheckCircle className="w-4 h-4" /> Key Strengths
+                                </h4>
+                                <ul className="space-y-1">
+                                  {job.matchAnalysis.strengths.map((s: string, i: number) => (
+                                    <li key={i} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                                      {s}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {job.matchAnalysis.gaps && job.matchAnalysis.gaps.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="font-bold text-amber-700 dark:text-amber-400 text-sm uppercase tracking-wider flex items-center gap-1">
+                                  <AlertCircle className="w-4 h-4" /> Areas to Highlight
+                                </h4>
+                                <ul className="space-y-1">
+                                  {job.matchAnalysis.gaps.map((g: string, i: number) => (
+                                    <li key={i} className="text-sm text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                                      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                      {g}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
 
               {/* Comprehensive Job Details */}
               <motion.div

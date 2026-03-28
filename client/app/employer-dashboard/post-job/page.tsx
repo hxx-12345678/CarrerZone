@@ -888,7 +888,7 @@ export default function PostJobPage() {
           impressions: template.templateData.impressions || 0,
           clicks: template.templateData.clicks || 0,
           currentSkillInput: "",
-          responsibilities: template.templateData.responsibilities || ""
+          responsibilities: (template.templateData as any).responsibilities || ""
         };
 
         console.log('📝 Setting form data:', newFormData);

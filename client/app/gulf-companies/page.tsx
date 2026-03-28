@@ -1168,7 +1168,7 @@ export default function GulfCompaniesPage() {
             <div>
               <h4 className="font-semibold mb-4 text-white">For Job Seekers</h4>
               <ul className="space-y-3 text-slate-300">
-                <li><Link href="/gulf-jobs" className="hover:text-green-400 transition-colors">Browse CareerZone Gulf Jobs</Link></li>
+                <li><Link href="/gulf-jobs" className="hover:text-green-400 transition-colors">Browse Gulf Jobs</Link></li>
                 <li><Link href="/gulf-companies" className="hover:text-green-400 transition-colors">Gulf Companies</Link></li>
                 <li><Link href="/gulf-opportunities" className="hover:text-green-400 transition-colors">Gulf Opportunities</Link></li>
                 <li><Link href="/jobseeker-gulf-dashboard" className="hover:text-green-400 transition-colors">Gulf Dashboard</Link></li>

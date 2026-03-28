@@ -1345,7 +1345,7 @@ export default function DashboardPage() {
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
-                      Explore CareerZone Gulf Jobs
+                      Explore Gulf Jobs
                     </Button>
                   </Link>
                 </div>
@@ -1711,7 +1711,7 @@ export default function DashboardPage() {
 
             <div className="border-t border-slate-800 mt-6 pt-6 text-center">
               <p className="text-slate-400 text-sm">
-                © 2026 CareerZone. All rights reserved. Made with ❤️ for job seekers and employers.
+                © 2024 JobPortal. All rights reserved. Made with ❤️ for job seekers and employers.
               </p>
             </div>
           </div>

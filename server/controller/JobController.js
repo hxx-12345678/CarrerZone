@@ -955,13 +955,14 @@ exports.getAllJobs = async (req, res, next) => {
     const andGroups = [];
 
     // Add region filtering to ensure proper job visibility
-    if (region) {
+    if (region && region !== 'all') {
       whereClause.region = region;
-    } else {
+    } else if (!region) {
       // Default behavior: exclude Gulf jobs from regular job listings
       // This ensures Gulf jobs are only visible through Gulf-specific endpoints
       whereClause.region = { [OpNe]: 'gulf' };
     }
+    // If region === 'all', we don't add any region filter, showing both India and Gulf jobs
 
     // Add filters
     if (status) {
@@ -1250,6 +1251,20 @@ exports.getAllJobs = async (req, res, next) => {
     const { count, rows: jobs } = await Job.findAndCountAll({
       where: finalWhere,
       include,
+      attributes: {
+        include: [
+          [
+            Job.sequelize.literal(`(
+              SELECT ats_score 
+              FROM candidate_analytics 
+              WHERE candidate_analytics.job_id = "Job".id 
+              AND candidate_analytics.user_id = '${req.user?.id || '00000000-0000-0000-0000-000000000000'}'
+              LIMIT 1
+            )`),
+            'matchScore'
+          ]
+        ]
+      },
       order: orderClauses,
       limit: parseInt(limit),
       offset: parseInt(offset)
@@ -1308,7 +1323,29 @@ exports.getJobById = async (req, res, next) => {
         }
       ],
       attributes: {
-        exclude: ['hiringCompanyId', 'postedByAgencyId'] // Exclude VIRTUAL fields from SELECT
+        exclude: ['hiringCompanyId', 'postedByAgencyId'], // Exclude VIRTUAL fields from SELECT
+        include: [
+          [
+            Job.sequelize.literal(`(
+              SELECT ats_score 
+              FROM candidate_analytics 
+              WHERE candidate_analytics.job_id = "Job".id 
+              AND candidate_analytics.user_id = '${req.user?.id || '00000000-0000-0000-0000-000000000000'}'
+              LIMIT 1
+            )`),
+            'matchScore'
+          ],
+          [
+            Job.sequelize.literal(`(
+              SELECT ats_analysis 
+              FROM candidate_analytics 
+              WHERE candidate_analytics.job_id = "Job".id 
+              AND candidate_analytics.user_id = '${req.user?.id || '00000000-0000-0000-0000-000000000000'}'
+              LIMIT 1
+            )`),
+            'matchAnalysis'
+          ]
+        ]
       }
     });
 

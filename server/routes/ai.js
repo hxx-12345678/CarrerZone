@@ -66,12 +66,6 @@ router.get('/job-match/:jobId', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    // Use the existing calculateATSScore which already does the matching
-    // We need to pass requirementId, but here we have jobId.
-    // Let's check if Job and Requirement are related or the same.
-    // In some systems they are separate, in others the same.
-    // Based on JobController, it seems they might be related.
-    
     const result = await atsService.calculateATSScore(userId, jobId);
     
     res.json({
@@ -133,6 +127,32 @@ router.post('/generate-cover-letter', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('❌ Error in /generate-cover-letter:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+});
+
+/**
+ * POST /api/ai/generate-job-description
+ * Generates job description, requirements, and responsibilities using AI
+ */
+router.post('/generate-job-description', authenticateToken, async (req, res) => {
+  try {
+    const { title, context = {} } = req.body;
+    
+    if (!title) {
+      return res.status(400).json({ success: false, message: 'Job title is required' });
+    }
+
+    const result = await atsService.generateJobDescription(title, context);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      console.error('❌ AI generate-job-description failed:', result.error || result.message);
+      res.status(500).json(result);
+    }
+  } catch (error) {
+    console.error('❌ Error in /generate-job-description:', error);
     res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   }
 });

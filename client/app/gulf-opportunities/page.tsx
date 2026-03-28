@@ -1775,7 +1775,7 @@ export default function GulfOpportunitiesPage() {
                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center mr-3">
                     <span className="text-xs">📧</span>
               </div>
-                  <span>support@careerzone.com</span>
+                  <span>support@jobportal.com</span>
                 </div>
                 <div className="flex items-center text-slate-300">
                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center mr-3">
@@ -1795,7 +1795,7 @@ export default function GulfOpportunitiesPage() {
 
           <div className="border-t border-slate-700/50 pt-8 text-center">
             <div className="flex flex-col sm:flex-row items-center justify-between text-sm text-slate-400">
-            <p>© 2026 CareerZone Gulf. All rights reserved. Made with ❤️ for Gulf Opportunities</p>
+            <p>© 2026 Gulf Opportunities. All rights reserved. Made with ❤️ in Gulf</p>
               <div className="flex items-center space-x-6 mt-4 sm:mt-0">
                 <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
