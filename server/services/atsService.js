@@ -64,7 +64,7 @@ function cleanAIJSON(text) {
                     .replace(/```\s?([\s\S]*?)```/g, '$1')
                     .trim();
 
-  // 2. Find the first '{' or '[' and the last '}' or ']'
+  // 2. Find the first '{' or '['
   const firstBrace = cleaned.indexOf('{');
   const firstBracket = cleaned.indexOf('[');
   let startIdx = -1;
@@ -80,37 +80,75 @@ function cleanAIJSON(text) {
 
   if (startIdx === -1) return null;
 
-  const lastEndIdx = cleaned.lastIndexOf(endChar);
-  if (lastEndIdx === -1) {
-    // Truncated JSON - try to repair it by adding closing braces
-    console.log('⚠️ AI response appears truncated, attempting repair...');
-    let repaired = cleaned.substring(startIdx);
-    
-    // Count open/close braces
-    let openBraces = 0;
-    let openBrackets = 0;
-    for (let i = 0; i < repaired.length; i++) {
-      if (repaired[i] === '{') openBraces++;
-      else if (repaired[i] === '}') openBraces--;
-      else if (repaired[i] === '[') openBrackets++;
-      else if (repaired[i] === ']') openBrackets--;
-    }
+  cleaned = cleaned.substring(startIdx);
 
-    // Close remaining
-    for (let i = 0; i < openBraces; i++) repaired += '}';
-    for (let i = 0; i < openBrackets; i++) repaired += ']';
-    
-    cleaned = repaired;
-  } else {
-    cleaned = cleaned.substring(startIdx, lastEndIdx + 1);
-  }
-
-  // 3. Try to parse
+  // 3. Robust JSON repair for truncated responses
   try {
+    // First try normal parse
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error('❌ Failed to parse AI JSON:', e.message);
-    return null;
+    console.log('⚠️ AI response appears truncated or malformed, attempting robust repair...');
+    
+    // Remove trailing characters after the last valid structure
+    let lastValidIdx = -1;
+    let stack = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      
+      if (char === '"' && !escaped) {
+        inString = !inString;
+      }
+      
+      if (!inString) {
+        if (char === '{' || char === '[') {
+          stack.push(char === '{' ? '}' : ']');
+        } else if (char === '}' || char === ']') {
+          if (stack.length > 0 && stack[stack.length - 1] === char) {
+            stack.pop();
+            if (stack.length === 0) lastValidIdx = i;
+          }
+        }
+      }
+      
+      escaped = char === '\\' && !escaped;
+    }
+
+    // If we found a complete object, use it
+    if (lastValidIdx !== -1 && stack.length === 0) {
+      try {
+        return JSON.parse(cleaned.substring(0, lastValidIdx + 1));
+      } catch (innerE) {}
+    }
+
+    // If still failing or truncated, try to force-close everything
+    let repaired = cleaned;
+    
+    // If we ended inside a string, close it
+    if (inString) repaired += '"';
+    
+    // Close all open braces/brackets in reverse order
+    while (stack.length > 0) {
+      repaired += stack.pop();
+    }
+
+    try {
+      return JSON.parse(repaired);
+    } catch (finalE) {
+      console.error('❌ Failed to parse AI JSON even after repair:', finalE.message);
+      
+      // Last resort: extract numbers or specific fields if possible (regex fallback)
+      const scoreMatch = cleaned.match(/"ats_score"\s*:\s*(\d+)/);
+      if (scoreMatch) {
+        return {
+          ats_score: parseInt(scoreMatch[1]),
+          overall_assessment: "Partially recovered from malformed AI response."
+        };
+      }
+      return null;
+    }
   }
 }
 
@@ -134,13 +172,29 @@ function calculateRuleBasedScore(requirementDetails, candidateProfile, resumeCon
   const requiredSkills = requirementDetails.requiredSkills || [];
   const candidateSkills = candidateProfile.skills || [];
   
-  if (requiredSkills.length > 0 && candidateSkills.length > 0) {
-    const candidateSkillsLower = candidateSkills.map(s => s.toLowerCase());
+  // Extract skills from resume content if available (often more comprehensive)
+  const resumeSkills = [];
+  if (resumeContent) {
+    const commonSkills = ['python', 'javascript', 'react', 'node', 'java', 'sql', 'aws', 'docker', 'machine learning', 'deep learning', 'tensorflow', 'pytorch', 'scikit-learn', 'pandas', 'numpy', 'mongodb', 'postgresql', 'mysql', 'git', 'ci/cd', 'typescript', 'html', 'css', 'redux', 'express', 'flask', 'django', 'fastapi', 'rest api', 'graphql', 'kubernetes', 'jenkins', 'terraform', 'ansible'];
+    const resumeLower = resumeContent.toLowerCase();
+    commonSkills.forEach(skill => {
+      if (resumeLower.includes(skill)) {
+        resumeSkills.push(skill);
+      }
+    });
+  }
+
+  const combinedCandidateSkills = Array.from(new Set([
+    ...candidateSkills.map(s => s.toLowerCase()),
+    ...resumeSkills
+  ]));
+  
+  if (requiredSkills.length > 0) {
     let matchedCount = 0;
     
     requiredSkills.forEach(skill => {
       const skillLower = skill.toLowerCase();
-      if (candidateSkillsLower.some(cs => cs.includes(skillLower))) {
+      if (combinedCandidateSkills.some(cs => cs.includes(skillLower) || skillLower.includes(cs))) {
         matchedCount++;
         matching_skills.push(skill);
       } else {
@@ -148,84 +202,91 @@ function calculateRuleBasedScore(requirementDetails, candidateProfile, resumeCon
       }
     });
     
-    const skillsMatchPercentage = (matchedCount / requiredSkills.length) * 100;
-    ats_score += Math.round((matchedCount / requiredSkills.length) * 40);
+    if (requiredSkills.length > 0) {
+      ats_score += Math.round((matchedCount / requiredSkills.length) * 40);
+    }
     
-    if (matchedCount === requiredSkills.length) {
-      strengths.push('All required skills matched');
-    } else if (matchedCount >= requiredSkills.length * 0.7) {
-      strengths.push('Most required skills matched');
-      areas_for_improvement.push('Acquire remaining required skills');
-    } else {
-      areas_for_improvement.push('Develop more required skills');
+    if (matchedCount > 0) {
+      if (matchedCount === requiredSkills.length) {
+        strengths.push('All required skills matched');
+      } else if (matchedCount >= requiredSkills.length * 0.7) {
+        strengths.push('Most required skills matched');
+      }
     }
   } else {
-    ats_score += 20; // Neutral if no skills to compare
+    // If no required skills specified, check if candidate has any skills at all
+    if (combinedCandidateSkills.length > 0) {
+      ats_score += 30; // High base for skilled candidate
+      strengths.push('Demonstrates relevant technical skills');
+    } else {
+      ats_score += 10;
+    }
   }
   
   // 2. Experience Matching (25 points max)
   const requiredExp = requirementDetails.requiredExperience || {};
-  const candidateExp = candidateProfile.experience || {};
+  let candidateYears = candidateProfile.experience?.years;
+
+  // Try to extract years from resume if missing from profile
+  if (candidateYears === undefined && resumeContent) {
+    const expMatch = resumeContent.match(/(\d+)\+?\s*years?\s*exp/i);
+    if (expMatch) candidateYears = parseInt(expMatch[1]);
+  }
   
-  if (requiredExp.min !== undefined && candidateExp.years !== undefined) {
-    if (candidateExp.years >= requiredExp.min) {
-      if (requiredExp.max && candidateExp.years <= requiredExp.max) {
-        ats_score += 25;
-        strengths.push('Experience level within required range');
-      } else {
-        ats_score += 20;
-        strengths.push('Meets minimum experience requirement');
-      }
+  if (requiredExp.min !== undefined && candidateYears !== undefined) {
+    if (candidateYears >= requiredExp.min) {
+      ats_score += 25;
+      strengths.push('Meets experience requirements');
     } else {
-      ats_score += Math.round((candidateExp.years / requiredExp.min) * 15);
-      gaps.push(`Experience gap: ${requiredExp.min - candidateExp.years} years short`);
-      areas_for_improvement.push('Gain more relevant experience');
+      ats_score += Math.round((candidateYears / requiredExp.min) * 15);
+      gaps.push(`Experience gap: ${requiredExp.min - candidateYears} years short`);
     }
+  } else if (candidateYears !== undefined) {
+    // If no min specified but we have years
+    if (candidateYears > 5) ats_score += 25;
+    else if (candidateYears > 2) ats_score += 20;
+    else ats_score += 15;
   } else {
-    ats_score += 15; // Neutral if no experience data
+    ats_score += 15; // Neutral
   }
   
   // 3. Education Matching (15 points max)
   const requiredEducation = requirementDetails.requiredEducation;
   const candidateEducation = candidateProfile.education || [];
   
-  if (requiredEducation && candidateEducation.length > 0) {
-    const hasMatchingEducation = candidateEducation.some(
-      edu => edu.degree && edu.degree.toLowerCase().includes(requiredEducation.toLowerCase())
-    );
+  if (requiredEducation && (candidateEducation.length > 0 || resumeContent)) {
+    const resumeLower = resumeContent ? resumeContent.toLowerCase() : '';
+    const hasDegree = candidateEducation.some(edu => edu.degree && edu.degree.toLowerCase().includes(requiredEducation.toLowerCase())) ||
+                      resumeLower.includes(requiredEducation.toLowerCase());
     
-    if (hasMatchingEducation) {
+    if (hasDegree) {
       ats_score += 15;
       strengths.push('Education requirements met');
     } else {
-      gaps.push('Education level below requirements');
-      areas_for_improvement.push('Consider pursuing required education');
+      ats_score += 5;
     }
   } else {
-    ats_score += 8; // Neutral
+    ats_score += 10; // Neutral
   }
   
   // 4. Resume Quality (10 points max)
   if (resumeContent) {
     const wordCount = resumeContent.split(/\s+/).length;
-    if (wordCount > 200) {
+    if (wordCount > 300) {
       ats_score += 10;
-      strengths.push('Detailed resume content');
+      strengths.push('Comprehensive resume content');
     } else if (wordCount > 100) {
       ats_score += 5;
-      areas_for_improvement.push('Add more details to resume');
-    } else {
-      gaps.push('Resume content too brief');
-      areas_for_improvement.push('Expand resume with more information');
     }
   }
   
   // 5. Profile Completion (10 points max)
-  const profileCompletion = candidateProfile.profileCompletion || 0;
+  const profileCompletion = candidateProfile.profileCompletion || 50;
   ats_score += Math.round((profileCompletion / 100) * 10);
   
-  // Ensure score is within 0-100
-  ats_score = Math.max(0, Math.min(100, ats_score));
+  // Add some randomness to avoid identical scores
+  const jitter = Math.floor(Math.random() * 5) - 2; // -2 to +2
+  ats_score = Math.max(0, Math.min(100, ats_score + jitter));
   
   // Determine recommendation
   let recommendation;
@@ -1474,6 +1535,41 @@ ${resumeContent}
 Provide ONLY the JSON response, no additional text.
 `;
 
+    const isJob = targetEntity instanceof Job;
+    const entityColumn = isJob ? 'job_id' : 'requirement_id';
+    
+    // Check for existing score in the database to prevent redundant AI calls
+    const existingScore = await sequelize.query(`
+      SELECT ats_score, ats_analysis, last_calculated 
+      FROM candidate_analytics 
+      WHERE user_id = :userId AND ${entityColumn} = :entityId
+      AND last_calculated > NOW() - INTERVAL '24 hours'
+      LIMIT 1
+    `, {
+      replacements: { userId: candidateId, entityId: entityId },
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (existingScore && existingScore.length > 0) {
+      console.log(`ℹ️ Found recent ATS score (${existingScore[0].ats_score}) in database, skipping AI call.`);
+      try {
+        const analysis = typeof existingScore[0].ats_analysis === 'string' 
+          ? JSON.parse(existingScore[0].ats_analysis) 
+          : existingScore[0].ats_analysis;
+        return {
+          success: true,
+          data: {
+            score: existingScore[0].ats_score,
+            analysis: analysis,
+            lastCalculated: existingScore[0].last_calculated,
+            cached: true
+          }
+        };
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse cached ATS analysis, recalculating...');
+      }
+    }
+
     // Try Gemini AI first, fallback to rule-based scoring
     console.log('🤖 Attempting Gemini AI for ATS scoring...');
     let atsData;
@@ -1581,9 +1677,6 @@ Provide ONLY the JSON response, no additional text.
     });
 
     // Verify the score was saved by querying it back
-    const isJob = targetEntity instanceof Job;
-    const entityColumn = isJob ? 'job_id' : 'requirement_id';
-    
     const [verification] = await sequelize.query(`
       SELECT ats_score, last_calculated 
       FROM candidate_analytics 
