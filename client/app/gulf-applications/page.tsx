@@ -268,9 +268,9 @@ export default function GulfApplicationsPage() {
               <CardContent className="p-12 text-center">
                 <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No Gulf applications yet</h3>
-                <p className="text-slate-600 dark:text-slate-300 mb-6">Start applying to Gulf jobs to see them here</p>
+                <p className="text-slate-600 dark:text-slate-300 mb-6">Start applying to CareerZone Gulf opportunities to see them here</p>
                 <Link href="/gulf-jobs">
-                  <Button className="bg-green-600 hover:bg-green-700">Find Gulf Jobs</Button>
+                  <Button className="bg-green-600 hover:bg-green-700">Find CareerZone Gulf Jobs</Button>
                 </Link>
               </CardContent>
             </Card>

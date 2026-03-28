@@ -72,7 +72,7 @@ export default function ContactPage() {
 
   const handleQuickLink = (category: string, subject: string) => {
     if (category === 'general') {
-      window.location.href = 'mailto:jobportal@support.com?subject=General Support Request'
+      window.location.href = 'mailto:support@careerzone.com?subject=General Support Request'
     } else if (category === 'technical') {
       window.location.href = 'tel:+918040400000'
     } else if (category === 'sales') {
@@ -279,8 +279,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900 mb-1">Email Support</h3>
-                    <p className="text-slate-600 text-sm mb-1">support@jobportal.com</p>
-                    <p className="text-slate-600 text-sm">info@jobportal.com</p>
+                    <p className="text-slate-600 text-sm mb-1">support@careerzone.com</p>
+                    <p className="text-slate-600 text-sm">info@careerzone.com</p>
                     <p className="text-xs text-slate-500 mt-1">Response time: Within 24 hours</p>
                   </div>
                 </div>

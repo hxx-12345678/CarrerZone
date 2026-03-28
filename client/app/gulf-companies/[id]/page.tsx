@@ -2256,9 +2256,9 @@ function GulfCompanyDetailPage() {
                   <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
                     <Briefcase className="w-6 h-6 text-white" />
                   </div>
-                  <span className="text-2xl font-bold">JobPortal</span>
+                  <span className="text-2xl font-bold">Gulf Opportunities</span>
                 </div>
-                <p className="text-slate-400 mb-4">Gulf region's leading job portal connecting talent with opportunities.</p>
+                <p className="text-slate-400 mb-4">Gulf region's leading career platform connecting talent with opportunities.</p>
                 <div className="flex space-x-4">
                   <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors cursor-pointer">
                     <span className="text-sm">f</span>
@@ -2302,7 +2302,7 @@ function GulfCompanyDetailPage() {
             </div>
 
             <div className="border-t border-slate-800 mt-6 pt-4 text-center text-slate-400">
-              <p>&copy; 2025 JobPortal. All rights reserved. Made with ❤️ for the Gulf region</p>
+              <p>&copy; 2025 Gulf Opportunities. All rights reserved. Made with ❤️ for the Gulf region</p>
             </div>
           </div>
         </footer>

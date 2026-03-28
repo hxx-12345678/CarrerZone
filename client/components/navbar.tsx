@@ -69,7 +69,7 @@ export function Navbar() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-r from-[#5A00F2] to-[#4F9BFF] flex items-center justify-center shadow-[0_8px_24px_rgba(90,0,242,0.25)]">
               <Building2 className="h-5 w-5 text-white" />
             </div>
-            <span className="serif-heading text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">JobPortal</span>
+            <span className="serif-heading text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">Career Zone</span>
           </Link>
 
           {/* Desktop Navigation */}

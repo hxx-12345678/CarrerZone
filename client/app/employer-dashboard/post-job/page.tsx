@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Eye, Send, AlertCircle, Camera, Upload, X, Image as ImageIcon, CheckCircle, ChevronDown, TrendingUp, Zap, Star, Plus, Mail, ExternalLink, Building2, Video, Loader2 } from "lucide-react"
+import { ArrowLeft, Save, Eye, Send, AlertCircle, Camera, Upload, X, Image as ImageIcon, CheckCircle, ChevronDown, TrendingUp, Zap, Star, Plus, Mail, ExternalLink, Building2, Video, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -45,6 +45,7 @@ export default function PostJobPage() {
     salary: "",
     description: "",
     requirements: "",
+    responsibilities: "",
     benefits: "",
     skills: [] as string[],
     currentSkillInput: "",
@@ -886,7 +887,8 @@ export default function PostJobPage() {
           keywords: template.templateData.keywords || [],
           impressions: template.templateData.impressions || 0,
           clicks: template.templateData.clicks || 0,
-          currentSkillInput: ""
+          currentSkillInput: "",
+          responsibilities: template.templateData.responsibilities || ""
         };
 
         console.log('📝 Setting form data:', newFormData);
@@ -904,6 +906,47 @@ export default function PostJobPage() {
       toast.error('Failed to apply template');
     }
   };
+
+  const [isAIGenerating, setIsAIGenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState("")
+
+  const handleAIGenerate = async () => {
+    if (!formData.title) {
+      toast.error("Please enter a job title first")
+      return
+    }
+
+    try {
+      setIsAIGenerating(true)
+      const response = await apiService.generateJobDescription(formData.title, {
+        skills: formData.skills || [],
+        experience: formData.experience || '',
+        location: formData.location || '',
+        prompt: aiPrompt
+      })
+
+      if (response.success && response.data) {
+        const data = response.data;
+        setFormData(prev => ({
+          ...prev,
+          description: data.description || prev.description,
+          requirements: data.requirements || prev.requirements,
+          responsibilities: data.responsibilities || prev.responsibilities,
+          skills: data.skills || prev.skills
+        }))
+        toast.success("AI generated job content successfully!")
+        setShowAIPrompt(false)
+      } else {
+        toast.error(response.message || "Failed to generate content with AI")
+      }
+    } catch (error) {
+      console.error("AI Generation error:", error)
+      toast.error("An error occurred while generating content")
+    } finally {
+      setIsAIGenerating(false)
+    }
+  }
 
   const handleNext = () => {
     // Validate hot vacancy pricing before proceeding to next step
@@ -1311,6 +1354,7 @@ export default function PostJobPage() {
             salary: "",
             description: "",
             requirements: "",
+            responsibilities: "",
             benefits: "",
             skills: [],
             currentSkillInput: "",
@@ -1688,6 +1732,7 @@ export default function PostJobPage() {
                           salary: "",
                           description: "",
                           requirements: "",
+                          responsibilities: "",
                           benefits: "",
                           skills: [],
                           currentSkillInput: "",
@@ -2028,12 +2073,91 @@ export default function PostJobPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                Job Description*
-                {selectedTemplate && formData.description && (
-                  <span className="ml-2 text-xs text-green-600">✨ Pre-filled from template</span>
-                )}
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-900">
+                  Job Description*
+                  {selectedTemplate && formData.description && (
+                    <span className="ml-2 text-xs text-green-600">✨ Pre-filled from template</span>
+                  )}
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAIPrompt(true)}
+                  disabled={isAIGenerating || !formData.title}
+                  className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8 px-3 flex items-center gap-2 text-xs font-semibold shadow-sm"
+                >
+                  {isAIGenerating ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {showAIPrompt && (
+                <div className="mb-4 p-4 bg-emerald-50 border border-emerald-100 rounded-lg animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-emerald-900 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      AI Job Content Generator
+                    </h4>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowAIPrompt(false)}
+                      className="h-6 w-6 p-0 text-emerald-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-emerald-700 mb-3">
+                    Add specific requirements or details you'd like the AI to include (optional):
+                  </p>
+                  <Textarea
+                    placeholder="e.g. Must have AWS experience, hybrid work mode, competitive equity..."
+                    className="min-h-16 mb-3 bg-white border-emerald-200 text-sm"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowAIPrompt(false)}
+                      className="text-emerald-700 hover:bg-emerald-100"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      onClick={handleAIGenerate}
+                      disabled={isAIGenerating}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transition-all"
+                    >
+                      {isAIGenerating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          {formData.description ? "Refine with AI" : "Generate with AI"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <Textarea
                 placeholder="Describe the role, responsibilities, and what makes this opportunity exciting..."
                 className="min-h-32"

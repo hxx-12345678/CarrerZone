@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { apiService, User, WorkExperience } from '@/lib/api'
 import { toast } from 'sonner'
-import { User as UserIcon, Briefcase, MapPin, DollarSign, Calendar, Building2, ChevronDown, Upload, Image, Palette, Plus, Edit, Trash2, X, Save, Mail, Phone, Award } from 'lucide-react'
+import { User as UserIcon, Briefcase, MapPin, DollarSign, Calendar, Building2, ChevronDown, Upload, Image, Palette, Plus, Edit, Trash2, X, Save, Mail, Phone, Award, Zap, RefreshCw, Sparkles } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown"
 import DepartmentDropdown from "@/components/ui/department-dropdown"
@@ -54,6 +54,65 @@ export function JobseekerProfileCompletionDialog({
   })
   const [submitting, setSubmitting] = useState(false)
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
+  const [resumes, setResumes] = useState<any[]>([])
+  const [loadingResumes, setLoadingResumes] = useState(false)
+
+  // Fetch resumes to check if we can auto-fill
+  useEffect(() => {
+    if (isOpen) {
+      const fetchResumes = async () => {
+        try {
+          setLoadingResumes(true)
+          const res = await apiService.getResumes()
+          if (res.success) {
+            setResumes(res.data || [])
+          }
+        } catch (e) {
+          console.error('Error fetching resumes:', e)
+        } finally {
+          setLoadingResumes(false)
+        }
+      }
+      fetchResumes()
+    }
+  }, [isOpen])
+
+  const handleAIAutoFill = async () => {
+    const defaultResume = resumes.find(r => r.isDefault) || resumes[0]
+    if (!defaultResume) {
+      toast.error('Please upload a resume first to use AI Auto-fill')
+      return
+    }
+
+    try {
+      setIsParsing(true)
+      toast.info('AI is analyzing your resume...')
+      const response = await apiService.parseResumeToProfile(defaultResume.id)
+      
+      if (response.success && response.data) {
+        const data = response.data
+        setFormData(prev => ({
+          ...prev,
+          phone: data.personal_info.phone || prev.phone,
+          currentLocation: data.personal_info.location || prev.currentLocation,
+          headline: data.personal_info.headline || prev.headline,
+          summary: data.personal_info.summary || prev.summary,
+          skills: data.skills ? data.skills.join(', ') : prev.skills
+        }))
+        
+        // Handle work experiences separately if needed, but for now just basic info
+        toast.success('Profile auto-filled from your resume!')
+      } else {
+        toast.error(response.message || 'Failed to parse resume')
+      }
+    } catch (e) {
+      console.error('AI Auto-fill error:', e)
+      toast.error('Failed to auto-fill profile')
+    } finally {
+      setIsParsing(false)
+    }
+  }
   
   // Work Experience state
   const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([])
@@ -350,6 +409,35 @@ export function JobseekerProfileCompletionDialog({
           <DialogDescription>
             Help employers find you! Complete your profile to increase your chances of getting hired.
           </DialogDescription>
+
+          {/* AI Auto-fill Banner */}
+          {resumes.length > 0 && (
+            <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg">
+                  <Sparkles className="w-5 h-5 text-emerald-600 fill-current" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">AI Auto-fill</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Fast-track your profile completion using your resume</p>
+                </div>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={handleAIAutoFill} 
+                disabled={isParsing}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white border-none shadow-sm flex-shrink-0"
+              >
+                {isParsing ? (
+                  <RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5 mr-2 fill-current" />
+                )}
+                {isParsing ? 'Analyzing...' : 'Auto-fill'}
+              </Button>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mt-2">
             {user.isEmailVerified && (
               <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">

@@ -1443,144 +1443,85 @@ export default function JobsPage() {
 
 
   const fetchPreferredJobs = async () => {
-
     try {
-
       setPreferredJobsLoading(true)
-
-      const response = await apiService.getMatchingJobs(1, 20)
-
       
+      // Determine region from URL/filters for Gulf-specific recommendations
+      const region = filters.location?.toLowerCase().includes('gulf') || 
+                     ['dubai', 'uae', 'qatar', 'saudi'].some(g => filters.location?.toLowerCase().includes(g))
+                     ? 'gulf' : undefined;
+      
+      // Use AI recommendations if user is logged in
+      const response = await apiService.getAIRecommendations(20, region)
       
       if (response.success && response.data) {
-
-        const transformedJobs = response.data.jobs.map((job: any) => {
-
+        const transformedJobs = response.data.map((job: any) => {
           const metadata = job.metadata || {};
-
           const isConsultancy = metadata.postingType === 'consultancy';
-
-          
           
           return {
-
             id: job.id,
-
             title: job.title,
-
             company: {
-
               id: job.company?.id || 'unknown',
-
               name: isConsultancy && metadata.showHiringCompanyDetails 
-
                 ? metadata.hiringCompany?.name || 'Unknown Company'
-
                 : isConsultancy
-
                   ? metadata.consultancyName || 'Consultancy'
-
                   : metadata.companyName || job.company?.name || 'Unknown Company',
-
               industry: job.industryType || metadata.hiringCompany?.industry || job.company?.industry,
-
               companyType: job.company?.companyType,
-
+              logo: job.company?.logo || '/placeholder-logo.png'
             } as any,
-
             // Consultancy metadata
-
             isConsultancy: isConsultancy,
-
             consultancyName: metadata.consultancyName || null,
-
             hiringCompany: metadata.hiringCompany || null,
-
             showHiringCompanyDetails: metadata.showHiringCompanyDetails || false,
-
             location: job.location,
-
             experience: (() => {
-
               const exp = job.experienceLevel || job.experience || 'Not specified';
-
               if (exp === 'fresher') return 'Fresher (0-1 years)';
-
               if (exp === 'junior') return 'Junior (1-3 years)';
-
               if (exp === 'mid') return 'Mid-level (3-5 years)';
-
               if (exp === 'senior') return 'Senior (5+ years)';
-
               return exp;
-
             })(),
-
             salary: job.salary || (job.salaryMin && job.salaryMax 
-
               ? `${(job.salaryMin / 100000).toFixed(0)}-${(job.salaryMax / 100000).toFixed(0)} LPA`
-
               : 'Not specified'),
-
             skills: job.skills || [],
-
             logo: job.company?.logo || '/placeholder-logo.png',
-
             posted: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'Recently',
-            
             applicationDeadline: job.applicationDeadline || job.validTill || null,
             validTill: job.validTill || null,
-
             applicants: job.applications || job.application_count || 0,
-
             description: job.description,
-
             type: job.jobType ? job.jobType.charAt(0).toUpperCase() + job.jobType.slice(1) : 'Full-time',
-
             remote: job.remoteWork === 'remote',
-
             urgent: job.isUrgent || false,
-
             featured: job.isFeatured || false,
-
+            matchScore: job.matchScore,
+            matchReasons: job.matchReasons,
             companyRating: 4.5,
-
             category: job.category || 'General',
-
             photos: job.photos || [],
-
             duration: job.duration,
-
             startDate: job.startDate,
-
             workMode: job.workMode || job.remoteWork,
-
             learningObjectives: job.learningObjectives,
-
             mentorship: job.mentorship,
-
             isPreferred: true
-
           };
-
         })
-
-        
         
         setPreferredJobs(transformedJobs)
-
       }
-
     } catch (error) {
-
-      console.error('Error fetching preferred jobs:', error)
-
+      console.error('Error fetching AI recommendations:', error)
     } finally {
-
       setPreferredJobsLoading(false)
-
     }
-
   }
 
 
@@ -5472,15 +5413,18 @@ export default function JobsPage() {
                                     )}
 
                                     {job.isAgencyPosted && job.PostedByAgency && !job.isConsultancy && (
-
                                       <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-700 whitespace-nowrap">
-
                                         via {job.PostedByAgency.name}
-
                                       </Badge>
-
                                     )}
 
+                                    {/* AI Match Score Badge */}
+                                    {(job as any).matchScore !== undefined && (
+                                      <Badge className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-2 py-0.5 flex items-center gap-1 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
+                                        <Sparkles className="w-3 h-3 fill-emerald-500 text-emerald-500 animate-pulse" />
+                                        <span className="font-bold">{(job as any).matchScore}% Match</span>
+                                      </Badge>
+                                    )}
                                   </div>
 
                                 </div>
@@ -5924,7 +5868,7 @@ export default function JobsPage() {
 
             <div>
 
-              <h3 className="text-lg font-semibold mb-4">JobPortal</h3>
+              <h3 className="text-lg font-semibold mb-4">Career Zone</h3>
 
               <p className="text-slate-400">
 
@@ -5994,7 +5938,7 @@ export default function JobsPage() {
 
           <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-400">
 
-            <p>&copy; 2025 JobPortal. All rights reserved.</p>
+            <p>&copy; 2025 Career Zone. All rights reserved.</p>
 
           </div>
 

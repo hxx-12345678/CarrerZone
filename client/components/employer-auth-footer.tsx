@@ -63,7 +63,7 @@ export default function EmployerAuthFooter() {
               <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                 <Building2 className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold">JobPortal</span>
+              <span className="text-2xl font-bold">CareerZone</span>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed mb-4">
               India's most trusted job portal connecting employers with top talent. 
@@ -78,7 +78,7 @@ export default function EmployerAuthFooter() {
               </div>
               <div className="flex items-center space-x-2 text-sm text-slate-300">
                 <Mail className="w-4 h-4 text-blue-400" />
-                <span>employers@jobportal.com</span>
+                <span>employers@careerzone.com</span>
               </div>
               <div className="flex items-center space-x-2 text-sm text-slate-300">
                 <MapPin className="w-4 h-4 text-blue-400" />
@@ -222,7 +222,7 @@ export default function EmployerAuthFooter() {
         
         <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           <div className="text-sm text-slate-400 text-center md:text-left">
-            <p>© 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p>© 2026 CareerZone. All rights reserved. Made with ❤️ in India</p>
           </div>
           
           <div className="flex items-center space-x-4 text-xs text-slate-400">

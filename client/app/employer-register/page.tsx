@@ -352,7 +352,7 @@ export default function EmployerRegisterPage() {
             <div className="text-center lg:text-left">
               <h1 className="serif-heading text-4xl sm:text-5xl md:text-6xl font-bold heading-gradient mb-6 leading-normal">Hire the Best Talent</h1>
               <p className="text-base sm:text-lg lg:text-xl text-[#5B5B6A] dark:text-slate-300 mb-8 leading-relaxed font-medium">
-                Join 50,000+ companies that trust JobPortal for their hiring needs
+                Join 50,000+ companies that trust Career Zone for their hiring needs
               </p>
             </div>
 

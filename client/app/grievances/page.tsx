@@ -121,7 +121,7 @@ export default function GrievancesPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-2">Email: grievances@jobportal.com</p>
+                <p className="text-gray-600 mb-2">Email: grievances@careerzone.com</p>
                 <p className="text-gray-600 mb-2">Phone: +1 (555) 123-4567</p>
                 <p className="text-gray-600">Response Time: 24-48 hours</p>
               </CardContent>

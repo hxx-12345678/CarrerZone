@@ -6,8 +6,9 @@
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { sequelize } = require('../config/sequelize');
-const Resume = require('../models/Resume');
+const { sequelize, Sequelize } = require('../config/sequelize');
+const { Op } = Sequelize;
+const { Resume, Job, JobPreference, User, Requirement, WorkExperience, Education } = require('../models');
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
@@ -21,13 +22,75 @@ function getGenAI() {
       console.error('❌ GEMINI_API_KEY is not set');
       return null;
     }
-    genAI_instance = new GoogleGenerativeAI(apiKey);
+    genAI_instance = new GoogleGenerativeAI(apiKey.trim());
   }
   return genAI_instance;
 }
 
 // Global queue for Gemini requests to prevent rate limiting (429) across concurrent HTTP requests
 let geminiQueue = Promise.resolve();
+
+/**
+ * Clean and truncate text to prevent token overflow in AI requests
+ */
+function cleanAndTruncateText(text, maxLength = 12000) {
+  if (!text) return '';
+  
+  // Basic cleaning: remove extra whitespace, control characters
+  let cleaned = text
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove non-printable chars
+    .replace(/\s+/g, ' ')                  // Collapse whitespace
+    .trim();
+    
+  if (cleaned.length <= maxLength) return cleaned;
+  
+  // If too long, truncate but try to keep the most relevant parts (start and end)
+  const half = Math.floor(maxLength / 2);
+  console.log(`⚠️ Truncating text from ${cleaned.length} to ${maxLength} chars`);
+  
+  return cleaned.substring(0, half) + 
+         '\n... [TRUNCATED FOR TOKEN LIMITS] ...\n' + 
+         cleaned.substring(cleaned.length - half);
+}
+
+/**
+ * Execute an AI operation with queuing and automatic retry logic
+ */
+async function executeAIOperation(operation, retryCount = 2) {
+  let lastError;
+  
+  // Update the global queue
+  const queuePromise = geminiQueue.then(async () => {
+    for (let i = 0; i <= retryCount; i++) {
+      try {
+        // Wait 1.5 seconds between retries to respect rate limits
+        if (i > 0) {
+          console.log(`🔄 AI retry ${i}/${retryCount} after delay...`);
+          await new Promise(r => setTimeout(r, 1500 * i));
+        }
+        
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        console.warn(`⚠️ AI attempt ${i + 1} failed:`, error.message);
+        
+        // Don't retry if it's a client error (400) or auth error
+        if (error.message.includes('400') || error.message.includes('API_KEY_INVALID')) {
+          throw error;
+        }
+        
+        // If it's the last attempt, throw the error
+        if (i === retryCount) throw error;
+      }
+    }
+  });
+
+  // Set the next item in the queue
+  geminiQueue = queuePromise.catch(() => {});
+  
+  // Return the result of the operation
+  return queuePromise;
+}
 
 /**
  * Extract text content from PDF file using multiple methods
@@ -327,6 +390,11 @@ async function extractWordContent(filePath) {
  * Extract text content from any supported file format (PDF, DOCX, DOC)
  */
 async function extractFileContent(filePath) {
+  // Convert relative path to absolute if needed
+  if (filePath && filePath.startsWith('/uploads/')) {
+    filePath = path.join(process.cwd(), 'server', filePath);
+  }
+  
   // Check if file exists, if not try to find it in common upload directories
   if (!filePath || !fs.existsSync(filePath)) {
     console.log('⚠️ File not found at path:', filePath);
@@ -448,10 +516,6 @@ CERTIFICATIONS:
 - Data Science Specialization
 `;
 }
-const User = require('../models/User');
-const Requirement = require('../models/Requirement');
-const WorkExperience = require('../models/WorkExperience');
-const Education = require('../models/Education');
 
 /**
  * Extract skills from resume content using AI-powered analysis
@@ -460,64 +524,43 @@ async function extractSkillsFromResumeContent(resumeContent) {
   try {
     console.log('🤖 Extracting skills from resume content using AI analysis...');
 
-    // Use Gemini AI to extract skills from resume content
-    const genAI = getGenAI();
-    if (!genAI) throw new Error('Gemini AI not initialized');
+    // Use executeAIOperation for robust execution with token safety
+    const skills = await executeAIOperation(async () => {
+      const genAI = getGenAI();
+      if (!genAI) throw new Error('Gemini AI not initialized');
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.8,
-        topK: 40,
-        maxOutputTokens: 1024,
-      }
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        generationConfig: {
+          temperature: 0.1, // Lower for more consistent extraction
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 1024,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const prompt = `Analyze this resume content thoroughly and extract ALL technical skills, programming languages, frameworks, tools, technologies, and methodologies mentioned.
+
+      Resume Content (Truncated if necessary):
+      ${cleanAndTruncateText(resumeContent, 10000)}
+      
+      Please return ONLY a JSON array of skills in this exact format:
+      ["skill1", "skill2", "skill3", ...]
+      
+      Include ALL technical categories found in the text.`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('No valid JSON array found in AI response');
+      
+      return JSON.parse(jsonMatch[0]);
     });
 
-    const prompt = `Analyze this resume content thoroughly and extract ALL technical skills, programming languages, frameworks, tools, technologies, and methodologies mentioned.
-
-    Resume Content:
-    ${resumeContent}
-    
-    Please return ONLY a JSON array of skills in this exact format:
-    ["skill1", "skill2", "skill3", ...]
-    
-    Include ALL of the following categories:
-    - Programming languages (Python, Java, JavaScript, C++, R, etc.)
-    - Frameworks and libraries (React, Angular, Vue, TensorFlow, PyTorch, Scikit-learn, NumPy, Pandas, Django, Flask, etc.)
-    - Tools and technologies (AWS, Azure, Docker, Kubernetes, Git, Jenkins, etc.)
-    - Databases (MySQL, MongoDB, PostgreSQL, Redis, etc.)
-    - AI/ML skills (Machine Learning, Deep Learning, Neural Networks, Computer Vision, NLP, etc.)
-    - Data Science skills (Data Analysis, Data Visualization, Statistics, etc.)
-    - Cloud platforms (AWS, Google Cloud, Azure, etc.)
-    - Development tools (VS Code, Jupyter, Git, Docker, etc.)
-    - Methodologies (Agile, Scrum, DevOps, etc.)
-    - Operating systems (Linux, Windows, macOS, etc.)
-    
-    Be thorough and include variations and synonyms. For example:
-    - "ML" should be included as "Machine Learning"
-    - "AI" should be included as "Artificial Intelligence"
-    - "Data Science" should be included as "Data Science"
-    - "Deep Learning" should be included as "Deep Learning"
-    
-    Return only the JSON array, no other text.`;
-
-    const result = await model.generateContent(prompt);
-    const response = result.response.text().trim();
-
-    console.log('🤖 AI response for skill extraction:', response);
-
-    // Parse the JSON response
-    try {
-      const extractedSkills = JSON.parse(response);
-      console.log(`📄 AI extracted ${extractedSkills.length} skills:`, extractedSkills);
-      return extractedSkills;
-    } catch (parseError) {
-      console.log('⚠️ Failed to parse AI response as JSON, using fallback extraction');
-
-      // Fallback to pattern-based extraction
-      return extractSkillsWithPatterns(resumeContent);
-    }
+    console.log(`✅ AI extracted ${skills.length} skills:`, skills);
+    return skills;
 
   } catch (error) {
     console.error('❌ AI skill extraction failed, using fallback:', error.message);
@@ -1038,15 +1081,21 @@ function extractRequirementDetails(requirement) {
 
 /**
  * Calculate ATS score using Gemini AI
+ * Now handles both Job and Requirement IDs
  */
-async function calculateATSScore(candidateId, requirementId) {
+async function calculateATSScore(candidateId, entityId) {
   try {
-    console.log(`🔍 Calculating ATS score for candidate ${candidateId} against requirement ${requirementId}`);
+    console.log(`🔍 Calculating match score for candidate ${candidateId} against entity ${entityId}`);
 
-    // Fetch requirement details
-    const requirement = await Requirement.findByPk(requirementId);
-    if (!requirement) {
-      throw new Error('Requirement not found');
+    // Try fetching as Requirement first, then as Job
+    let targetEntity = await Requirement.findByPk(entityId);
+    if (!targetEntity) {
+      console.log('ℹ️ Requirement not found, trying Job...');
+      targetEntity = await Job.findByPk(entityId);
+    }
+
+    if (!targetEntity) {
+      throw new Error('Requirement or Job not found');
     }
 
     // Fetch candidate details
@@ -1073,40 +1122,15 @@ async function calculateATSScore(candidateId, requirementId) {
       order: [['startDate', 'DESC']]
     });
 
-    console.log(`📊 Fetched ${userWorkExperiences.length} work experiences and ${userEducations.length} education records`);
-
     // Fetch candidate's resume
     const resume = await Resume.findOne({
       where: { userId: candidateId },
       order: [['isDefault', 'DESC'], ['created_at', 'DESC']]
     });
 
-    console.log('📄 Resume fetch result:', resume ? 'Found' : 'Not found');
-    if (resume) {
-      console.log('📄 Resume details:', {
-        id: resume.id,
-        title: resume.title,
-        isDefault: resume.isDefault,
-        summary: resume.summary?.substring(0, 100) + '...',
-        skills: resume.skills,
-        fileUrl: resume.fileUrl,
-        metadata: resume.metadata
-      });
-
-      // Check if resume has detailed content in metadata
-      if (resume.metadata && resume.metadata.content) {
-        console.log('📄 Resume has detailed content in metadata');
-        console.log('📄 Content preview:', resume.metadata.content.substring(0, 200) + '...');
-      } else {
-        console.log('⚠️ Resume metadata does not contain detailed content');
-      }
-    } else {
-      console.log('❌ No resume found for candidate:', candidateId);
-    }
-
-    // Extract content
-    const requirementDetails = extractRequirementDetails(requirement);
-    const candidateProfile = extractCandidateProfile(candidate, userWorkExperiences, userEducations);
+    // Extract content with truncation for token safety
+    const requirementDetails = cleanAndTruncateText(extractRequirementDetails(targetEntity), 8000);
+    const candidateProfile = cleanAndTruncateText(extractCandidateProfile(candidate, userWorkExperiences, userEducations), 8000);
 
     // Try to extract PDF content if resume exists but has no detailed content
     let resumeContent = 'No resume available';
@@ -1158,6 +1182,9 @@ async function calculateATSScore(candidateId, requirementId) {
         }
       }
     }
+    
+    // Truncate resume content for token safety
+    resumeContent = cleanAndTruncateText(resumeContent, 12000);
 
     console.log('📋 Requirement details extracted');
     console.log('👤 Candidate profile extracted');
@@ -1250,128 +1277,62 @@ Provide ONLY the JSON response, no additional text.
       const genAI = getGenAI();
       if (!genAI) throw new Error('Gemini AI not initialized - check API key');
 
-      // Use only verified working models - gemini-2.0-flash variants are the current stable models
-      const modelNames = ['gemini-2.5-flash', 'gemini-2.0-flash-lite'];
-      let lastError;
+      // Use executeAIOperation for robust execution
+      const text = await executeAIOperation(async () => {
+        const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+        let lastError;
 
-      for (const modelName of modelNames) {
-        try {
-          console.log(`🤖 Trying Gemini model: ${modelName}...`);
-          const model = genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-              temperature: 0.2, // Lower temperature for more consistent ATS scoring
-              topP: 0.8,
-              topK: 40,
-              maxOutputTokens: 2048,
-            }
-          });
-
-          console.log(`🧠 Sending to Gemini AI (${prompt.length} chars) using ${modelName}...`);
-
-          // Retry logic for 429 errors within a global queue
-          let retries = 3;
-          let delay = 5000; // Start with 5 seconds to be safe
-          let result = null;
-          let apiErrorOccurred = null;
-
-          // Enqueue the API call to enforce serialization
-          await new Promise((resolveQueue) => {
-            geminiQueue = geminiQueue.then(async () => {
-              try {
-                while (retries > 0) {
-                  try {
-                    // Add a small delay between requests even if successful to play nice with rate limits
-                    await new Promise(r => setTimeout(r, 3000));
-                    result = await model.generateContent(prompt);
-                    break; // Success
-                  } catch (apiError) {
-                    if (apiError.message.includes('429') || apiError.message.includes('Too Many Requests')) {
-                      console.log(`⚠️ Rate limit hit for ${modelName}. Retrying in ${delay / 1000}s... (${retries} retries left)`);
-                      await new Promise(resolve => setTimeout(resolve, delay));
-                      delay *= 2; // Exponential backoff
-                      retries--;
-                    } else {
-                      // Store the error but don't throw - let the outer loop try next model
-                      apiErrorOccurred = apiError;
-                      break;
-                    }
-                  }
-                }
-              } finally {
-                resolveQueue(); // Always move to next item in queue
+        for (const modelName of modelNames) {
+          try {
+            console.log(`🤖 Trying Gemini model: ${modelName}...`);
+            const model = genAI.getGenerativeModel({
+              model: modelName,
+              generationConfig: {
+                temperature: 0.2,
+                topP: 0.8,
+                topK: 40,
+                maxOutputTokens: 2048,
               }
             });
-          });
 
-          // If an API error occurred (not rate limit), throw it to try next model
-          if (apiErrorOccurred) {
-            throw apiErrorOccurred;
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            return response.text();
+          } catch (modelError) {
+            console.warn(`⚠️ Model ${modelName} failed:`, modelError.message);
+            lastError = modelError;
           }
-
-          if (!result) {
-            throw new Error(`Rate limit exceeded for ${modelName} after multiple retries`);
-          }
-
-          const response = await result.response;
-          const text = response.text();
-
-          console.log(`✅ Gemini AI response received from ${modelName} (Length: ${text.length})`);
-
-          // Extract JSON from response (Gemini sometimes wraps JSON in markdown blocks)
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            try {
-              atsData = JSON.parse(jsonMatch[0].trim());
-              console.log(`✅ Gemini AI JSON parsed successfully from ${modelName}`);
-              break; // Success! exit loop
-            } catch (parseErr) {
-              console.warn(`⚠️ Failed to parse JSON from ${modelName} response:`, parseErr.message);
-              console.log('📄 Raw response:', text.substring(0, 500));
-              throw parseErr;
-            }
-          } else {
-            console.log('📄 Raw response (no JSON found):', text.substring(0, 500));
-            throw new Error('No valid JSON found in response');
-          }
-        } catch (err) {
-          console.warn(`⚠️ Gemini model ${modelName} failed:`, err.message);
-          lastError = err;
         }
-      }
-
-      if (!atsData) {
         throw lastError || new Error('All Gemini models failed');
+      });
+
+      console.log('📄 AI raw response received');
+      
+      // Extract JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('AI response did not contain valid JSON');
       }
 
-    } catch (geminiError) {
-      console.log('⚠️ Gemini AI failed completely, using rule-based scoring:', geminiError.message);
+      atsData = JSON.parse(jsonMatch[0]);
+      console.log('✅ AI ATS scoring successful');
 
-      // Fallback: Use rule-based ATS scoring
-      // Pass the actual candidate object, not the extracted text
-      atsData = await calculateRuleBasedATSScore(candidate, resumeContent, requirement);
+    } catch (aiError) {
+      console.error('❌ AI scoring failed, using rule-based fallback:', aiError.message);
+      // Fallback to rule-based scoring (existing logic)
+      atsData = calculateRuleBasedScore(requirementDetails, candidateProfile, resumeContent);
     }
 
     // Store the ATS score in the database with explicit transaction
     await sequelize.transaction(async (transaction) => {
-      // Get employer user ID from requirement
-      const [employerResult] = await sequelize.query(`
-        SELECT posted_by as employer_user_id
-        FROM requirements
-        WHERE id = :requirementId
-      `, {
-        replacements: { requirementId },
-        type: sequelize.QueryTypes.SELECT,
-        transaction
-      });
-
-      const employerId = employerResult?.employer_user_id || '00000000-0000-0000-0000-000000000000'; // Fallback UUID
+      // Get employer user ID from targetEntity (Job or Requirement)
+      const employerId = targetEntity.posted_by || targetEntity.userId || targetEntity.employer_id || '00000000-0000-0000-0000-000000000000';
 
       await sequelize.query(`
         INSERT INTO candidate_analytics 
           (id, candidate_id, employer_id, user_id, requirement_id, event_type, ats_score, ats_analysis, last_calculated, created_at, updated_at)
         VALUES 
-          (gen_random_uuid(), :userId, :employerId, :userId, :requirementId, 'application_submitted', :atsScore, :atsAnalysis, NOW(), NOW(), NOW())
+          (gen_random_uuid(), :userId, :employerId, :userId, :entityId, 'application_submitted', :atsScore, :atsAnalysis, NOW(), NOW(), NOW())
         ON CONFLICT (user_id, requirement_id) 
         DO UPDATE SET 
           ats_score = :atsScore,
@@ -1382,7 +1343,7 @@ Provide ONLY the JSON response, no additional text.
         replacements: {
           userId: candidateId,
           employerId: employerId,
-          requirementId: requirementId,
+          entityId: entityId,
           atsScore: atsData.ats_score,
           atsAnalysis: JSON.stringify(atsData)
         },
@@ -1394,9 +1355,9 @@ Provide ONLY the JSON response, no additional text.
     const [verification] = await sequelize.query(`
       SELECT ats_score, last_calculated 
       FROM candidate_analytics 
-      WHERE user_id = :userId AND requirement_id = :requirementId
+      WHERE user_id = :userId AND requirement_id = :entityId
     `, {
-      replacements: { userId: candidateId, requirementId: requirementId },
+      replacements: { userId: candidateId, entityId: entityId },
       type: sequelize.QueryTypes.SELECT
     });
 
@@ -1408,7 +1369,7 @@ Provide ONLY the JSON response, no additional text.
 
     return {
       candidateId,
-      requirementId,
+      entityId,
       atsScore: atsData.ats_score,
       analysis: atsData,
       calculatedAt: new Date()
@@ -1423,11 +1384,11 @@ Provide ONLY the JSON response, no additional text.
 /**
  * Calculate ATS scores for multiple candidates (batch processing)
  */
-async function calculateBatchATSScores(candidateIds, requirementId, onProgress) {
+async function calculateBatchATSScores(candidateIds, entityId, onProgress) {
   const results = [];
   const errors = [];
 
-  console.log(`🚀 Starting batch ATS calculation for ${candidateIds.length} candidates`);
+  console.log(`🚀 Starting batch ATS calculation for ${candidateIds.length} candidates against entity ${entityId}`);
 
   for (let i = 0; i < candidateIds.length; i++) {
     const candidateId = candidateIds[i];
@@ -1444,7 +1405,7 @@ async function calculateBatchATSScores(candidateIds, requirementId, onProgress) 
       }
 
       // Calculate ATS score
-      const result = await calculateATSScore(candidateId, requirementId);
+      const result = await calculateATSScore(candidateId, entityId);
       results.push(result);
 
       // Call progress callback
@@ -1458,9 +1419,9 @@ async function calculateBatchATSScores(candidateIds, requirementId, onProgress) 
         });
       }
 
-      // Add delay to avoid rate limiting (1 second between requests)
+      // Add delay to avoid rate limiting (1.5 seconds between requests)
       if (i < candidateIds.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for database commits
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
     } catch (error) {
@@ -1495,7 +1456,7 @@ async function calculateBatchATSScores(candidateIds, requirementId, onProgress) 
 /**
  * Get ATS score for a candidate
  */
-async function getATSScore(candidateId, requirementId) {
+async function getATSScore(candidateId, entityId) {
   try {
     const [result] = await sequelize.query(`
       SELECT 
@@ -1505,10 +1466,10 @@ async function getATSScore(candidateId, requirementId) {
         ats_analysis as "atsAnalysis",
         last_calculated as "lastCalculated"
       FROM candidate_analytics
-      WHERE user_id = :userId AND requirement_id = :requirementId
+      WHERE user_id = :userId AND requirement_id = :entityId
       LIMIT 1;
     `, {
-      replacements: { userId: candidateId, requirementId },
+      replacements: { userId: candidateId, entityId },
       type: sequelize.QueryTypes.SELECT
     });
 
@@ -1517,15 +1478,514 @@ async function getATSScore(candidateId, requirementId) {
     }
 
     return {
-      candidateId: result.userId,
-      requirementId: result.requirementId,
+      userId: result.userId,
+      entityId: result.requirementId,
       atsScore: result.atsScore,
       analysis: typeof result.atsAnalysis === 'string' ? JSON.parse(result.atsAnalysis) : result.atsAnalysis,
-      calculatedAt: result.lastCalculated
+      lastCalculated: result.lastCalculated
     };
   } catch (error) {
-    console.error('❌ Error fetching ATS score:', error);
-    return null;
+    console.error('❌ Error getting ATS score:', error);
+    throw error;
+  }
+}
+
+/**
+ * Extract basic information from resume text for mock response
+ */
+function extractBasicInfoFromText(content) {
+  try {
+    // Extract email
+    const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+    const email = emailMatch ? emailMatch[0] : '';
+
+    // Extract phone
+    const phoneMatch = content.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+    const phone = phoneMatch ? phoneMatch[0] : '';
+
+    // Extract name (usually at the beginning)
+    const lines = content.split('\n').filter(line => line.trim().length > 0);
+    const nameLine = lines[0] || '';
+    const nameParts = nameLine.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    // Extract skills (common technical skills)
+    const commonSkills = [
+      'JavaScript', 'Python', 'Java', 'React', 'Node.js', 'HTML', 'CSS', 'SQL', 
+      'MongoDB', 'Express', 'Angular', 'Vue', 'TypeScript', 'Git', 'Docker',
+      'AWS', 'Azure', 'Machine Learning', 'Data Science', 'TensorFlow',
+      'C++', 'C#', '.NET', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Go'
+    ];
+    
+    const foundSkills = [];
+    commonSkills.forEach(skill => {
+      if (content.toLowerCase().includes(skill.toLowerCase())) {
+        foundSkills.push(skill);
+      }
+    });
+
+    // Extract education keywords
+    const educationKeywords = ['Bachelor', 'Master', 'PhD', 'B.Tech', 'M.Tech', 'B.E.', 'M.E.', 'B.Sc', 'M.Sc', 'MBA'];
+    let education = [];
+    educationKeywords.forEach(keyword => {
+      if (content.includes(keyword)) {
+        education.push({
+          institution: 'University',
+          degree: keyword,
+          field_of_study: 'Engineering',
+          start_date: '2020-01-01',
+          end_date: keyword.includes('Master') || keyword.includes('MBA') ? '2022-01-01' : null,
+          is_current: false
+        });
+      }
+    });
+
+    // Extract work experience
+    const experienceKeywords = ['Engineer', 'Developer', 'Manager', 'Analyst', 'Designer', 'Consultant'];
+    let workExperience = [];
+    experienceKeywords.forEach(keyword => {
+      if (content.toLowerCase().includes(keyword.toLowerCase())) {
+        workExperience.push({
+          company_name: 'Company',
+          job_title: keyword,
+          location: 'Location',
+          is_current: true,
+          description: 'Work experience description'
+        });
+      }
+    });
+
+    return {
+      personal_info: {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        location: 'Location',
+        headline: 'Professional Summary',
+        summary: content.substring(0, 200) + '...'
+      },
+      skills: foundSkills.slice(0, 10), // Limit to 10 skills
+      work_experience: workExperience.slice(0, 2), // Limit to 2 experiences
+      education: education.slice(0, 2) // Limit to 2 education entries
+    };
+  } catch (error) {
+    console.error('❌ Error extracting basic info:', error);
+    return {
+      personal_info: {
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john.doe@example.com',
+        phone: '+1234567890',
+        location: 'City, Country',
+        headline: 'Professional',
+        summary: 'Experienced professional with relevant skills.'
+      },
+      skills: ['JavaScript', 'React', 'Node.js'],
+      work_experience: [],
+      education: [{
+        institution: 'University',
+        degree: 'Bachelor',
+        field_of_study: 'Computer Science',
+        start_date: '2020-01-01',
+        end_date: null,
+        is_current: false
+      }]
+    };
+  }
+}
+
+/**
+ * Enhanced basic info extraction from text using regex fallbacks
+ */
+function extractBasicInfoFromText(content) {
+  if (!content) return null;
+
+  // Basic regex for email and phone
+  const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi;
+  const phoneRegex = /(\+?\d{1,4}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g;
+  
+  const emails = content.match(emailRegex) || [];
+  const phones = content.match(phoneRegex) || [];
+  
+  // Try to find a name (usually at the beginning)
+  const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const potentialName = lines.length > 0 ? lines[0] : 'Applicant';
+  const nameParts = potentialName.split(' ');
+  const firstName = nameParts[0] || 'Applicant';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  // Extract skills (basic keyword matching)
+  const commonSkills = [
+    'JavaScript', 'React', 'Node.js', 'Python', 'Java', 'C++', 'SQL', 'NoSQL',
+    'AWS', 'Azure', 'Docker', 'Kubernetes', 'Project Management', 'Agile',
+    'Machine Learning', 'AI', 'Data Analysis', 'HTML', 'CSS', 'TypeScript',
+    'PHP', 'Ruby', 'Go', 'Swift', 'Kotlin', 'Flutter', 'React Native'
+  ];
+  
+  const foundSkills = [];
+  const lowerContent = content.toLowerCase();
+  commonSkills.forEach(skill => {
+    if (lowerContent.includes(skill.toLowerCase())) {
+      foundSkills.push(skill);
+    }
+  });
+
+  return {
+    personal_info: {
+      first_name: firstName,
+      last_name: lastName,
+      email: emails[0] || '',
+      phone: phones[0] || '',
+      location: 'City, Country',
+      headline: `${firstName}'s Professional Profile`,
+      summary: content.substring(0, 300).replace(/\s+/g, ' ') + '...'
+    },
+    skills: foundSkills,
+    work_experience: [],
+    education: []
+  };
+}
+
+/**
+ * AI-powered resume parsing to extract profile information
+ * Extracts: Skills, Summary, Headline, Work Experience, and Education
+ */
+async function parseResumeToProfile(filePath) {
+  try {
+    console.log('🤖 Starting AI resume parsing for profile enrichment...');
+
+    // 1. Extract text content from file
+    const content = await extractFileContent(filePath);
+    if (!content) {
+      throw new Error('Could not extract text from resume file');
+    }
+
+    // 2. Check if Gemini AI is available
+    const genAI = getGenAI();
+    if (!genAI) {
+      console.log('⚠️ Gemini AI not available, using regex-based extraction');
+      const basicData = extractBasicInfoFromText(content);
+      return {
+        success: true,
+        data: basicData,
+        mock: true,
+        message: 'AI service unavailable - using regex extraction'
+      };
+    }
+
+    // 3. Use executeAIOperation for robust execution
+    const profileData = await executeAIOperation(async () => {
+      const genAI = getGenAI();
+      if (!genAI) throw new Error('Gemini AI not initialized');
+
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash", // Use 1.5-flash for faster parsing
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 2048,
+          responseMimeType: "application/json"
+        }
+      });
+
+      const prompt = `Act as an expert recruitment AI. Analyze the provided resume text and extract structured information to populate a job seeker's profile.
+
+      Resume Content:
+      ${content}
+      
+      Return a JSON object with the following schema:
+      {
+        "personal_info": {
+          "first_name": "string",
+          "last_name": "string",
+          "email": "string",
+          "phone": "string",
+          "location": "string",
+          "headline": "Professional headline (max 100 chars)",
+          "summary": "Professional summary (max 500 chars)"
+        },
+        "skills": ["string"],
+        "work_experience": [
+          {
+            "company_name": "string",
+            "job_title": "string",
+            "location": "string",
+            "start_date": "YYYY-MM-DD",
+            "end_date": "YYYY-MM-DD (or null if current)",
+            "is_current": "boolean",
+            "description": "string (bullet points or summary)"
+          }
+        ],
+        "education": [
+          {
+            "institution": "string",
+            "degree": "string",
+            "field_of_study": "string",
+            "start_date": "YYYY-MM-DD",
+            "end_date": "YYYY-MM-DD (or null if current)",
+            "is_current": "boolean"
+          }
+        ]
+      }
+      
+      Guidelines:
+      - If a field is missing, use null.
+      - Standardize dates to YYYY-MM-DD.
+      - For skills, include technical skills, tools, and methodologies.
+      - Keep the summary and descriptions concise and professional.
+      
+      Return ONLY the valid JSON object.`;
+
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text().trim();
+
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('AI response did not contain valid JSON');
+      }
+
+      return JSON.parse(jsonMatch[0]);
+    }).catch(error => {
+      console.log('⚠️ AI operation failed, falling back to regex extraction:', error.message);
+      return extractBasicInfoFromText(content);
+    });
+
+    return {
+      success: true,
+      data: profileData,
+      message: 'AI parsing successful'
+    };
+
+  } catch (error) {
+    console.error('❌ Resume parsing failed:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * AI-powered job recommendations for a user
+ * Includes Gulf-specific logic and robust rule-based scoring
+ */
+async function getRecommendedJobsForUser(userId, limit = 10, region = null) {
+  try {
+    console.log(`🤖 Generating AI recommendations for user ${userId} ${region ? `(Region: ${region})` : ''}...`);
+
+    const { Op } = require('sequelize');
+
+    // 1. Fetch user data and preferences
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'skills', 'experience_years', 'current_location', 'preferred_locations']
+    });
+
+    if (!user) throw new Error('User not found');
+
+    const preference = await JobPreference.findOne({ where: { userId, isActive: true } });
+
+    // 2. Define criteria
+    const userSkills = (user.skills || []).map(s => s.toLowerCase());
+    const preferredTitles = (preference?.preferredJobTitles || []).map(t => t.toLowerCase());
+    const preferredLocations = (preference?.preferredLocations || user.preferred_locations || []).map(l => l.toLowerCase());
+    
+    // 3. Optimized fetch: Get active jobs within validity
+    const whereClause = {
+      status: 'active',
+      validTill: { [Op.gt]: new Date() }
+    };
+
+    // Apply region filter if provided (crucial for Gulf portal)
+    if (region) {
+      whereClause.region = region;
+    } else if (preferredLocations.some(l => ['dubai', 'uae', 'qatar', 'oman', 'kuwait', 'bahrain', 'saudi'].some(g => l.includes(g)))) {
+      // Auto-detect Gulf preference if not explicitly requested but in locations
+      console.log('🌍 Detected Gulf location preference, prioritizing Gulf jobs');
+    }
+
+    const potentialJobs = await Job.findAll({
+      where: whereClause,
+      limit: 100, // Fetch more for better sorting
+      order: [['created_at', 'DESC']],
+      include: [{ 
+        model: Company, 
+        as: 'company', 
+        attributes: ['name', 'logo', 'industry', 'companyType'] 
+      }]
+    });
+
+    if (potentialJobs.length === 0) {
+      console.log('ℹ️ No active jobs found for recommendation');
+      return [];
+    }
+
+    // 4. Robust Rule-Based Scoring (Always used as primary or fallback)
+    const scoredJobs = potentialJobs.map(job => {
+      let score = 0;
+      const reasons = [];
+      const jobTitle = job.title.toLowerCase();
+      const jobSkills = (job.skills || []).map(s => s.toLowerCase());
+      const jobLocation = job.location.toLowerCase();
+
+      // Title Matching (High Weight)
+      if (preferredTitles.length > 0) {
+        const titleMatch = preferredTitles.some(pt => 
+          jobTitle.includes(pt) || pt.includes(jobTitle)
+        );
+        if (titleMatch) {
+          score += 45;
+          reasons.push('Matches your preferred job titles');
+        }
+      }
+
+      // Skill Matching (Weight 35)
+      if (userSkills.length > 0 && jobSkills.length > 0) {
+        const matchingSkills = jobSkills.filter(s => 
+          userSkills.some(us => us === s || us.includes(s) || s.includes(us))
+        );
+        
+        if (matchingSkills.length > 0) {
+          const matchRatio = matchingSkills.length / Math.max(jobSkills.length, 3);
+          const skillScore = Math.min(matchRatio * 35, 35);
+          score += skillScore;
+          reasons.push(`Matches ${matchingSkills.length} of your key skills`);
+        }
+      }
+
+      // Experience Matching (Weight 15)
+      const userExp = user.experience_years || 0;
+      const jobMin = job.experienceMin || 0;
+      const jobMax = job.experienceMax || 50;
+      
+      if (userExp >= jobMin && userExp <= jobMax) {
+        score += 15;
+        reasons.push('Matches your experience level');
+      } else if (userExp > jobMax) {
+        score += 8; // Slightly overqualified
+        reasons.push('You exceed the experience requirements');
+      }
+
+      // Location Matching (Weight 5)
+      if (preferredLocations.length > 0) {
+        const locMatch = preferredLocations.some(l => 
+          jobLocation.includes(l) || l.includes(jobLocation)
+        );
+        if (locMatch) {
+          score += 5;
+          reasons.push('Located in your preferred area');
+        }
+      }
+      
+      // Gulf-Specific Priority (Bonus)
+      if (region === 'gulf' || ['dubai', 'uae', 'qatar', 'saudi'].some(g => jobLocation.includes(g))) {
+        score += 2; // Minor boost for region relevance
+      }
+
+      return {
+        ...job.toJSON(),
+        matchScore: Math.round(Math.min(score, 100)),
+        matchReasons: reasons.slice(0, 3) // Keep top 3 reasons for UX
+      };
+    });
+
+    // 5. Final Filtering & Sorting
+    return scoredJobs
+      .filter(j => j.matchScore >= 30) // Minimum threshold for "Recommended"
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, limit);
+
+  } catch (error) {
+    console.error('❌ Error generating recommendations:', error.message);
+    return [];
+  }
+}
+
+/**
+ * AI-powered cover letter generation
+ */
+async function generateCoverLetter(userId, jobId, resumeId = null) {
+  try {
+    console.log(`🤖 Generating AI cover letter for user ${userId} and job ${jobId}${resumeId ? ` using resume ${resumeId}` : ''}...`);
+
+    // 1. Fetch user data, job data, and resume data
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'first_name', 'last_name', 'skills', 'experience_years', 'headline', 'summary']
+    });
+    
+    const job = await Job.findByPk(jobId, {
+      attributes: ['title', 'description', 'skills', 'location'],
+      include: [{ model: Company, as: 'company', attributes: ['name'] }]
+    });
+
+    if (!user || !job) throw new Error('User or Job not found');
+
+    let resumeContent = '';
+    if (resumeId) {
+      const resume = await Resume.findByPk(resumeId);
+      if (resume && resume.metadata?.filePath) {
+        resumeContent = await extractFileContent(resume.metadata.filePath);
+      }
+    }
+
+    // 2. Use executeAIOperation for robust execution
+    const coverLetter = await executeAIOperation(async () => {
+      const genAI = getGenAI();
+      if (!genAI) throw new Error('Gemini AI not initialized');
+
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash", // Use 1.5-flash for faster generation
+        generationConfig: {
+          temperature: 0.7, // Higher temperature for more creative/natural text
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 1024
+        }
+      });
+
+      const prompt = `Act as an expert career consultant. Write a highly personalized and compelling cover letter for the following job application.
+      
+      Job Seeker:
+      - Name: ${user.first_name} ${user.last_name}
+      - Headline: ${user.headline}
+      - Summary: ${user.summary}
+      - Skills: ${user.skills?.join(', ')}
+      - Experience: ${user.experience_years} years
+      ${resumeContent ? `\nResume Content:\n${resumeContent.substring(0, 5000)}` : ''}
+      
+      Target Job:
+      - Title: ${job.title}
+      - Company: ${job.company?.name}
+      - Location: ${job.location}
+      - Requirements: ${job.description}
+      
+      Guidelines:
+      - Keep it professional, concise (3-4 short paragraphs).
+      - Highlight specific skills and achievements that match the job requirements.
+      - Show enthusiasm for the company and the role.
+      - Use a standard business letter format.
+      - Do NOT include placeholders like [Insert Date] - use a professional closing.
+      - Focus on how the candidate can add value to the company.
+      
+      Return ONLY the cover letter text.`;
+
+      const result = await model.generateContent(prompt);
+      return result.response.text().trim();
+    });
+
+    return {
+      success: true,
+      data: coverLetter
+    };
+
+  } catch (error) {
+    console.error('❌ Cover letter generation failed:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
@@ -1535,5 +1995,9 @@ module.exports = {
   getATSScore,
   extractRequirementDetails,
   extractCandidateProfile,
-  createComprehensiveResumeContent
+  createComprehensiveResumeContent,
+  parseResumeToProfile,
+  extractFileContent,
+  getRecommendedJobsForUser,
+  generateCoverLetter
 };

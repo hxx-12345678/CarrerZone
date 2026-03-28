@@ -19,20 +19,27 @@ import {
     Download,
     AlertCircle,
     RefreshCw,
-    X
+    X,
+    Zap,
+    CheckCircle
 } from 'lucide-react'
 import { Navbar } from '@/components/navbar'
 import { toast } from 'sonner'
 import { apiService, Resume } from '@/lib/api'
 import { JobseekerAuthGuard } from '@/components/jobseeker-auth-guard'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 export default function DashboardResumesPage() {
-    const { user, loading } = useAuth()
+    const { user, loading, refreshUser } = useAuth()
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [resumes, setResumes] = useState<Resume[]>([])
     const [resumesLoading, setResumesLoading] = useState(true)
     const [uploading, setUploading] = useState(false)
+    const [isParsing, setIsParsing] = useState<string | null>(null)
+    const [showAIDialog, setShowAIDialog] = useState(false)
+    const [parsedData, setParsedData] = useState<any>(null)
+    const [isSavingProfile, setIsSavingProfile] = useState(false)
 
     useEffect(() => {
         if (!loading && !user) {
@@ -105,6 +112,101 @@ export default function DashboardResumesPage() {
             if (fileInputRef.current) {
                 fileInputRef.current.value = ''
             }
+        }
+    }
+
+    const handleAIParse = async (resumeId: string) => {
+        try {
+            setIsParsing(resumeId)
+            const response = await apiService.parseResumeToProfile(resumeId)
+
+            if (response.success && response.data) {
+                setParsedData(response.data)
+                setShowAIDialog(true)
+                
+                if (response.mock) {
+                    toast.info('AI service unavailable - Showing extracted data from resume', {
+                        description: 'Configure Gemini API for AI-powered parsing',
+                        duration: 5000
+                    })
+                } else {
+                    toast.success('Resume parsed successfully with AI!')
+                }
+            } else {
+                toast.error(response.message || 'Failed to parse resume with AI')
+            }
+        } catch (error: any) {
+            console.error('Error parsing resume:', error)
+            toast.error(error.message || 'Failed to parse resume with AI')
+        } finally {
+            setIsParsing(null)
+        }
+    }
+
+    const handleSaveParsedProfile = async () => {
+        if (!parsedData) return
+
+        try {
+            setIsSavingProfile(true)
+            
+            // 1. Update basic info
+            const basicInfo = {
+                firstName: parsedData.personal_info.first_name || user?.firstName,
+                lastName: parsedData.personal_info.last_name || user?.lastName,
+                headline: parsedData.personal_info.headline || user?.headline,
+                summary: parsedData.personal_info.summary || user?.summary,
+                currentLocation: parsedData.personal_info.location || user?.currentLocation,
+                skills: [...new Set([...(user?.skills || []), ...(parsedData.skills || [])])]
+            }
+
+            const profileRes = await apiService.updateProfile(basicInfo)
+            if (!profileRes.success) {
+                throw new Error(profileRes.message || 'Failed to update basic profile info')
+            }
+
+            // 2. Add work experiences (only those that aren't already there)
+            if (parsedData.work_experience && Array.isArray(parsedData.work_experience)) {
+                for (const exp of parsedData.work_experience) {
+                    await apiService.createWorkExperience({
+                        companyName: exp.company_name,
+                        jobTitle: exp.job_title,
+                        location: exp.location,
+                        startDate: exp.start_date,
+                        endDate: exp.end_date,
+                        isCurrent: exp.is_current,
+                        description: exp.description
+                    } as any)
+                }
+            }
+
+            // 3. Add education (only those that aren't already there)
+            if (parsedData.education && Array.isArray(parsedData.education)) {
+                for (const edu of parsedData.education) {
+                    // Validate required fields before creating education
+                    if (edu.degree && edu.institution && edu.start_date) {
+                        await apiService.createEducation({
+                            institution: edu.institution,
+                            degree: edu.degree,
+                            fieldOfStudy: edu.field_of_study || 'General',
+                            startDate: edu.start_date,
+                            endDate: edu.end_date,
+                            isCurrent: edu.is_current || false
+                        } as any)
+                    } else {
+                        console.warn('Skipping education entry due to missing required fields:', edu)
+                    }
+                }
+            }
+
+            toast.success('Profile updated successfully with AI-extracted data!')
+            setShowAIDialog(false)
+            if (refreshUser) await refreshUser()
+            
+        } catch (error: any) {
+            console.error('Error saving parsed profile:', error)
+            toast.error(error.message || 'Failed to save profile data')
+        } finally {
+            setIsSavingProfile(false)
         }
     }
 
@@ -237,6 +339,20 @@ export default function DashboardResumesPage() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    onClick={() => handleAIParse(resume.id)} 
+                                                    title="Parse with AI" 
+                                                    className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                                    disabled={isParsing !== null}
+                                                >
+                                                    {isParsing === resume.id ? (
+                                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <Zap className="w-4 h-4 fill-current" />
+                                                    )}
+                                                </Button>
                                                 <Button variant="ghost" size="icon" onClick={() => handleViewResume(resume.id)} title="View">
                                                     <Eye className="w-4 h-4 text-slate-500" />
                                                 </Button>
@@ -269,6 +385,107 @@ export default function DashboardResumesPage() {
                     )}
                 </div>
             </div>
+
+            {/* AI Parsing Dialog */}
+            <Dialog open={showAIDialog} onOpenChange={setShowAIDialog}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-emerald-600 fill-current" />
+                            AI Resume Analysis Results
+                        </DialogTitle>
+                        <DialogDescription>
+                            We've extracted the following information from your resume. Review and click "Sync Profile" to update your account.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {parsedData && (
+                        <div className="space-y-6 py-4">
+                            {/* Personal Info */}
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Personal Info</h4>
+                                <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase">First Name</p>
+                                        <p className="font-medium">{parsedData.personal_info.first_name || '—'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase">Last Name</p>
+                                        <p className="font-medium">{parsedData.personal_info.last_name || '—'}</p>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <p className="text-[10px] text-slate-400 uppercase">Headline</p>
+                                        <p className="font-medium">{parsedData.personal_info.headline || '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Skills */}
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Extracted Skills</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {parsedData.skills?.map((skill: string, i: number) => (
+                                        <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400">
+                                            {skill}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Experience */}
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Experience</h4>
+                                <div className="space-y-3">
+                                    {parsedData.work_experience?.map((exp: any, i: number) => (
+                                        <div key={i} className="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg shadow-sm">
+                                            <p className="font-bold text-slate-900 dark:text-white">{exp.job_title}</p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400">{exp.company_name} • {exp.location}</p>
+                                            <p className="text-xs text-slate-400 mt-1">{exp.start_date} to {exp.is_current ? 'Present' : exp.end_date}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Education */}
+                            <div className="space-y-3">
+                                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-500">Education</h4>
+                                <div className="space-y-3">
+                                    {parsedData.education?.map((edu: any, i: number) => (
+                                        <div key={i} className="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg shadow-sm">
+                                            <p className="font-bold text-slate-900 dark:text-white">{edu.degree}</p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400">{edu.institution} • {edu.field_of_study}</p>
+                                            <p className="text-xs text-slate-400 mt-1">{edu.start_date} to {edu.is_current ? 'Present' : edu.end_date}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setShowAIDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white" 
+                            onClick={handleSaveParsedProfile}
+                            disabled={isSavingProfile}
+                        >
+                            {isSavingProfile ? (
+                                <>
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                    Syncing Profile...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Sync Profile Data
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </JobseekerAuthGuard>
     )
 }

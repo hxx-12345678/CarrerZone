@@ -11,8 +11,8 @@ const poppins = Poppins({ subsets: ["latin"], weight: ["600", "700"], variable: 
 const playfair = Playfair_Display({ subsets: ["latin"], weight: ["700"], variable: "--font-serif" })
 
 export const metadata: Metadata = {
-  title: "JobPortal - Find Your Dream Job",
-  description: "India's leading job portal connecting talent with opportunities",
+  title: "CareerZone - Find Your Dream Job",
+  description: "India's leading career zone connecting talent with opportunities",
     generator: 'v0.dev'
 }
 

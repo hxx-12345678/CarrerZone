@@ -1,5 +1,6 @@
 const { ViewTracking, User, Job } = require('../config/index');
-const { Op } = require('sequelize');
+const { Sequelize } = require('../config/sequelize');
+const { Op } = Sequelize;
 
 class ViewTrackingService {
   /**

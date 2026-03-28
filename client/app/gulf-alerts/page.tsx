@@ -314,7 +314,7 @@ export default function GulfAlertsPage() {
               <CardContent className="p-12 text-center">
                 <Bell className="w-16 h-16 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">No Gulf alerts yet</h3>
-                <p className="text-slate-600 dark:text-slate-300 mb-6">Create your first alert to get notified about new Gulf jobs</p>
+                <p className="text-slate-600 dark:text-slate-300 mb-6">Create your first alert to get notified about new CareerZone Gulf opportunities</p>
                 <Button onClick={() => { setShowForm(true); setEditingAlert(null); }} className="bg-green-600 hover:bg-green-700">
                   <Plus className="w-4 h-4 mr-2" /> Create Alert
                 </Button>

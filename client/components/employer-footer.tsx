@@ -16,7 +16,7 @@ export function EmployerFooter() {
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                JobPortal
+                CareerZone
               </span>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed max-w-xs">
@@ -223,7 +223,7 @@ export function EmployerFooter() {
               </div>
               <div>
                 <div className="text-xs text-slate-400">Email Support</div>
-                <div className="text-sm font-semibold text-white">support@jobportal.com</div>
+                <div className="text-sm font-semibold text-white">support@careerzone.com</div>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -242,7 +242,7 @@ export function EmployerFooter() {
         <div className="border-t border-slate-700 py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-sm text-slate-300 text-center md:text-left">
-              © 2025 JobPortal. All rights reserved. Made with ❤️ in India
+              © 2026 CareerZone. All rights reserved. Made with ❤️ in India
             </div>
             <div className="flex flex-wrap items-center gap-4 text-xs">
               <Link href="/terms" className="text-slate-400 hover:text-blue-400 transition-colors">Terms</Link>

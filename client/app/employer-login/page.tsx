@@ -531,7 +531,7 @@ export default function EmployerLoginPage() {
                   <Separator className="w-full" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white/50 backdrop-blur-md px-2 text-[#5B5B6A]">New to JobPortal?</span>
+                  <span className="bg-white/50 backdrop-blur-md px-2 text-[#5B5B6A]">New to Career Zone?</span>
                 </div>
               </div>
 

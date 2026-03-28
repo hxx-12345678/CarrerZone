@@ -1,0 +1,170 @@
+You asked for deep web research first, then a Markdown document describing AI features we should add (jobseeker side) inspired by modern products + Naukri-like features.
+
+A) What “modern AI job applying” looks like (jobseeker side)
+From current AI job-search products (ex: Huntr, and similar tools indexed in web search), the common “AI-first” workflow is:
+
+1) Resume parsing → structured profile (auto-fill)
+What it does
+Extracts: name, contact, skills, work history, education, projects, certifications.
+Converts resume into structured fields so the portal can:
+prefill profile
+index skills
+compute “match scores”
+Why it matters
+Removes friction: upload resume → profile ready in minutes.
+2) Job match score (resume vs job description)
+What it does
+Compares the resume to a job description:
+keyword overlap
+“responsibilities covered”
+“qualifications covered”
+Produces a match % and shows missing skills/keywords.
+Example evidence
+Huntr describes “Advanced Job Match Score” and keyword/responsibility extraction + coverage scoring. (Source: https://huntr.co/ chunk we read)
+3) AI resume tailoring per job
+What it does
+Generates a tailored resume variant for a specific job.
+Suggests which bullets to add/change and which keywords to include.
+Common features
+“Achievement generator” (quantified bullets)
+“Summary/headline generator”
+ATS keyword alignment
+4) Cover letter + application answers generation
+What it does
+Writes:
+cover letter draft
+“Why do you want this role?”
+“Describe a challenge…” style answers
+Ensures tone + facts are consistent with your profile.
+5) Application tracking (AI + workflow automation)
+What it does
+Track application status, interviews, reminders.
+Some tools “auto-apply” (often risky/low-quality if fully automated), but the safe version is:
+“prepare everything fast”
+user reviews
+then submits
+6) AI job discovery / recommendations
+What it does
+Learns from:
+your profile skills/experience
+your searches/clicks/saves
+your apply history
+Then shows “Recommended jobs” and can generate alerts.
+B) What Naukri provides (jobseeker-side signals we could replicate)
+Direct Naukri pages were hard to fetch (timeouts), but an accessible Naukri-owned FAQ mirror clearly describes jobseeker-side features:
+
+Naukri jobseeker features (from FAQ mirror)
+From Naukri’s FAQ mirror page:
+
+Application tracking
+“track their progress via Application Status feature on desktop or Applied Jobs on mobile.”
+Job Preferences → better recommendations
+“Job Preferences help you to get more relevant job recommendations… desired locations, industries, expected salary… recommendations that meet the specified criteria… from Settings page.”
+Premium profile visibility
+“If your education details show that you have studied in a top tier institute… profile shown as Premium…”
+Source: https://company.naukri.com/landing-page/naukri_faq/new/job_seeker/getting_naukri.html (chunk we read)
+
+Recruiter-side AI signals (useful inspiration for jobseeker “match score”)
+We found Naukri RecruiterZone pages that mention:
+
+AI-powered relevance scoring / applicant-job matching (recruiter-side).
+This is useful as inspiration to provide jobseeker-side “match score” + “why you’re a match”.
+Source (found by search): https://recruiterzone.naukri.com/identify-relevant-applies-with-great-ease/ (we couldn’t fetch content fully due to timeout, but it’s a known RecruiterZone article.)
+
+Markdown spec: AI features to implement in your portal (jobseeker side)
+Below is the MD-style design spec you requested. After you confirm this direction, I’ll study your DB + backend + frontend and implement Phase 1 behind a feature flag so nothing breaks.
+
+AI Features Spec (Jobseeker Side) — CareerZone / JobPortal
+Goals
+Keep all current features working.
+Add AI features incrementally with feature flags.
+Improve jobseeker outcomes:
+faster profile creation
+better job discovery
+higher quality applications
+Non-goals (for now)
+Full “auto-apply to 1000 jobs” automation (high spam risk, can damage employer trust).
+Any AI that changes stored user data without explicit user confirmation.
+Feature Set (in priority order)
+Phase 1 (Low-risk, high value, easy to integrate)
+1) Resume Upload → “AI Parse Preview” → Profile auto-fill suggestions
+User flow
+Upload resume
+Show extracted fields in a preview UI
+User clicks “Apply to profile” for each section
+Backend
+Parse resume into structured JSON
+Store:
+original resume file reference (existing)
+parsed JSON (new table/columns)
+parsing confidence + timestamp
+Security/Privacy
+Data minimization: store only required extracted fields
+Encrypt at rest if possible (at least DB-level protections)
+Provide “Delete parsed data” action
+2) Job “Match Score” (Resume/Profile vs Job)
+User flow
+On job details page: show “Match Score”
+Explain in bullets:
+matched skills
+missing skills
+missing responsibilities coverage
+Backend
+Start with deterministic scoring:
+keyword overlap from job skills + resume skills
+Later upgrade to embeddings/LLM.
+3) Job Preferences → better “Recommended jobs” (Naukri-like)
+User flow
+Settings: location, salary, industry, role
+“Recommended Jobs” uses those preferences and activity
+Backend
+Start with SQL filtering + ranking:
+match location
+match role category
+salary range
+skills overlap
+Phase 2 (Medium risk, more AI text generation)
+4) AI Cover Letter Draft (user-controlled)
+Generates a draft using:
+user profile data
+job description
+Must include:
+user review/edit step
+“facts consistency” checks (no hallucinated employers/years)
+5) Resume Tailoring Suggestions
+“Add 3 missing keywords”
+“Rewrite summary”
+“Suggest quantified achievements”
+Phase 3 (Advanced / future)
+6) Conversational “Career Assistant”
+Ask:
+“What jobs should I apply to this week?”
+“What skills am I missing for Data Analyst roles?”
+Guardrails:
+don’t expose private employer info
+don’t recommend unsafe actions
+7) Fraud/spam detection for job postings (platform trust)
+Not jobseeker-only, but improves overall ecosystem.
+Implementation Principles (must not disturb current functionality)
+Feature flags:
+AI_FEATURES_ENABLED=false by default in prod until tested.
+Backward compatible DB changes:
+Add new columns/tables; do not change existing columns used by current flows.
+Non-destructive UX:
+“suggestions” not “auto-write into profile”.
+Logging policy:
+no resumes printed in logs
+no generated content logged
+Next Step (required before coding)
+Now I need to study your codebase to map:
+
+Current resume upload/storage model (Resume model, upload routes)
+User profile fields and settings pages
+Jobs table structure (skills/description fields available)
+Existing search/recommend endpoints
+Then I’ll propose the smallest DB+API+UI additions for Phase 1.
+
+Quick clarifying questions (to avoid breaking anything)
+Do you want AI implemented using an external API (OpenAI / similar) or only local/deterministic logic first?
+If external: you’ll need API keys and we must ensure privacy + rate limits.
+Resumes are currently stored in your server uploads — should parsed results be stored in DB permanently, or computed on-demand and discarded?

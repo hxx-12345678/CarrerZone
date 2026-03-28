@@ -53,7 +53,7 @@ export default function FAQsPage() {
     },
     {
       question: "How do I contact support?",
-      answer: "You can contact our support team through the contact form, email us at support@jobportal.com, or call us at +1 (555) 123-4567. We respond to all inquiries within 24 hours."
+      answer: "You can contact our support team through the contact form, email us at support@careerzone.com, or call us at +1 (555) 123-4567. We respond to all inquiries within 24 hours."
     },
     {
       question: "Is my personal information secure?",

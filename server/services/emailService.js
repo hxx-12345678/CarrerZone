@@ -891,7 +891,7 @@ ${APP_URL}/client/verify-authorization?token=${verificationToken}&action=reject
 This is a security measure to prevent unauthorized job postings.
 
 Job Portal Security Team
-support@jobportal.com`
+support@careerzone.com`
       };
 
       const result = await this.transporter.sendMail(mailOptions);
@@ -963,7 +963,7 @@ support@jobportal.com`
               </p>
               
               <div style="text-align: center; margin-top: 30px;">
-                <a href="mailto:support@jobportal.com" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                <a href="mailto:support@careerzone.com" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   Contact Support
                 </a>
               </div>
@@ -971,7 +971,7 @@ support@jobportal.com`
             
             <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
               <p>This is an automated response from Job Portal Support Team</p>
-              <p>© 2025 Job Portal. All rights reserved.</p>
+              <p>© 2026 CareerZone. All rights reserved.</p>
             </div>
           </div>
         `,
@@ -989,13 +989,13 @@ Original Inquiry:
 Subject: ${subject}
 Category: ${category}
 
-If you have any further questions or need additional assistance, please don't hesitate to contact us at support@jobportal.com.
+If you have any further questions or need additional assistance, please don't hesitate to contact us at support@careerzone.com.
 
 Best regards,
 Job Portal Support Team
 
 This is an automated response from Job Portal Support Team
-© 2025 Job Portal. All rights reserved.
+© 2026 CareerZone. All rights reserved.
         `
       };
 
@@ -1029,7 +1029,7 @@ This is an automated response from Job Portal Support Team
       console.log(`📧 Sending ${type} invitation email to: ${email}`);
       
       const result = await this.sendMail({
-        from: this.fromEmail || process.env.SMTP_USER || 'noreply@jobportal.com',
+        from: this.fromEmail || process.env.SMTP_USER || 'noreply@careerzone.com',
         to: email,
         subject: subject,
         html: this.formatHtmlEmail(content),

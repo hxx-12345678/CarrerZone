@@ -43,6 +43,138 @@ import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
 import { JobApplicationDialog } from '@/components/job-application-dialog'
 
+// AI Match Score Card Component
+const MatchScoreCard = ({ score, analysis, loading }: { score?: number, analysis?: any, loading: boolean }) => {
+  if (loading) {
+    return (
+      <Card className="mb-8 overflow-hidden border-none shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900">
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-4 animate-pulse">
+            <div className="w-16 h-16 bg-blue-200 dark:bg-slate-700 rounded-full"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-blue-200 dark:bg-slate-700 rounded w-1/4"></div>
+              <div className="h-4 bg-blue-100 dark:bg-slate-800 rounded w-3/4"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!score && !analysis) return null;
+
+  const displayScore = score || analysis?.ats_score || 0;
+  const getScoreColor = (s: number) => {
+    if (s >= 80) return 'text-emerald-600 dark:text-emerald-400';
+    if (s >= 60) return 'text-blue-600 dark:text-blue-400';
+    if (s >= 40) return 'text-amber-600 dark:text-amber-400';
+    return 'text-rose-600 dark:text-rose-400';
+  };
+
+  const getScoreBg = (s: number) => {
+    if (s >= 80) return 'bg-emerald-100 dark:bg-emerald-900/30';
+    if (s >= 60) return 'bg-blue-100 dark:bg-blue-900/30';
+    if (s >= 40) return 'bg-amber-100 dark:bg-amber-900/30';
+    return 'bg-rose-100 dark:bg-rose-900/30';
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Card className="mb-8 overflow-hidden border-none shadow-xl bg-white dark:bg-slate-900 relative">
+        <div className={`absolute top-0 left-0 w-1 h-full ${getScoreBg(displayScore).replace('bg-', 'bg-opacity-100 bg-')}`}></div>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+            <div className="relative">
+              <svg className="w-24 h-24 transform -rotate-90">
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="transparent"
+                  className="text-slate-100 dark:text-slate-800"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="transparent"
+                  strokeDasharray={2 * Math.PI * 40}
+                  strokeDashoffset={2 * Math.PI * 40 * (1 - displayScore / 100)}
+                  className={`${getScoreColor(displayScore)} transition-all duration-1000 ease-out`}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center flex-col">
+                <span className={`text-2xl font-bold ${getScoreColor(displayScore)}`}>{displayScore}%</span>
+                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Match</span>
+              </div>
+            </div>
+
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                <Badge className={`${getScoreBg(displayScore)} ${getScoreColor(displayScore)} border-none px-3 py-1`}>
+                  AI-Powered Analysis
+                </Badge>
+                {displayScore >= 70 && (
+                  <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-none px-3 py-1">
+                    <Zap className="w-3 h-3 mr-1 fill-current" /> High Match
+                  </Badge>
+                )}
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                How well do you fit this role?
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 leading-relaxed">
+                {analysis?.overall_assessment || "Our AI has analyzed your profile against the job requirements to help you understand your fitment."}
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                {analysis?.matching_skills?.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center">
+                      <CheckCircle className="w-3 h-3 mr-1 text-emerald-500" /> Matched Skills
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.matching_skills.slice(0, 5).map((skill: string, i: number) => (
+                        <Badge key={i} variant="outline" className="text-[10px] py-0 border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
+                          {skill}
+                        </Badge>
+                      ))}
+                      {analysis.matching_skills.length > 5 && (
+                        <span className="text-[10px] text-slate-400 font-medium">+{analysis.matching_skills.length - 5} more</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {analysis?.gaps?.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center">
+                      <AlertCircle className="w-3 h-3 mr-1 text-amber-500" /> Potential Gaps
+                    </span>
+                    <ul className="text-[11px] text-slate-600 dark:text-slate-400 list-disc list-inside">
+                      {analysis.gaps.slice(0, 2).map((gap: string, i: number) => (
+                        <li key={i} className="truncate">{gap}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
 // Interface for similar jobs API response
 interface SimilarJobsResponse {
   success: boolean;
@@ -65,8 +197,31 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<any | null>(null)
   const [similarJobs, setSimilarJobs] = useState<any[]>([])
   const [similarJobsLoading, setSimilarJobsLoading] = useState(false)
+  const [matchScore, setMatchScore] = useState<any>(null)
+  const [matchScoreLoading, setMatchScoreLoading] = useState(false)
 
   const jobIdFromParams = (params?.id as string) || ''
+
+  // Fetch match score when job and user are available
+  useEffect(() => {
+    const fetchMatchScore = async () => {
+      if (!job || !user || matchScore) return
+      
+      setMatchScoreLoading(true)
+      try {
+        const res = await apiService.getJobMatchScore(job.id)
+        if (res.success) {
+          setMatchScore(res.data)
+        }
+      } catch (e) {
+        console.error('❌ Error fetching match score:', e)
+      } finally {
+        setMatchScoreLoading(false)
+      }
+    }
+
+    fetchMatchScore()
+  }, [job, user, matchScore])
 
   // Load job data by id (API first, fallback to sample bookmark/application data)
   useEffect(() => {
@@ -919,6 +1074,15 @@ export default function JobDetailPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* AI Match Score Section */}
+                    {user && user.userType === 'jobseeker' && (
+                      <MatchScoreCard 
+                        score={matchScore?.score} 
+                        analysis={matchScore?.analysis} 
+                        loading={matchScoreLoading} 
+                      />
+                    )}
 
                     {/* Internship-specific information */}
                     {job?.type?.toLowerCase() === 'internship' && (job?.duration || job?.startDate || job?.workMode || job?.learningObjectives || job?.mentorship) && (
@@ -2128,9 +2292,9 @@ export default function JobDetailPage() {
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                   <Briefcase className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-2xl font-bold">JobPortal</span>
+                <span className="text-2xl font-bold">Career Zone</span>
               </div>
-              <p className="text-slate-400 mb-6">India's leading job portal connecting talent with opportunities.</p>
+              <p className="text-slate-400 mb-6">India's leading career platform connecting talent with opportunities.</p>
               <div className="flex space-x-4">
                 <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors cursor-pointer">
                   <span className="text-sm">f</span>
@@ -2174,7 +2338,7 @@ export default function JobDetailPage() {
           </div>
 
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p>&copy; 2025 Career Zone. All rights reserved. Made with ❤️ in India</p>
           </div>
         </div>
       </footer>

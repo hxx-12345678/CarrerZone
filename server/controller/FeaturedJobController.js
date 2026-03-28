@@ -1,6 +1,7 @@
 'use strict';
 
-const { Op, Sequelize } = require('sequelize');
+const { Sequelize } = require('../config/sequelize');
+const { Op } = Sequelize;
 const { FeaturedJob, Job, Company, User, Notification, JobApplication, Resume, CoverLetter } = require('../config');
 
 /**

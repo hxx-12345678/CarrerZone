@@ -169,9 +169,12 @@ export function GulfEmployerNavbar() {
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
               <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <span className="text-lg sm:text-xl lg:text-2xl font-serif font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent tracking-tight">
-              Gulf Jobs
-            </span>
+            <div className="flex flex-col">
+              <span className="text-lg sm:text-xl lg:text-2xl font-serif font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent tracking-tight">
+                CareerZone
+              </span>
+              <span className="text-xs text-green-600 dark:text-green-400">Gulf Portal</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}

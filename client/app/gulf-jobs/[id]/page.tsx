@@ -2095,9 +2095,9 @@ export default function GulfJobDetailPage() {
                 <div className="w-10 h-10 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center">
                   <Briefcase className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-2xl font-bold">JobPortal</span>
+                <span className="text-2xl font-bold">Gulf Opportunities</span>
               </div>
-              <p className="text-slate-400 mb-6">India's leading job portal connecting talent with opportunities.</p>
+              <p className="text-slate-400 mb-6">Your gateway to exciting career opportunities in the Gulf region.</p>
               <div className="flex space-x-4">
                 <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-colors cursor-pointer">
                   <span className="text-sm">f</span>
@@ -2141,7 +2141,7 @@ export default function GulfJobDetailPage() {
           </div>
 
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p>&copy; 2025 Gulf Opportunities. All rights reserved. Made with ❤️ for the Gulf region</p>
           </div>
         </div>
       </footer>

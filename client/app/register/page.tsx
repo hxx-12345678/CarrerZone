@@ -302,7 +302,7 @@ export default function RegisterPage() {
                       <Briefcase className="w-6 h-6 text-white" />
                     </div>
                     <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                      JobPortal
+                      Career Zone
                     </span>
                   </Link>
                 </div>
@@ -311,7 +311,7 @@ export default function RegisterPage() {
                 </div>
                 <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Create Account</CardTitle>
                 <p className="text-slate-600 dark:text-slate-300 mt-2 mb-4">
-                  Join thousands of professionals finding their dream jobs
+                  Join Career Zone to access thousands of jobs across India and Gulf
                 </p>
 
                 {/* Password Requirements Notice */}
@@ -611,7 +611,7 @@ export default function RegisterPage() {
                   <Building2 className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  JobPortal
+                  CareerZone
                 </span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
@@ -734,10 +734,10 @@ export default function RegisterPage() {
           </div>
 
           <div className="border-t border-slate-800 mt-12 pt-8 text-center">
-            <div className="text-slate-400 text-sm">
-              © 2025 JobPortal. All rights reserved. Made with ❤️ in India
+              <div className="text-slate-400 text-sm">
+                © 2025 Career Zone. All rights reserved. Made with ❤️ in India
+              </div>
             </div>
-          </div>
         </div>
       </footer>
     </div>

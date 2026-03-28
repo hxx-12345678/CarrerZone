@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Building2, MapPin, Briefcase, Search, Loader2, Globe, Star, Eye, Filter, X, ChevronLeft, ChevronRight, Sparkles, Zap, Heart } from "lucide-react"
+import { Building2, MapPin, Briefcase, Search, Loader2, Globe, Star, Eye, Filter, X, ChevronLeft, ChevronRight, Sparkles, Zap, Heart, Shield, Award, TrendingUp } from "lucide-react"
 import GulfNavbar from "@/components/gulf-navbar"
 import { EmployerFooter } from "@/components/employer-footer"
 import { Input } from "@/components/ui/input"
@@ -570,23 +570,72 @@ export default function GulfCompaniesPage() {
       <GulfNavbar />
 
       {/* Hero Section */}
-      <div className="relative pt-20 pb-12">
-        <div className="absolute inset-0 bg-gradient-to-r from-green-600/10 to-emerald-600/10" />
+      <div className="relative pt-20 pb-12 overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/20 via-green-600/15 to-teal-500/20" />
+        <div className="absolute inset-0 bg-[url('/api/placeholder/1920/400')] bg-cover bg-center opacity-10" />
+        
+        {/* Animated Elements */}
+        <div className="absolute top-10 right-10 w-24 h-24 bg-emerald-500/20 rounded-full blur-xl animate-pulse" />
+        <div className="absolute bottom-20 left-20 w-32 h-32 bg-green-500/20 rounded-full blur-2xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 right-1/4 w-28 h-28 bg-teal-500/20 rounded-full blur-xl animate-pulse delay-500" />
+        
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="inline-flex items-center space-x-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Globe className="w-4 h-4" />
-              <span>Gulf Region Companies</span>
+            {/* CareerZone Branding Badge */}
+            <div className="inline-flex items-center space-x-3 bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-900/40 dark:to-green-900/40 text-emerald-800 dark:text-emerald-200 px-6 py-3 rounded-full text-sm font-semibold mb-8 shadow-lg backdrop-blur-sm border border-emerald-200/50 dark:border-emerald-700/50">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <Building2 className="w-5 h-5" />
+              <span>CareerZone Gulf Companies</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse delay-300" />
             </div>
             
-            <h1 className="text-4xl md:text-6xl font-bold text-slate-900 dark:text-white mb-6">
-              Discover Top Companies in the
-              <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"> Gulf</span>
+            {/* Main Heading */}
+            <h1 className="text-5xl md:text-7xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
+              <span className="block mb-2">Discover Top Companies</span>
+              <span className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-500 bg-clip-text text-transparent">in the Gulf</span>
             </h1>
             
-            <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto">
-              Explore leading companies in the Gulf region offering exceptional career opportunities, competitive benefits, and world-class work environments.
+            {/* Enhanced Description */}
+            <p className="text-xl md:text-2xl text-slate-600 dark:text-slate-300 mb-10 max-w-4xl mx-auto leading-relaxed">
+              Connect with <span className="font-semibold text-emerald-600 dark:text-emerald-400">leading employers </span> 
+              offering <span className="font-semibold text-green-600 dark:text-green-400">exceptional careers</span>, 
+              <span className="font-semibold text-teal-600 dark:text-teal-400"> competitive benefits</span>, and 
+              <span className="font-semibold text-yellow-600 dark:text-yellow-400">world-class environments</span> 
+              through CareerZone's trusted network.
             </p>
+            
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 max-w-4xl mx-auto">
+              <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-emerald-200/50 dark:border-emerald-700/50 shadow-lg">
+                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">500+</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Top Companies</div>
+              </div>
+              <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-green-200/50 dark:border-green-700/50 shadow-lg">
+                <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">50,000+</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Job Openings</div>
+              </div>
+              <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-xl p-6 border border-teal-200/50 dark:border-teal-700/50 shadow-lg">
+                <div className="text-3xl font-bold text-teal-600 dark:text-teal-400 mb-2">4.8★</div>
+                <div className="text-sm text-slate-600 dark:text-slate-300">Avg Company Rating</div>
+              </div>
+            </div>
+            
+            {/* Trust Indicators */}
+            <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-slate-500 dark:text-slate-400">
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4 text-emerald-500" />
+                <span>Verified Companies</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Award className="w-4 h-4 text-green-500" />
+                <span>Top Employers</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="w-4 h-4 text-teal-500" />
+                <span>Growing Opportunities</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1119,7 +1168,7 @@ export default function GulfCompaniesPage() {
             <div>
               <h4 className="font-semibold mb-4 text-white">For Job Seekers</h4>
               <ul className="space-y-3 text-slate-300">
-                <li><Link href="/gulf-jobs" className="hover:text-green-400 transition-colors">Browse Gulf Jobs</Link></li>
+                <li><Link href="/gulf-jobs" className="hover:text-green-400 transition-colors">Browse CareerZone Gulf Jobs</Link></li>
                 <li><Link href="/gulf-companies" className="hover:text-green-400 transition-colors">Gulf Companies</Link></li>
                 <li><Link href="/gulf-opportunities" className="hover:text-green-400 transition-colors">Gulf Opportunities</Link></li>
                 <li><Link href="/jobseeker-gulf-dashboard" className="hover:text-green-400 transition-colors">Gulf Dashboard</Link></li>
@@ -1150,7 +1199,7 @@ export default function GulfCompaniesPage() {
           <div className="border-t border-slate-700/50 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-slate-400 text-sm mb-4 md:mb-0">
-                &copy; 2025 Gulf JobPortal. All rights reserved.
+                &copy; 2025 Gulf Opportunities. All rights reserved.
               </p>
               <div className="flex items-center space-x-6 text-sm text-slate-400">
                 <span>Made with ❤️ for Gulf professionals</span>

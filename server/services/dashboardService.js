@@ -1,13 +1,6 @@
-const SearchHistory = require('../models/SearchHistory');
-const UserDashboard = require('../models/UserDashboard');
-const JobApplication = require('../models/JobApplication');
-const JobBookmark = require('../models/JobBookmark');
-const JobAlert = require('../models/JobAlert');
-const Resume = require('../models/Resume');
-const Analytics = require('../models/Analytics');
-const CandidateLike = require('../models/CandidateLike');
-const { sequelize } = require('../config/sequelize');
-const { Op, fn, col, literal } = require('sequelize');
+const { SearchHistory, UserDashboard, JobApplication, JobBookmark, JobAlert, Resume, Analytics, CandidateLike } = require('../models');
+const { sequelize, Sequelize } = require('../config/sequelize');
+const { Op, fn, col, literal } = Sequelize;
 
 class DashboardService {
   /**
@@ -348,100 +341,55 @@ class DashboardService {
         resumes = [];
       }
 
-      // Get profile analytics with error handling
-      let profileViews = 0;
+      // Get real profile view counts from ViewTracking
+      let profileViewsCount = 0;
       try {
-        profileViews = await Analytics.count({
+        const ViewTracking = require('../models/ViewTracking');
+        profileViewsCount = await ViewTracking.count({
           where: { 
-            userId,
-            eventType: 'profile_update'
+            viewedUserId: userId,
+            viewType: 'profile_view'
           }
         });
       } catch (error) {
-        console.error('Error fetching profile views:', error);
-        profileViews = 0;
+        console.warn('Could not fetch real profile views:', error?.message);
+        // Fallback to cached dashboard value if model fails
+        profileViewsCount = dashboard.profileViews || 0;
       }
 
-      // Get profile like (upvote) count with robust fallback
-      let profileLikes = 0;
+      // Get recruiter search appearance count (where user was in search results)
+      let searchAppearances = 0;
       try {
-        profileLikes = await CandidateLike.count({ where: { candidateId: userId } });
-      } catch (error) {
-        console.error('Error fetching profile likes via model:', error);
-      }
-      // Fallback to raw query if model count failed or returned suspicious zero
-      if (!profileLikes || Number.isNaN(profileLikes)) {
-        try {
-          const [rows] = await sequelize.query(
-            'SELECT COUNT(*)::int AS cnt FROM candidate_likes WHERE candidate_id = :userId',
-            { replacements: { userId }, type: sequelize.QueryTypes.SELECT }
-          );
-          const cnt = Array.isArray(rows) ? 0 : (rows?.cnt ?? 0);
-          profileLikes = parseInt(cnt, 10) || 0;
-        } catch (rawErr) {
-          console.error('Raw profile likes query failed:', rawErr);
-        }
+        const CandidateAnalytics = require('../models/CandidateAnalytics');
+        searchAppearances = await CandidateAnalytics.count({
+          where: { candidateId: userId }
+        });
+      } catch (e) {
+        console.warn('Could not fetch search appearances:', e?.message);
       }
 
       return {
-        dashboard: dashboard.getDashboardSummary ? dashboard.getDashboardSummary() : {
-          applications: {
-            total: dashboard.totalApplications || 0,
-            underReview: dashboard.applicationsUnderReview || 0,
-            shortlisted: dashboard.applicationsShortlisted || 0,
-            rejected: dashboard.applicationsRejected || 0,
-            accepted: dashboard.applicationsAccepted || 0,
-            lastDate: dashboard.lastApplicationDate
-          },
-          bookmarks: {
-            total: dashboard.totalBookmarks || 0,
-            lastDate: dashboard.lastBookmarkDate
-          },
-          searches: {
-            total: dashboard.totalSearches || 0,
-            saved: dashboard.savedSearches || 0,
-            lastDate: dashboard.lastSearchDate
-          },
-          resumes: {
-            total: dashboard.totalResumes || 0,
-            hasDefault: dashboard.hasDefaultResume || false,
-            lastUpdate: dashboard.lastResumeUpdate
-          },
-          jobAlerts: {
-            total: dashboard.totalJobAlerts || 0,
-            active: dashboard.activeJobAlerts || 0
-          },
-          profile: {
-            views: dashboard.profileViews || 0,
-            lastView: dashboard.lastProfileView
-          },
-          activity: {
-            lastLogin: dashboard.lastLoginDate,
-            lastActivity: dashboard.lastActivityDate,
-            totalLogins: dashboard.totalLoginCount || 0
-          }
+        stats: {
+          totalApplications: dashboard.totalApplications,
+          totalBookmarks: dashboard.totalBookmarks,
+          totalSearches: actualTotalSearches ?? dashboard.totalSearches,
+          totalResumes: dashboard.totalResumes,
+          totalJobAlerts: dashboard.totalJobAlerts,
+          profileViews: profileViewsCount,
+          searchAppearances,
+          applicationsUnderReview: dashboard.applicationsUnderReview,
+          applicationsShortlisted: dashboard.applicationsShortlisted,
+          applicationsRejected: dashboard.applicationsRejected,
+          applicationsAccepted: dashboard.applicationsAccepted,
+          savedSearches: actualSavedSearches ?? dashboard.savedSearches,
+          hasDefaultResume: dashboard.hasDefaultResume,
+          activeJobAlerts: dashboard.activeJobAlerts
         },
         recentApplications,
         recentBookmarks,
         recentSearches,
         jobAlerts,
-        resumes,
-        profileViews,
-        profileLikes,
-        stats: {
-          totalApplications: dashboard.totalApplications || 0,
-          applicationsUnderReview: dashboard.applicationsUnderReview || 0,
-          totalBookmarks: dashboard.totalBookmarks || 0,
-          // Prefer actual counts if available; otherwise fall back to cached dashboard values
-          totalSearches: (typeof actualTotalSearches === 'number') ? actualTotalSearches : (dashboard.totalSearches || 0),
-          savedSearches: (typeof actualSavedSearches === 'number') ? actualSavedSearches : (dashboard.savedSearches || 0),
-          totalResumes: dashboard.totalResumes || 0,
-          hasDefaultResume: dashboard.hasDefaultResume || false,
-          totalJobAlerts: dashboard.totalJobAlerts || 0,
-          activeJobAlerts: dashboard.activeJobAlerts || 0,
-          profileViews,
-          profileLikes
-        }
+        resumes
       };
     } catch (error) {
       console.error('Error getting dashboard data:', error);

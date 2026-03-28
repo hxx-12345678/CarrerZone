@@ -9,7 +9,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { apiService, Resume } from "@/lib/api"
 import { toast } from "sonner"
-import { Upload, FileText, Check, Loader2 } from "lucide-react"
+import { 
+  Upload, 
+  FileText, 
+  Check, 
+  Loader2, 
+  Zap, 
+  Sparkles, 
+  User, 
+  AlertCircle, 
+  Briefcase, 
+  MapPin, 
+  CheckCircle 
+} from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface JobApplicationDialogProps {
@@ -39,20 +51,86 @@ export function JobApplicationDialog({
   const [loadingResumes, setLoadingResumes] = useState(true)
   const [selectedResumeId, setSelectedResumeId] = useState<string>('')
   const [uploading, setUploading] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
+  const [isAutofilling, setIsAutofilling] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [applicationData, setApplicationData] = useState({
     expectedSalary: '',
     noticePeriod: '30',
     coverLetter: '',
-    willingToRelocate: isGulfJob // Default to true for Gulf jobs
+    willingToRelocate: isGulfJob, // Default to true for Gulf jobs
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    currentLocation: '',
+    headline: '',
+    skills: [] as string[]
   })
 
-  // Fetch resumes when dialog opens
+  // Fetch resumes and user profile when dialog opens
   useEffect(() => {
     if (isOpen) {
       fetchResumes()
+      fetchUserProfile()
     }
   }, [isOpen])
+
+  const fetchUserProfile = async () => {
+    try {
+      const response = await apiService.getCurrentUser()
+      if (response.success && response.data?.user) {
+        const u = response.data.user as any
+        setApplicationData(prev => ({
+          ...prev,
+          firstName: u.firstName || u.first_name || '',
+          lastName: u.lastName || u.last_name || '',
+          email: u.email || '',
+          phone: u.phone || '',
+          currentLocation: u.currentLocation || u.current_location || '',
+          headline: u.headline || '',
+          skills: u.skills || [],
+          expectedSalary: u.expectedSalary?.toString() || u.expected_salary?.toString() || prev.expectedSalary,
+          noticePeriod: u.noticePeriod?.toString() || u.notice_period?.toString() || prev.noticePeriod,
+          willingToRelocate: u.willingToRelocate ?? u.willing_to_relocate ?? prev.willingToRelocate
+        }))
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+    }
+  }
+
+  const handleAIAutofill = async (resumeId: string) => {
+    if (!resumeId) return
+
+    try {
+      setIsAutofilling(true)
+      toast.info('AI is extracting details from your resume...')
+      const response = await apiService.parseResumeToProfile(resumeId)
+      
+      if (response.success && response.data) {
+        const data = response.data
+        setApplicationData(prev => ({
+          ...prev,
+          firstName: data.personal_info?.first_name || prev.firstName,
+          lastName: data.personal_info?.last_name || prev.lastName,
+          phone: data.personal_info?.phone || prev.phone,
+          currentLocation: data.personal_info?.location || prev.currentLocation,
+          headline: data.personal_info?.headline || prev.headline,
+          skills: data.skills || prev.skills
+        }))
+        toast.success('Application details auto-filled from resume!')
+      } else {
+        // AI parsing might fail, but we can still try to extract basic info
+        toast.error(response.message || 'AI parsing failed. Please fill manually or sync from profile.')
+      }
+    } catch (error) {
+      console.error('AI Autofill error:', error)
+      toast.error('Failed to auto-fill from resume')
+    } finally {
+      setIsAutofilling(false)
+    }
+  }
 
   const fetchResumes = async () => {
     try {
@@ -101,9 +179,17 @@ export function JobApplicationDialog({
         toast.success('Resume uploaded successfully!')
         // Refresh resumes list
         await fetchResumes()
-        // Auto-select the newly uploaded resume
-        if (response.data.resumeId) {
-          setSelectedResumeId(response.data.resumeId)
+        
+        const newResumeId = response.data.resumeId
+        if (newResumeId) {
+          setSelectedResumeId(newResumeId)
+          
+          // Auto-trigger parsing after upload
+          toast.info('Analyzing your resume to autofill details...', {
+            description: 'This will only take a moment.',
+            duration: 4000
+          })
+          handleAIAutofill(newResumeId)
         }
       }
     } catch (error) {
@@ -114,6 +200,30 @@ export function JobApplicationDialog({
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+    }
+  }
+
+  const handleGenerateAICoverLetter = async () => {
+    if (!selectedResumeId) {
+      toast.error('Please select a resume first to generate a personalized cover letter.')
+      return
+    }
+
+    try {
+      setGeneratingAI(true)
+      // Pass the selected resume to make the cover letter more tailored
+      const response = await apiService.generateAICoverLetter(job.id, selectedResumeId)
+      if (response.success && response.data) {
+        setApplicationData(prev => ({ ...prev, coverLetter: response.data as string }))
+        toast.success('AI-powered cover letter generated!')
+      } else {
+        toast.error(response.message || 'Failed to generate cover letter')
+      }
+    } catch (error) {
+      console.error('Error generating cover letter:', error)
+      toast.error('Failed to generate cover letter')
+    } finally {
+      setGeneratingAI(false)
     }
   }
 
@@ -134,8 +244,17 @@ export function JobApplicationDialog({
         noticePeriod: applicationData.noticePeriod ? parseInt(applicationData.noticePeriod) : 30,
         availableFrom: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         isWillingToRelocate: applicationData.willingToRelocate,
-        preferredLocations: [job.location],
-        resumeId: selectedResumeId
+        preferredLocations: applicationData.currentLocation ? [applicationData.currentLocation] : [job.location],
+        resumeId: selectedResumeId,
+        // Send updated profile details with the application
+        metadata: {
+          firstName: applicationData.firstName,
+          lastName: applicationData.lastName,
+          phone: applicationData.phone,
+          currentLocation: applicationData.currentLocation,
+          headline: applicationData.headline,
+          skills: applicationData.skills
+        }
       })
       
       if (response.success) {
@@ -148,7 +267,14 @@ export function JobApplicationDialog({
           expectedSalary: '',
           noticePeriod: '30',
           coverLetter: '',
-          willingToRelocate: isGulfJob
+          willingToRelocate: isGulfJob,
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          currentLocation: '',
+          headline: '',
+          skills: []
         })
         setSelectedResumeId('')
         onSuccess?.()
@@ -171,7 +297,14 @@ export function JobApplicationDialog({
         expectedSalary: '',
         noticePeriod: '30',
         coverLetter: '',
-        willingToRelocate: isGulfJob
+        willingToRelocate: isGulfJob,
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        currentLocation: '',
+        headline: '',
+        skills: []
       })
     }
   }
@@ -191,7 +324,31 @@ export function JobApplicationDialog({
         <div className="space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Resume Selection Section */}
           <div className="space-y-3">
-            <Label className="text-base font-semibold">Select Resume/CV *</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Select Resume/CV *</Label>
+              {selectedResumeId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAIAutofill(selectedResumeId)}
+                  disabled={isAutofilling}
+                  className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 h-8 px-3 flex items-center gap-2 text-xs font-semibold shadow-sm"
+                >
+                  {isAutofilling ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Extracting...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" />
+                      AI Autofill from Resume
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
             {loadingResumes ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
@@ -304,39 +461,158 @@ export function JobApplicationDialog({
           </div>
 
           {/* Application Details Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                Verify Your Details
+                <span className="text-[10px] font-normal text-slate-500">(Auto-filled from profile/resume)</span>
+              </h3>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={fetchUserProfile}
+                className="text-blue-600 hover:text-blue-700 h-8 px-2 flex items-center gap-1 text-xs font-medium"
+              >
+                <CheckCircle className="w-3 h-3" />
+                Sync from Profile
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={applicationData.firstName}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, firstName: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={applicationData.lastName}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, lastName: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={applicationData.email}
+                  disabled
+                  className="bg-slate-50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={applicationData.phone}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="expectedSalary">
-                Expected Salary {isGulfJob ? '(USD)' : '(LPA)'}
-              </Label>
+              <Label htmlFor="headline">Professional Headline</Label>
               <Input
-                id="expectedSalary"
-                type="number"
-                placeholder={isGulfJob ? "e.g., 50000" : "e.g., 8-12"}
-                value={applicationData.expectedSalary}
-                onChange={(e) => setApplicationData(prev => ({ ...prev, expectedSalary: e.target.value }))}
+                id="headline"
+                placeholder="e.g. Senior Software Engineer with 5+ years experience"
+                value={applicationData.headline}
+                onChange={(e) => setApplicationData(prev => ({ ...prev, headline: e.target.value }))}
               />
             </div>
+
             <div>
-              <Label htmlFor="noticePeriod">Notice Period (Days)</Label>
+              <Label htmlFor="currentLocation">Current Location</Label>
               <Input
-                id="noticePeriod"
-                type="number"
-                placeholder="e.g., 30"
-                value={applicationData.noticePeriod}
-                onChange={(e) => setApplicationData(prev => ({ ...prev, noticePeriod: e.target.value }))}
+                id="currentLocation"
+                placeholder="City, Country"
+                value={applicationData.currentLocation}
+                onChange={(e) => setApplicationData(prev => ({ ...prev, currentLocation: e.target.value }))}
               />
+            </div>
+
+            <div>
+              <Label htmlFor="skills">Skills (Comma separated)</Label>
+              <Input
+                id="skills"
+                placeholder="React, Node.js, TypeScript..."
+                value={applicationData.skills.join(', ')}
+                onChange={(e) => setApplicationData(prev => ({ 
+                  ...prev, 
+                  skills: e.target.value.split(',').map(s => s.trim()).filter(s => s.length > 0) 
+                }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="expectedSalary">
+                  Expected Salary {isGulfJob ? '(USD)' : '(LPA)'}
+                </Label>
+                <Input
+                  id="expectedSalary"
+                  type="number"
+                  placeholder={isGulfJob ? "e.g., 50000" : "e.g., 8-12"}
+                  value={applicationData.expectedSalary}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, expectedSalary: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="noticePeriod">Notice Period (Days)</Label>
+                <Input
+                  id="noticePeriod"
+                  type="number"
+                  placeholder="e.g., 30"
+                  value={applicationData.noticePeriod}
+                  onChange={(e) => setApplicationData(prev => ({ ...prev, noticePeriod: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
           <div>
-            <Label htmlFor="coverLetter">Cover Letter</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label htmlFor="coverLetter">Cover Letter</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleGenerateAICoverLetter}
+                disabled={generatingAI}
+                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 px-2 flex items-center gap-1 text-xs font-medium"
+              >
+                {generatingAI ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3 h-3" />
+                    Generate with AI
+                  </>
+                )}
+              </Button>
+            </div>
             <Textarea
               id="coverLetter"
               placeholder="Tell us why you're interested in this position and what makes you a great fit..."
               rows={4}
               value={applicationData.coverLetter}
               onChange={(e) => setApplicationData(prev => ({ ...prev, coverLetter: e.target.value }))}
+              className="resize-none"
             />
+            <p className="text-[10px] text-slate-500 mt-1">
+              AI will use your profile and job description to tailor the content.
+            </p>
           </div>
           <div className="flex items-center space-x-2">
             <input

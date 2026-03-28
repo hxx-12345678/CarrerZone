@@ -36,6 +36,9 @@ export interface ApiResponse<T = any> {
   message: string;
   data?: T;
   errors?: any[];
+  mock?: boolean;
+  error?: string;
+  details?: string;
 }
 
 export interface User {
@@ -415,6 +418,7 @@ export interface JobTemplateData {
   salary: string;
   description: string;
   requirements: string;
+  responsibilities: string;
   benefits: string;
   skills: string[];
   role: string;
@@ -1377,27 +1381,11 @@ class ApiService {
   }
 
   async getNotifications(params?: { unread?: boolean }): Promise<ApiResponse<any[]>> {
-    try {
-      const queryParams = new URLSearchParams();
-      if (params?.unread) {
-        queryParams.append('unread', 'true');
-      }
-
-      const url = `${API_BASE_URL}/user/notifications${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-
-      return await this.handleResponse<any[]>(response);
-    } catch (error) {
-      console.error('❌ Error fetching notifications:', error);
-      return {
-        success: false,
-        message: 'Failed to fetch notifications',
-        errors: ['NETWORK_ERROR']
-      };
+    let endpoint = '/user/notifications';
+    if (params?.unread) {
+      endpoint += '?unread=true';
     }
+    return this.get<any[]>(endpoint);
   }
 
 
@@ -2082,6 +2070,7 @@ class ApiService {
     isWillingToRelocate?: boolean;
     preferredLocations?: string[];
     resumeId?: string;
+    metadata?: any;
   }): Promise<ApiResponse<{ applicationId: string; status: string; appliedAt: string }>> {
     const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/apply`, {
       method: 'POST',
@@ -2093,6 +2082,34 @@ class ApiService {
     });
 
     return this.handleResponse<{ applicationId: string; status: string; appliedAt: string }>(response);
+  }
+
+  /**
+   * Generate job description using AI
+   */
+  async generateJobDescription(title: string, context?: {
+    skills?: string[];
+    experience?: string;
+    location?: string;
+    prompt?: string;
+  }): Promise<ApiResponse<{
+    description: string;
+    requirements: string;
+    responsibilities: string;
+    skills: string[];
+  }>> {
+    const response = await fetch(`${API_BASE_URL}/ai/generate-job-description`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ title, ...context }),
+    });
+
+    return this.handleResponse<{
+      description: string;
+      requirements: string;
+      responsibilities: string;
+      skills: string[];
+    }>(response);
   }
 
   async watchJob(jobId: string): Promise<ApiResponse<{ watching: boolean }>> {
@@ -5308,6 +5325,83 @@ class ApiService {
   // Send invitations (admin only)
   async sendInvitations(data: { emails: string[]; template: string; type: string }): Promise<ApiResponse<any>> {
     return this.post('/admin/send-invitations', data);
+  }
+
+  // ==========================================
+  // AI Methods
+  // ==========================================
+
+  /**
+   * AI-powered resume parsing to extract profile information
+   */
+  async parseResumeToProfile(resumeId: string): Promise<ApiResponse<any>> {
+    const response = await fetch(`${API_BASE_URL}/ai/parse-resume`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ resumeId }),
+    });
+
+    return this.handleResponse<any>(response);
+  }
+
+  /**
+   * Calculates a match score between the user and a specific job using AI
+   */
+  async getJobMatchScore(jobId: string): Promise<ApiResponse<{
+    score: number;
+    analysis: {
+      ats_score: number;
+      matching_skills: string[];
+      matching_points: string[];
+      gaps: string[];
+      experience_match: string;
+      skills_match_percentage: number;
+      overall_assessment: string;
+      recommendation: string;
+    };
+    calculatedAt: string;
+  }>> {
+    const response = await fetch(`${API_BASE_URL}/ai/job-match/${jobId}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  /**
+   * Gets personalized AI job recommendations
+   * Supports region parameter for Gulf-specific recommendations
+   */
+  async getAIRecommendations(limit: number = 10, region?: string): Promise<ApiResponse<any[]>> {
+    let url = `${API_BASE_URL}/ai/recommendations?limit=${limit}`;
+    if (region) url += `&region=${region}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+
+    return this.handleResponse<any[]>(response);
+  }
+
+  /**
+   * Generates an AI-powered cover letter for a job application
+   */
+  async generateAICoverLetter(jobId: string, resumeId?: string): Promise<ApiResponse<string>> {
+    const response = await fetch(`${API_BASE_URL}/ai/generate-cover-letter`, {
+      method: 'POST',
+      headers: {
+        ...this.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jobId, resumeId }),
+    });
+
+    return this.handleResponse<string>(response);
   }
 
 }

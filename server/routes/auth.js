@@ -5,8 +5,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const Company = require('../models/Company');
-const { sequelize } = require('../config/sequelize');
-const { Op } = require('sequelize');
+const { sequelize, Sequelize } = require('../config/sequelize');
+const { Op } = Sequelize;
 const emailService = require('../services/emailService');
 const AdminNotificationService = require('../services/adminNotificationService');
 const { trackLogin, trackLogout } = require('../middlewares/activityTracker');
@@ -989,25 +989,25 @@ router.post('/login', validateLogin, async (req, res) => {
         // Create a personalized greeting notification
         const greetingMessages = {
           jobseeker: {
-            title: '🎉 Welcome to JobPortal!',
+            title: '🎉 Welcome to CareerZone!',
             message: `Hi ${user.first_name}! Welcome to your job search journey. Complete your profile, upload your resume, and start applying to amazing opportunities. We're here to help you find your dream job!`,
             actionUrl: '/dashboard',
             actionText: 'Complete Profile'
           },
           employer: {
-            title: '🚀 Welcome to JobPortal!',
+            title: '🚀 Welcome to CareerZone!',
             message: `Hello ${user.first_name}! Welcome to our employer platform. Post your first job, find talented candidates, and grow your team. Let's get started with creating your company profile!`,
             actionUrl: '/employer-dashboard',
             actionText: 'Post Your First Job'
           },
           admin: {
-            title: '👋 Welcome to JobPortal!',
+            title: '👋 Welcome to CareerZone!',
             message: `Welcome ${user.first_name}! You now have admin access to manage the platform. Explore the admin dashboard to oversee users, companies, and system operations.`,
             actionUrl: '/admin/dashboard',
             actionText: 'Admin Dashboard'
           },
           superadmin: {
-            title: '🔧 Welcome to JobPortal!',
+            title: '🔧 Welcome to CareerZone!',
             message: `Welcome ${user.first_name}! You have super admin privileges. Access the super admin panel to manage the entire platform and system configurations.`,
             actionUrl: '/super-admin/dashboard',
             actionText: 'Super Admin Panel'

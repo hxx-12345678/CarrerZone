@@ -4534,14 +4534,10 @@ export default function CompaniesPage() {
 
                 </div>
 
-                <span className="text-xl sm:text-2xl font-bold">JobPortal</span>
-
+                <span className="text-xl sm:text-2xl font-bold">Career Zone</span>
               </div>
-
               <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">
-
-                India's leading job portal connecting talent with opportunities.
-
+                India's leading career platform connecting talent with opportunities.
               </p>
 
               <div className="flex space-x-4">
@@ -4625,7 +4621,7 @@ export default function CompaniesPage() {
           </div>
 
           <div className="border-t border-slate-800 mt-8 sm:mt-12 pt-6 sm:pt-8 text-center text-slate-400">
-            <p className="text-sm sm:text-base">&copy; 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p className="text-sm sm:text-base">&copy; 2025 Career Zone. All rights reserved. Made with ❤️ in India</p>
           </div>
 
         </div>

@@ -300,7 +300,7 @@ export default function LoginPage() {
           <div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">Welcome Back!</h1>
             <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-300 mb-8">
-              Continue your journey to find the perfect career opportunity
+              Log in to your Career Zone account to continue your journey
             </p>
           </div>
 
@@ -498,7 +498,7 @@ export default function LoginPage() {
                   <Building2 className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  JobPortal
+                  Career Zone
                 </span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
@@ -622,7 +622,7 @@ export default function LoginPage() {
 
           <div className="border-t border-slate-800 mt-12 pt-8 text-center">
             <div className="text-slate-400 text-sm">
-              © 2025 JobPortal. All rights reserved. Made with ❤️ in India
+              © 2025 Career Zone. All rights reserved. Made with ❤️ in India
             </div>
           </div>
         </div>

@@ -2147,9 +2147,9 @@ function CompanyDetailPage() {
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                     <Briefcase className="w-6 h-6 text-white" />
                   </div>
-                  <span className="text-2xl font-bold">JobPortal</span>
-                </div>
-                <p className="text-slate-400 mb-4">India's leading job portal connecting talent with opportunities.</p>
+                  <span className="text-2xl font-bold">Career Zone</span>
+              </div>
+              <p className="text-slate-400 mb-6">India's leading career platform connecting talent with opportunities.</p>
                 <div className="flex space-x-4">
                   <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors cursor-pointer">
                     <span className="text-sm">f</span>
@@ -2193,7 +2193,7 @@ function CompanyDetailPage() {
             </div>
 
             <div className="border-t border-slate-800 mt-6 pt-4 text-center text-slate-400">
-              <p>&copy; 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+              <p>&copy; 2025 Career Zone. All rights reserved. Made with ❤️ in India</p>
             </div>
           </div>
         </footer>

@@ -5,8 +5,8 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const { Op, QueryTypes, Sequelize } = require('sequelize');
-const { sequelize } = require('../config/sequelize');
+const { sequelize, Sequelize } = require('../config/sequelize');
+const { Op, QueryTypes } = Sequelize;
 const CandidateLike = require('../models/CandidateLike');
 
 const Requirement = require('../models/Requirement');

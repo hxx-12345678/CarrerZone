@@ -94,11 +94,11 @@ const faqs = [
       },
       {
         question: "I'm not receiving emails",
-        answer: "Check your spam/junk folder. Add noreply@jobportal.com to your contacts. If the issue persists, contact support."
+        answer: "Check your spam/junk folder. Add noreply@careerzone.com to your contacts. If the issue persists, contact support."
       },
       {
         question: "How do I report a problem?",
-        answer: "Use the 'Report Problem' link in the footer or email us at support@jobportal.com with details of the issue."
+        answer: "Use the 'Report Problem' link in the footer or email us at support@careerzone.com with details of the issue."
       }
     ]
   }
@@ -109,8 +109,8 @@ const contactOptions = [
     icon: Mail,
     title: "Email Support",
     description: "Get help via email",
-    contact: "support@jobportal.com",
-    action: "mailto:support@jobportal.com"
+    contact: "support@careerzone.com",
+    action: "mailto:support@careerzone.com"
   },
   {
     icon: Phone,

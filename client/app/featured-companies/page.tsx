@@ -781,10 +781,10 @@ export default function FeaturedCompaniesPage() {
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                   <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <span className="text-xl sm:text-2xl font-bold">JobPortal</span>
+                <span className="text-xl sm:text-2xl font-bold">Career Zone</span>
               </div>
               <p className="text-slate-400 mb-4 sm:mb-6 text-sm sm:text-base">
-                India's leading job portal connecting talent with opportunities.
+                India's leading career platform connecting talent with opportunities.
               </p>
               <div className="flex space-x-4">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors cursor-pointer">
@@ -832,7 +832,7 @@ export default function FeaturedCompaniesPage() {
           </div>
 
           <div className="border-t border-slate-800 mt-8 sm:mt-12 pt-6 sm:pt-8 text-center text-slate-400">
-            <p className="text-sm sm:text-base">&copy; 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p className="text-sm sm:text-base">&copy; 2025 Career Zone. All rights reserved. Made with ❤️ in India</p>
           </div>
         </div>
       </footer>

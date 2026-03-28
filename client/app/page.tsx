@@ -1650,7 +1650,7 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                   <Building2 className="w-6 h-6 text-white" />
                       </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">JobPortal</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">CareerZone</span>
                       </div>
               <p className="text-slate-300 text-sm leading-relaxed mb-6">
                 India's leading job portal connecting talent with opportunities. Find your dream job or hire the perfect
@@ -1748,7 +1748,7 @@ export default function HomePage() {
                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center mr-3">
                     <span className="text-xs">📧</span>
               </div>
-                  <span>support@jobportal.com</span>
+                  <span>support@careerzone.com</span>
                 </div>
                 <div className="flex items-center text-slate-300">
                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center mr-3">
@@ -1768,7 +1768,7 @@ export default function HomePage() {
 
           <div className="border-t border-slate-700/50 pt-8 text-center">
             <div className="flex flex-col sm:flex-row items-center justify-between text-sm text-slate-400">
-            <p>© 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p>© 2026 CareerZone. All rights reserved. Made with ❤️ in India</p>
               <div className="flex items-center space-x-6 mt-4 sm:mt-0">
                 <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

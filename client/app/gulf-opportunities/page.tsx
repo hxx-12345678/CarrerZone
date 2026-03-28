@@ -575,15 +575,15 @@ export default function GulfOpportunitiesPage() {
   }
 
   const heroTexts = [
-    "Build Your Career",
-    "Find Your Gulf Dream Job",
-    "Shape Your Future"
+    "Build Your Global Career",
+    "Find Your Gulf Dream Opportunity",
+    "Shape Your Future in the Gulf"
   ]
 
   const heroSubtitles = [
-    "Connect with industry leaders and grow professionally",
-    "Discover opportunities from top companies in the Gulf",
-    "Join millions of professionals achieving their goals"
+    "Connect with top employers in UAE, Saudi Arabia, Qatar, and more.",
+    "Explore tax-free career paths in the world's fastest-growing economies.",
+    "Join a network of global professionals achieving their dreams."
   ]
 
   const heroGradients = [
@@ -1270,7 +1270,7 @@ export default function GulfOpportunitiesPage() {
                     <CardContent className="p-4 relative h-full flex flex-col justify-between">
                       <div className={`absolute inset-0 bg-gradient-to-br ${getSectorColor(job.sector)} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
                       
-                      <Link href={`/jobs/${job.id}`} className="absolute inset-0 z-0" />
+                      <Link href={`/gulf-jobs/${job.id}`} className="absolute inset-0 z-0" />
 
                       <div className="relative z-10">
                         <div className="flex items-start justify-between mb-3">
@@ -1300,7 +1300,17 @@ export default function GulfOpportunitiesPage() {
                         <h3 className="font-bold text-slate-900 dark:text-white mb-1 text-base group-hover:text-green-600 transition-colors line-clamp-2">
                           {job.title}
                         </h3>
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-400 mb-2">{job.company}</p>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-400">{job.company}</p>
+
+                          {/* AI Match Score Badge */}
+                          {(job as any).matchScore !== undefined && (
+                            <Badge className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-1.5 py-0 flex items-center gap-1 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
+                              <Sparkles className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 animate-pulse" />
+                              <span className="font-bold">{(job as any).matchScore}% Match</span>
+                            </Badge>
+                          )}
+                        </div>
 
                         <div className="space-y-2 mb-4">
                           <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-400">
@@ -1370,7 +1380,7 @@ export default function GulfOpportunitiesPage() {
                               // Here you should trigger your auth modal
                               console.log('Auth modal should be triggered');
                             } else {
-                              router.push(`/jobs/${job.id}?apply=true`);
+                              router.push(`/gulf-jobs/${job.id}?apply=true`);
                             }
                           }}
                           className={`w-full bg-gradient-to-r ${getSectorColor(job.sector)} hover:from-green-600 hover:to-emerald-600 text-white border-0 shadow-md transition-colors duration-300 text-sm py-2`}
@@ -1663,14 +1673,14 @@ export default function GulfOpportunitiesPage() {
         <div className="relative max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
             <div className="lg:col-span-1">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Building2 className="w-6 h-6 text-white" />
-                      </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">JobPortal</span>
-                      </div>
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Globe className="w-6 h-6 text-white" />
+                  </div>
+                  <span className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Gulf Opportunities</span>
+                </div>
               <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                Gulf's leading job portal connecting talent with opportunities. Find your dream job or hire the perfect
+                Gulf's leading career platform connecting talent with opportunities. Find your dream career or hire the perfect
                 candidate.
               </p>
               <div className="flex space-x-4">
@@ -1765,7 +1775,7 @@ export default function GulfOpportunitiesPage() {
                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center mr-3">
                     <span className="text-xs">📧</span>
               </div>
-                  <span>support@jobportal.com</span>
+                  <span>support@careerzone.com</span>
                 </div>
                 <div className="flex items-center text-slate-300">
                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center mr-3">
@@ -1785,7 +1795,7 @@ export default function GulfOpportunitiesPage() {
 
           <div className="border-t border-slate-700/50 pt-8 text-center">
             <div className="flex flex-col sm:flex-row items-center justify-between text-sm text-slate-400">
-            <p>© 2026 JobPortal. All rights reserved. Made with ❤️ in Gulf</p>
+            <p>© 2026 CareerZone Gulf. All rights reserved. Made with ❤️ for Gulf Opportunities</p>
               <div className="flex items-center space-x-6 mt-4 sm:mt-0">
                 <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
                 <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>

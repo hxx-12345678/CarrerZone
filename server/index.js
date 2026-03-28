@@ -85,6 +85,7 @@ const verificationRoutes = require('./routes/verification');
 const uploadRoutes = require('./routes/upload');
 const adminInvitationsRoutes = require('./routes/admin-invitations');
 const teamRoutes = require('./routes/team');
+const aiRoutes = require('./routes/ai');
 
 // Import passport for OAuth
 const passport = require('passport');
@@ -395,6 +396,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin-auth', adminAuthRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/oauth', oauthRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/companies', companyClaimRoutes);
 app.use('/api/companies', companiesRoutes);
 app.use('/api/jobs', jobsRoutes);

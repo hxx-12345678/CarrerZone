@@ -298,7 +298,7 @@ export default function ReportProblemPage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <button 
-                    onClick={() => window.location.href = 'mailto:support@jobportal.com?subject=URGENT: Security Issue'}
+                    onClick={() => window.location.href = 'mailto:support@careerzone.com?subject=URGENT: Security Issue'}
                     className="bg-white text-orange-600 px-6 py-3 rounded-lg font-medium hover:bg-orange-50 transition-colors duration-200 flex items-center justify-center space-x-2"
                   >
                     <Mail className="w-4 h-4" />

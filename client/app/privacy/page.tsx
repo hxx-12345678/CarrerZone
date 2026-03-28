@@ -15,7 +15,7 @@ export default function PrivacyPage() {
           <Card className="shadow-lg">
             <CardContent className="p-8">
               <div className="prose max-w-none">
-                <p className="text-sm text-gray-500 mb-8">Last updated: January 25, 2025</p>
+                <p className="text-sm text-gray-500 mb-8">Last updated: January 25, 2026</p>
                 
                 <h2 className="text-2xl font-semibold mb-4">1. Information We Collect</h2>
                 <p className="text-gray-600 mb-4">We collect information you provide directly to us, such as when you:</p>
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
 
                 <h2 className="text-2xl font-semibold mb-4">11. Contact Us</h2>
                 <p className="text-gray-600">
-                  If you have any questions about this privacy policy, please contact us at privacy@jobportal.com
+                  If you have any questions about this privacy policy, please contact us at privacy@careerzone.com
                 </p>
               </div>
             </CardContent>

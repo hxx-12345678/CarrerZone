@@ -483,7 +483,7 @@ function DepartmentJobsPage() {
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                   <Briefcase className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-2xl font-bold">JobPortal</span>
+                <span className="text-2xl font-bold">CareerZone</span>
               </div>
               <p className="text-slate-400 mb-6">India's leading job portal connecting talent with opportunities.</p>
             </div>
@@ -518,7 +518,7 @@ function DepartmentJobsPage() {
           </div>
 
           <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
-            <p>&copy; 2025 JobPortal. All rights reserved. Made with ❤️ in India</p>
+            <p>&copy; 2026 CareerZone. All rights reserved. Made with ❤️ in India</p>
           </div>
         </div>
       </footer>

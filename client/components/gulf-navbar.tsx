@@ -178,7 +178,7 @@ export default function GulfNavbar() {
     try {
       // Add region parameter for Gulf registration
       await signup({ ...registerData, region: 'gulf' })
-      toast.success("Account created successfully! Welcome to Gulf Jobs!")
+      toast.success("Account created successfully! Welcome to CareerZone Gulf!")
       setShowRegisterDialog(false)
       setRegisterData({
         fullName: '',
@@ -292,33 +292,27 @@ export default function GulfNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/gulf-opportunities" className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
               <Globe className="w-5 h-5 text-green-600" />
             </div>
-            <span className="text-xl font-bold text-white">Gulf Jobs</span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold text-white">CareerZone</span>
+              <span className="text-xs text-white/80">Gulf Opportunities</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/gulf-jobs"
-              className="text-white hover:text-green-100 transition-colors font-medium"
-            >
-              Jobs
-            </Link>
-            <Link
-              href="/gulf-companies"
-              className="text-white hover:text-green-100 transition-colors font-medium"
-            >
-              Companies
-            </Link>
-            <Link
-              href="/gulf-opportunities"
-              className="text-white hover:text-green-100 transition-colors font-medium"
-            >
-              Opportunities
-            </Link>
+            <Link href="/gulf-opportunities" className="text-white/90 hover:text-white transition-colors font-medium">
+                Home
+              </Link>
+              <Link href="/gulf-jobs" className="text-white/90 hover:text-white transition-colors font-medium">
+                Find Jobs
+              </Link>
+              <Link href="/gulf-companies" className="text-white/90 hover:text-white transition-colors font-medium">
+                Companies
+              </Link>
             {/* Show dashboard link only for gulf users */}
             {user && (user.regions?.includes('gulf') || user.region === 'gulf') ? (
               <Link
@@ -485,7 +479,7 @@ export default function GulfNavbar() {
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl font-bold text-slate-900">
-              Sign In to Gulf Jobs
+              Sign In to CareerZone Gulf
             </DialogTitle>
             <DialogDescription className="text-center text-slate-600">
               Access your Gulf career opportunities
@@ -556,7 +550,7 @@ export default function GulfNavbar() {
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl font-bold text-slate-900">
-              Create Gulf Account
+              Create CareerZone Gulf Account
             </DialogTitle>
             <DialogDescription className="text-center text-slate-600">
               Start your Gulf career journey
@@ -671,7 +665,7 @@ export default function GulfNavbar() {
               Welcome Back, {existingUserData.firstName}!
             </DialogTitle>
             <DialogDescription className="text-center text-slate-600 mt-2">
-              Your CampusZone account can also access Gulf portal. Would you like to upgrade your account?
+              Your CareerZone account can also access Gulf portal. Would you like to upgrade your account?
             </DialogDescription>
           </DialogHeader>
 

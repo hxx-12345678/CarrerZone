@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/auth');
 const { JobPreference, User, Job, Company } = require('../models');
-const { Op } = require('sequelize');
+const { Sequelize } = require('../config/sequelize');
+const { Op } = Sequelize;
 
 // Get user's job preferences
 router.get('/', authenticateToken, async (req, res) => {
