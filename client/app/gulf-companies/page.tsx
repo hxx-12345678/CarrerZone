@@ -601,7 +601,7 @@ export default function GulfCompaniesPage() {
               Connect with <span className="font-semibold text-emerald-600 dark:text-emerald-400">leading employers </span> 
               offering <span className="font-semibold text-green-600 dark:text-green-400">exceptional careers</span>, 
               <span className="font-semibold text-teal-600 dark:text-teal-400"> competitive benefits</span>, and 
-              <span className="font-semibold text-yellow-600 dark:text-yellow-400">world-class environments</span> 
+              <span className="font-semibold text-yellow-600 dark:text-yellow-400"> world-class environments </span> 
               through CareerZone's trusted network.
             </p>
             
