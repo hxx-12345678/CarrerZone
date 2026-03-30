@@ -568,7 +568,7 @@ export default function JobDetailPage() {
                 rating: typeof job.companyInfo?.rating === 'number' ? job.companyInfo.rating : 0,
                 totalReviews: typeof job.companyInfo?.totalReviews === 'number' ? job.companyInfo.totalReviews : 0
               },
-              similarityScore: job.similarityScore || '0.0'
+              similarityScore: undefined
             }))
             
             setSimilarJobs(validJobs)
@@ -2134,14 +2134,6 @@ export default function JobDetailPage() {
                               
                               <div className="flex items-center justify-between text-xs text-slate-400">
                                 <span>Posted {similarJob.posted || 'Recently'}</span>
-                                <div className="flex items-center space-x-2">
-                                  {similarJob.views && typeof similarJob.views === 'number' && similarJob.views > 0 && (
-                                    <span>{similarJob.views} views</span>
-                                  )}
-                                  {similarJob.applications && typeof similarJob.applications === 'number' && similarJob.applications > 0 && (
-                                    <span>{similarJob.applications} applications</span>
-                                  )}
-                                </div>
                               </div>
                             </div>
                           </Link>

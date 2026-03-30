@@ -403,7 +403,7 @@ export default function GulfJobDetailPage() {
                 rating: typeof job.companyInfo?.rating === 'number' ? job.companyInfo.rating : 0,
                 totalReviews: typeof job.companyInfo?.totalReviews === 'number' ? job.companyInfo.totalReviews : 0
               },
-              similarityScore: job.similarityScore || '0.0'
+              similarityScore: undefined
             }))
 
             setSimilarJobs(validJobs)
@@ -781,13 +781,7 @@ export default function GulfJobDetailPage() {
                           <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{job?.title || 'Job'}</h1>
                             
-                            {/* AI Match Score Badge */}
-                            {(job as any).matchScore !== undefined && (
-                              <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-3 py-1 flex items-center gap-1.5 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
-                                <Sparkles className="w-4 h-4 fill-emerald-500 text-emerald-500 animate-pulse" />
-                                <span className="font-bold">{(job as any).matchScore}% AI Match</span>
-                              </Badge>
-                            )}
+
                           </div>
                           <div className="flex items-center gap-2 flex-wrap mb-3">
                             {job?.company && (
@@ -2011,14 +2005,6 @@ export default function GulfJobDetailPage() {
 
                               <div className="flex items-center justify-between text-xs text-slate-400">
                                 <span>Posted {similarJob.posted || 'Recently'}</span>
-                                <div className="flex items-center space-x-2">
-                                  {similarJob.views && typeof similarJob.views === 'number' && similarJob.views > 0 && (
-                                    <span>{similarJob.views} views</span>
-                                  )}
-                                  {similarJob.applications && typeof similarJob.applications === 'number' && similarJob.applications > 0 && (
-                                    <span>{similarJob.applications} applications</span>
-                                  )}
-                                </div>
                               </div>
                             </div>
                           </Link>

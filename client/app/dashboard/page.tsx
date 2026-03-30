@@ -1069,11 +1069,6 @@ export default function DashboardPage() {
                         <Link href={`/jobs/${job.id}`}>
                           <Card className="group rounded-2xl border-none shadow-md hover:shadow-xl transition-all duration-300 bg-white dark:bg-slate-900 overflow-hidden h-full">
                             <CardContent className="p-6 relative">
-                              <div className="absolute top-0 right-0 p-3">
-                                <Badge className="bg-emerald-100 text-emerald-700 border-none">
-                                  {job.matchScore}% Match
-                                </Badge>
-                              </div>
                               <div className="flex items-start gap-4 mb-4">
                                 <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-100 dark:border-slate-700">
                                   {job.company?.logo ? (

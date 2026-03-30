@@ -1931,41 +1931,44 @@ exports.getSimilarJobs = async (req, res, next) => {
     debugInfo.steps.push(`Selected ${topJobs.length} jobs after diversity filtering`);
 
     // Format the response with comprehensive data
-    const formattedJobs = topJobs.map(({ job, score, factorScores }) => ({
-      id: job.id,
-      title: job.title,
-      company: job.company?.name || 'Company not specified',
-      companyId: job.companyId,
-      companyLogo: job.company?.logo,
-      location: job.location,
-      salary: job.salary || (job.salaryMin && job.salaryMax ?
-        `₹${(job.salaryMin / 100000).toFixed(1)}-${(job.salaryMax / 100000).toFixed(1)} LPA` :
-        'Salary not disclosed'),
-      salaryMin: job.salaryMin,
-      salaryMax: job.salaryMax,
-      type: job.jobType,
-      experienceLevel: job.experienceLevel,
-      department: job.department,
-      skills: job.skills || [],
-      remoteWork: job.remoteWork,
-      posted: new Date(job.createdAt).toLocaleDateString(),
-      postedDate: job.createdAt,
-      applications: typeof job.applications === 'number' && job.applications > 0 ? job.applications : 0,
-      views: typeof job.views === 'number' && job.views > 0 ? job.views : 0,
-      isFeatured: job.isFeatured,
-      isPremium: job.isPremium,
-      description: job.description?.substring(0, 150) + (job.description?.length > 150 ? '...' : ''),
-      companyInfo: {
-        industry: job.company?.industries && job.company.industries.length > 0 ? job.company.industries[0] : 'Other',
-        size: job.company?.companySize,
-        website: job.company?.website,
-        isFeatured: job.company?.isFeatured,
-        rating: job.company?.rating,
-        totalReviews: job.company?.totalReviews
-      },
-      similarityScore: isNaN(score) || !isFinite(score) ? '0.0' : (score * 100).toFixed(1),
-      factorScores: debug ? factorScores : undefined
-    }));
+    const formattedJobs = topJobs.map(({ job, score, factorScores }) => {
+      const finalSalary = job.salary || (job.salaryMin && job.salaryMax
+        ? `₹${(job.salaryMin / 100000).toFixed(1)}-${(job.salaryMax / 100000).toFixed(1)} LPA`
+        : 'Salary not disclosed');
+
+      return {
+        id: job.id,
+        title: job.title,
+        company: job.company?.name || 'Company not specified',
+        companyId: job.companyId,
+        companyLogo: job.company?.logo,
+        location: job.location,
+        salary: finalSalary,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        type: job.jobType,
+        experienceLevel: job.experienceLevel,
+        department: job.department,
+        skills: job.skills || [],
+        remoteWork: job.remoteWork,
+        posted: new Date(job.createdAt).toLocaleDateString(),
+        postedDate: job.createdAt,
+        isFeatured: job.isFeatured,
+        isPremium: job.isPremium,
+        description: job.description?.substring(0, 150) + (job.description?.length > 150 ? '...' : ''),
+        companyInfo: {
+          industry: job.company?.industries && job.company.industries.length > 0 ? job.company.industries[0] : 'Other',
+          size: job.company?.companySize,
+          website: job.company?.website,
+          isFeatured: job.company?.isFeatured,
+          rating: job.company?.rating,
+          totalReviews: job.company?.totalReviews
+        },
+        // Intentionally omitting similarityScore in response payload to prevent showing an explicit match badge in similar job cards
+        // similarityScore: isNaN(score) || !isFinite(score) ? '0.0' : (score * 100).toFixed(1),
+        factorScores: debug ? factorScores : undefined
+      };
+    });
 
     const processingTime = Date.now() - startTime;
     debugInfo.steps.push(`Processing completed in ${processingTime}ms`);

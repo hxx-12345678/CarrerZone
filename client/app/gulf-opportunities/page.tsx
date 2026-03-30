@@ -1302,14 +1302,6 @@ export default function GulfOpportunitiesPage() {
                         </h3>
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-400">{job.company}</p>
-
-                          {/* AI Match Score Badge */}
-                          {(job as any).matchScore !== undefined && (
-                            <Badge className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-1.5 py-0 flex items-center gap-1 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
-                              <Sparkles className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 animate-pulse" />
-                              <span className="font-bold">{(job as any).matchScore}% Match</span>
-                            </Badge>
-                          )}
                         </div>
 
                         <div className="space-y-2 mb-4">

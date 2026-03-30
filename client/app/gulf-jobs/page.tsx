@@ -1096,15 +1096,7 @@ export default function GulfJobsPage() {
                                     {job.company.name}
                                   </p>
 
-                                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                                    {/* AI Match Score Badge */}
-                                    {(job as any).matchScore !== undefined && (
-                                      <Badge className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-2 py-0.5 flex items-center gap-1 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
-                                        <Sparkles className="w-3 h-3 fill-emerald-500 text-emerald-500 animate-pulse" />
-                                        <span className="font-bold">{(job as any).matchScore}% Match</span>
-                                      </Badge>
-                                    )}
-                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 mt-2"></div>
                                 </div>
                                 <div className="flex items-center space-x-2 ml-4">
                                   <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
@@ -1248,15 +1240,7 @@ export default function GulfJobsPage() {
                                     {job.company.name}
                                   </p>
 
-                                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                                    {/* AI Match Score Badge */}
-                                    {(job as any).matchScore !== undefined && (
-                                      <Badge className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-none px-2 py-0.5 flex items-center gap-1 group/match transition-all hover:scale-105 cursor-help" title="AI Match Score based on your profile and resume">
-                                        <Sparkles className="w-3 h-3 fill-emerald-500 text-emerald-500 animate-pulse" />
-                                        <span className="font-bold">{(job as any).matchScore}% Match</span>
-                                      </Badge>
-                                    )}
-                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 mt-2"></div>
                                 </div>
                                 <div className="flex items-center space-x-2 ml-4">
                                   {job.urgent && (
