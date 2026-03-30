@@ -202,11 +202,15 @@ export default function JobDetailPage() {
 
   const jobIdFromParams = (params?.id as string) || ''
 
-  // Fetch match score when job and user are available
+  // Reset match score when the job context changes, then fetch new score
+  useEffect(() => {
+    setMatchScore(null)
+  }, [job?.id])
+
   useEffect(() => {
     const fetchMatchScore = async () => {
-      if (!job || !user || matchScore) return
-      
+      if (!job || !user) return
+
       setMatchScoreLoading(true)
       try {
         const res = await apiService.getJobMatchScore(job.id)
@@ -221,7 +225,7 @@ export default function JobDetailPage() {
     }
 
     fetchMatchScore()
-  }, [job, user, matchScore])
+  }, [job?.id, user?.id])
 
   // Load job data by id (API first, fallback to sample bookmark/application data)
   useEffect(() => {
@@ -498,6 +502,15 @@ export default function JobDetailPage() {
     const loadSimilarJobs = async () => {
       if (!jobIdFromParams || !job) return
       
+      // SECURITY: Only fetch similar jobs if user is authenticated as jobseeker
+      // Non-authenticated users should NOT see any matching/similarity information
+      if (!user || user.userType !== 'jobseeker') {
+        console.log('⚠️ Non-authenticated user or non-jobseeker: Skipping similar jobs fetch')
+        setSimilarJobs([])
+        setSimilarJobsLoading(false)
+        return
+      }
+      
       setSimilarJobsLoading(true)
       setSimilarJobs([]) // Clear previous results
       
@@ -593,7 +606,8 @@ export default function JobDetailPage() {
     }
 
     // Only load similar jobs after the main job is loaded and we have a valid job ID
-    if (job && !jobLoading && jobIdFromParams && jobIdFromParams.length > 0) {
+    // And user must be authenticated as jobseeker
+    if (job && !jobLoading && jobIdFromParams && jobIdFromParams.length > 0 && user?.userType === 'jobseeker') {
       // Add a small delay to ensure the main job is fully rendered
       const delayId = setTimeout(() => {
         loadSimilarJobs()
@@ -614,7 +628,7 @@ export default function JobDetailPage() {
         clearTimeout(timeoutId)
       }
     }
-  }, [jobIdFromParams, job, jobLoading])
+  }, [jobIdFromParams, job, jobLoading, user])
 
   // Auth check - Allow employers/admins to view job details (removed redirect)
   // Employers can now access /jobs/[id] page to preview their posted jobs
@@ -2075,13 +2089,6 @@ export default function JobDetailPage() {
                                   {similarJob.isPremium && (
                                     <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
                                       Premium
-                                    </Badge>
-                                  )}
-                                  {similarJob.similarityScore && 
-                                   !isNaN(parseFloat(similarJob.similarityScore)) && 
-                                   parseFloat(similarJob.similarityScore) > 0 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {Math.round(parseFloat(similarJob.similarityScore))}% match
                                     </Badge>
                                   )}
                                 </div>
