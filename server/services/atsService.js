@@ -305,7 +305,9 @@ function calculateRuleBasedScore(requirementDetails, candidateProfile, resumeCon
     matching_skills,
     matching_points: strengths.slice(0, 3),
     gaps: gaps.slice(0, 3),
-    experience_match: candidateExp.years >= (requiredExp.min || 0) ? 'good' : 'average',
+    experience_match: candidateYears !== undefined 
+      ? (candidateYears >= (requiredExp.min || 0) ? 'good' : 'average') 
+      : 'unknown',
     skills_match_percentage: requiredSkills.length > 0 
       ? Math.round((matching_skills.length / requiredSkills.length) * 100) 
       : 50,
@@ -2109,7 +2111,7 @@ async function getRecommendedJobsForUser(userId, limit = 10, region = null) {
 
     // 1. Fetch user data and preferences
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'skills', 'experience_years', 'current_location', 'preferred_locations']
+      attributes: ['id', 'skills', 'experience_years', 'current_location', 'preferred_locations', 'headline', 'summary']
     });
 
     if (!user) throw new Error('User not found');
@@ -2117,7 +2119,22 @@ async function getRecommendedJobsForUser(userId, limit = 10, region = null) {
     const preference = await JobPreference.findOne({ where: { userId, isActive: true } });
 
     // 2. Define criteria
-    const userSkills = (user.skills || []).map(s => s.toLowerCase());
+    const profileSkills = Array.isArray(user.skills) ? user.skills.map(s => s.toLowerCase()) : [];
+    const preferredSkills = Array.isArray(preference?.preferredSkills) ? preference.preferredSkills.map(s => s.toLowerCase()) : [];
+    const inferredSkillsSet = new Set([...profileSkills, ...preferredSkills]);
+
+    // infer additional skills from headline/summary if explicit skills are missing
+    const userText = `${user.headline || ''} ${user.summary || ''}`.toLowerCase();
+    if (!inferredSkillsSet.size && userText) {
+      const textTokens = Array.from(new Set(userText.match(/[a-zA-Z\+\#\.]+/g) || [])).slice(0, 20);
+      textTokens.forEach(token => {
+        if (token.length >= 2 && token.length <= 20) {
+          inferredSkillsSet.add(token);
+        }
+      });
+    }
+
+    const userSkills = Array.from(inferredSkillsSet);
     const preferredTitles = (preference?.preferredJobTitles || []).map(t => t.toLowerCase());
     const preferredLocations = (preference?.preferredLocations || user.preferred_locations || []).map(l => l.toLowerCase());
     
@@ -2160,57 +2177,93 @@ async function getRecommendedJobsForUser(userId, limit = 10, region = null) {
       const jobLocation = job.location.toLowerCase();
 
       // Title Matching (High Weight)
+      let titleMatchScore = 0;
       if (preferredTitles.length > 0) {
         const titleMatch = preferredTitles.some(pt => 
           jobTitle.includes(pt) || pt.includes(jobTitle)
         );
         if (titleMatch) {
-          score += 45;
+          titleMatchScore = 30;
           reasons.push('Matches your preferred job titles');
         }
+      } else {
+        // If user has no explicit title preferences, match by job title keywords
+        const titleTokens = jobTitle.split(/\s+/).filter(token => token.length > 2);
+        const titleOverlap = titleTokens.filter(token => userSkills.some(us => us.includes(token) || token.includes(us)));
+        if (titleOverlap.length > 0) {
+          titleMatchScore = Math.min(20, titleOverlap.length * 4);
+          reasons.push('Job title intersects your profile keywords');
+        }
       }
+      score += titleMatchScore;
 
-      // Skill Matching (Weight 35)
+      // Skill Matching (Weight 40)
+      let skillMatchScore = 0;
       if (userSkills.length > 0 && jobSkills.length > 0) {
         const matchingSkills = jobSkills.filter(s => 
           userSkills.some(us => us === s || us.includes(s) || s.includes(us))
         );
-        
+
         if (matchingSkills.length > 0) {
-          const matchRatio = matchingSkills.length / Math.max(jobSkills.length, 3);
-          const skillScore = Math.min(matchRatio * 35, 35);
-          score += skillScore;
+          const matchRatio = matchingSkills.length / Math.max(jobSkills.length, 1);
+          skillMatchScore = Math.min(matchRatio * 40, 40);
           reasons.push(`Matches ${matchingSkills.length} of your key skills`);
+        } else {
+          // Partial credit for related skills
+          const relSkills = jobSkills.filter(s => userSkills.some(us => us.includes(s.slice(0, 3)) || s.includes(us.slice(0, 3))));
+          skillMatchScore = Math.min(relSkills.length * 5, 12);
+          if (relSkills.length > 0) reasons.push('Partial skill overlap detected');
         }
+      } else if (userSkills.length === 0 && preferredSkills.length > 0) {
+        // use preferred skills when actual profile skills are absent
+        const prefMatch = jobSkills.filter(s => preferredSkills.includes(s.toLowerCase()));
+        skillMatchScore = Math.min(prefMatch.length * 8, 20);
+        if (prefMatch.length > 0) reasons.push('Job matches your saved preferred skills');
+      } else if (jobSkills.length > 0) {
+        // make sure some skill-based differentiation exists
+        skillMatchScore = 5;
       }
+      score += skillMatchScore;
 
       // Experience Matching (Weight 15)
-      const userExp = user.experience_years || 0;
-      const jobMin = job.experienceMin || 0;
-      const jobMax = job.experienceMax || 50;
-      
+      const userExp = Number(user.experience_years) || 0;
+      const jobMin = Number(job.experienceMin) || 0;
+      const jobMax = Number(job.experienceMax) || 50;
+
       if (userExp >= jobMin && userExp <= jobMax) {
         score += 15;
         reasons.push('Matches your experience level');
       } else if (userExp > jobMax) {
-        score += 8; // Slightly overqualified
+        score += 8;
         reasons.push('You exceed the experience requirements');
+      } else if (userExp > 0) {
+        const expRatio = jobMin > 0 ? Math.min(userExp / jobMin, 1) : 0;
+        score += Math.round(expRatio * 10);
+        reasons.push('Experience partly matches');
       }
 
-      // Location Matching (Weight 5)
+      // Location Matching (Weight 10)
       if (preferredLocations.length > 0) {
         const locMatch = preferredLocations.some(l => 
           jobLocation.includes(l) || l.includes(jobLocation)
         );
         if (locMatch) {
-          score += 5;
+          score += 10;
           reasons.push('Located in your preferred area');
+        } else {
+          // small reward for nearby region text match
+          const locationTokens = jobLocation.split(/[\s,\/]+/);
+          const nearestMatch = locationTokens.some(tok => preferredLocations.some(pl => pl.includes(tok) || tok.includes(pl)));
+          if (nearestMatch) {
+            score += 4;
+            reasons.push('Location is nearby your preference');
+          }
         }
       }
-      
+
       // Gulf-Specific Priority (Bonus)
       if (region === 'gulf' || ['dubai', 'uae', 'qatar', 'saudi'].some(g => jobLocation.includes(g))) {
-        score += 2; // Minor boost for region relevance
+        score += 2;
       }
 
       return {

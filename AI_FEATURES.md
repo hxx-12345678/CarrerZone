@@ -8,7 +8,7 @@ This document outlines the AI features implemented for the Job Seeker (Employee)
 - **Goal**: Reduce friction during registration and profile updates.
 - **Functionality**:
     - Job seekers upload their resume (PDF/DOCX).
-    - AI (Gemini 1.5 Flash) extracts: Skills, Experience, Education, Contact Info, Headline, and Summary.
+    - AI (Gemini 2.5 Flash) extracts: Skills, Experience, Education, Contact Info, Headline, and Summary.
     - **New**: AI Autofill in the Job Application Dialog. It parses the selected resume to pre-fill application details (Name, Phone, Headline, Location, Skills).
     - **New**: "Sync from Profile" button in the application dialog to quickly pull data from the user's saved profile.
 - **How to Use**:
